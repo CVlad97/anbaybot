@@ -1,0 +1,21 @@
+import { create } from 'zustand';
+
+interface WalletState {
+  solanaAddress: string | null;
+  solanaProvider: 'phantom' | 'solflare' | null;
+  evmAddress: string | null;
+  evmProvider: 'metamask' | null;
+  setSolana: (address: string | null, provider: 'phantom' | 'solflare' | null) => void;
+  setEvm: (address: string | null, provider: 'metamask' | null) => void;
+  disconnect: () => void;
+}
+
+export const useWalletStore = create<WalletState>((set) => ({
+  solanaAddress: null,
+  solanaProvider: null,
+  evmAddress: null,
+  evmProvider: null,
+  setSolana: (address, provider) => set({ solanaAddress: address, solanaProvider: provider }),
+  setEvm: (address, provider) => set({ evmAddress: address, evmProvider: provider }),
+  disconnect: () => set({ solanaAddress: null, solanaProvider: null, evmAddress: null, evmProvider: null }),
+}));
