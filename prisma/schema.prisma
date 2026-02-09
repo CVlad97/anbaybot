@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  role      String   @default("USER")
+  email     String?  @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+model ManagedWallet {
+  id           String   @id @default(uuid())
+  label        String
+  platform     String   // 'phantom' | 'solflare' | 'metamask'
+  chain        String   // 'solana' | 'base' | 'ethereum'
+  address      String   @unique
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  actions      Action[]
+  transactions Transaction[]
+
+  @@index([chain, enabled])
+}
+
+model FollowedWallet {
+  id          String   @id @default(uuid())
+  label       String
+  chain       String
+  address     String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  signals     Signal[]
+
+  @@unique([chain, address])
+  @@index([chain, enabled])
+}
+
+model Signal {
+  id              String   @id @default(uuid())
+  tokenSymbol     String
+  tokenAddress    String
+  chain           String
+  source          String   // 'dexscreener' | 'coingecko' | 'copy_trader'
+  signalType      String   // 'trending' | 'volume_spike' | 'copy_trade' | 'new_listing'
+  meta            Json     // Price, volume, liquidity, etc
+  createdAt       DateTime @default(now())
+
+  followedWalletId String?
+  followedWallet   FollowedWallet? @relation(fields: [followedWalletId], references: [id])
+
+  actions         Action[]
+
+  @@index([chain, signalType, createdAt])
+  @@index([tokenAddress, chain])
+}
+
+model Action {
+  id              String   @id @default(uuid())
+  status          String   // 'PREPARED' | 'QUOTED' | 'TX_BUILT' | 'AWAITING_SIGNATURE' | 'CONFIRMED' | 'FAILED' | 'REFUSED'
+  actionType      String   // 'BUY' | 'SELL' | 'SWAP' | 'PAYOUT'
+  chain           String
+  strategyId      String
+
+  tokenIn         String
+  tokenOut        String
+  amountIn        String
+  expectedAmountOut String?
+  minAmountOut    String?
+
+  txData          String?  // Base64 encoded transaction
+  txSignature     String?
+  signedBy        String?  // User public key who signed
+
+  payload         Json     // Strategy-specific data, reasons
+  riskChecks      Json     // Risk validation results
+  refusalReason   String?
+
+  walletId        String
+  wallet          ManagedWallet @relation(fields: [walletId], references: [id])
+
+  signalId        String?
+  signal          Signal?  @relation(fields: [signalId], references: [id])
+
+  transaction     Transaction?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([strategyId, status])
+  @@index([chain, status])
+}
+
+model Transaction {
+  id           String   @id @default(uuid())
+  chain        String
+  signature    String   @unique
+  status       String   // 'PENDING' | 'CONFIRMED' | 'FAILED'
+
+  actionId     String   @unique
+  action       Action   @relation(fields: [actionId], references: [id])
+
+  walletId     String
+  wallet       ManagedWallet @relation(fields: [walletId], references: [id])
+
+  meta         Json     // Actual amounts, fees, slippage, etc
+
+  createdAt    DateTime @default(now())
+  confirmedAt  DateTime?
+
+  @@index([chain, status])
+  @@index([createdAt])
+}
+
+model Settings {
+  id                   String   @id @default("global")
+  killSwitch           Boolean  @default(false)
+  killSwitchReason     String?
+
+  riskParams           Json     @default("{\"maxPositionSizePct\":10,\"maxDailyLossPct\":15,\"minLiquidityUsd\":5000,\"maxSlippagePct\":5}")
+  payoutThresholdEur   Float    @default(150)
+
+  updatedAt            DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  event     String
+  userId    String?
+  walletId  String?
+  actionId  String?
+  meta      Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([event, createdAt])
+}
