@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Zap, ChevronRight, X, Target, TrendingUp, Cpu } from 'lucide-react';
+import { Zap, X, Target, TrendingUp, Cpu } from 'lucide-react';
 
 export default function QuickStartBanner() {
   const [dismissed, setDismissed] = useState(() => {

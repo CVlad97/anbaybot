@@ -71,13 +71,13 @@ export function useOrchestration() {
 
   const loadTraders = useCallback(async () => {
     try {
-      const { data: copyTraders, error: tradersError } = await supabase
+      const { data: copyTraders } = await supabase
         .from('copy_traders')
         .select('*')
         .eq('is_active', true)
         .maybeSingle();
 
-      const { data: wallets, error: walletsError } = await supabase
+      const { data: wallets } = await supabase
         .from('wallets')
         .select('*')
         .eq('is_active', true)
@@ -141,7 +141,7 @@ export function useOrchestration() {
         .select('total_value, daily_pnl')
         .maybeSingle();
 
-      const { data: transactions, count: txCount } = await supabase
+      const { count: txCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true });
 
