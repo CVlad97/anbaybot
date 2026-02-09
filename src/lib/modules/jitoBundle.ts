@@ -5,7 +5,6 @@ import {
   SystemProgram,
   PublicKey,
   LAMPORTS_PER_SOL,
-  sendAndConfirmTransaction,
 } from '@solana/web3.js';
 
 export interface BundleTransaction {

@@ -22,7 +22,9 @@ export async function execute(
   portfolioValueUsd: number,
 ): Promise<PreparedAction[]> {
   const actions: PreparedAction[] = [];
-  const { minPriceIncrease1h, minLiquidityNew, allocationPct } = strategy.inputs;
+  const minPriceIncrease1h = Number(strategy.inputs.minPriceIncrease1h);
+  const minLiquidityNew = Number(strategy.inputs.minLiquidityNew);
+  const allocationPct = Number(strategy.inputs.allocationPct);
 
   const enabledWallets = wallets.filter(w => w.enabled);
   if (enabledWallets.length === 0) return actions;

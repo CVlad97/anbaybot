@@ -1,6 +1,7 @@
 declare global {
   interface Window {
     phantom?: { solana?: SolanaProvider };
+    solana?: SolanaProvider;
     solflare?: SolanaProvider;
   }
 }
@@ -12,9 +13,9 @@ interface SolanaProvider {
   publicKey?: { toString: () => string; toBase58?: () => string } | null;
   connect: () => Promise<{ publicKey?: { toString: () => string } } | void>;
   disconnect: () => Promise<void>;
-  signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }>;
+  signAndSendTransaction?: (tx: unknown) => Promise<{ signature: string }>;
   signTransaction?: (tx: unknown) => Promise<unknown>;
-  on: (event: string, cb: (...args: unknown[]) => void) => void;
+  on?: (event: string, cb: (...args: unknown[]) => void) => void;
   removeListener?: (event: string, cb: (...args: unknown[]) => void) => void;
 }
 
@@ -87,6 +88,10 @@ export async function signAndSendWithProvider(
 
   if (!p.isConnected && !p.publicKey) {
     await p.connect();
+  }
+
+  if (!p.signAndSendTransaction) {
+    throw new Error(`${provider} does not support signAndSendTransaction`);
   }
 
   const result = await p.signAndSendTransaction(bytes);

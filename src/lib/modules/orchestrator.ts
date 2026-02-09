@@ -38,7 +38,6 @@ export type OrchestratorEvent =
 export class TradingOrchestrator {
   private config: OrchestratorConfig;
   private state: OrchestratorState;
-  private walletManager: MultiWalletManager | null = null;
   private aiAnalyzer: AISentimentAnalyzer | null = null;
   private alpacaBridge: AlpacaBridge | null = null;
   private circuitBreaker: CircuitBreaker | null = null;
@@ -65,13 +64,11 @@ export class TradingOrchestrator {
   }
 
   async initialize(
-    walletManager: MultiWalletManager,
+    _walletManager: MultiWalletManager,
     aiAnalyzer?: AISentimentAnalyzer,
     alpacaBridge?: AlpacaBridge,
     circuitBreaker?: CircuitBreaker
   ): Promise<void> {
-    this.walletManager = walletManager;
-
     if (this.config.enableAI && aiAnalyzer) {
       this.aiAnalyzer = aiAnalyzer;
     }

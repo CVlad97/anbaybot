@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { TrendingUp, Zap, DollarSign, X, CheckCircle } from 'lucide-react';
+import { TrendingUp, Zap, X, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { api } from '../lib/api';
 
