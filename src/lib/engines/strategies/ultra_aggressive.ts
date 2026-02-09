@@ -24,7 +24,11 @@ export async function execute(
   portfolioValueUsd: number,
 ): Promise<PreparedAction[]> {
   const actions: PreparedAction[] = [];
-  const { minPriceChange24h, minVolume24h, minLiquidity, allocationPct, maxConcurrentTrades } = strategy.inputs;
+  const minPriceChange24h = Number(strategy.inputs.minPriceChange24h);
+  const minVolume24h = Number(strategy.inputs.minVolume24h);
+  const minLiquidity = Number(strategy.inputs.minLiquidity);
+  const allocationPct = Number(strategy.inputs.allocationPct);
+  const maxConcurrentTrades = Number(strategy.inputs.maxConcurrentTrades);
 
   const enabledWallets = wallets.filter(w => w.enabled);
   if (enabledWallets.length === 0) return actions;
@@ -43,7 +47,7 @@ export async function execute(
     return bChange - aChange;
   });
 
-  const topSignals = sortedSignals.slice(0, maxConcurrentTrades as number);
+  const topSignals = sortedSignals.slice(0, maxConcurrentTrades);
 
   for (const signal of topSignals) {
     const wallet = enabledWallets[Math.floor(Math.random() * enabledWallets.length)];
