@@ -1,8 +1,1 @@
-{
-  "framework": "nextjs",
-  "buildCommand": "npx prisma generate && next build",
-  "installCommand": "npm install",
-  "functions": {
-    "app/api/**": { "maxDuration": 30 }
-  }
-}
+{ "framework": "vite", "buildCommand": "npm run build", "outputDirectory": "dist", "installCommand": "npm install" }
