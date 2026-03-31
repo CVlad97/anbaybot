@@ -11,7 +11,6 @@ import ConsolePage from './pages/ConsolePage';
 import TransactionsPage from './pages/TransactionsPage';
 import SafetyPage from './pages/SafetyPage';
 import OrchestrationPage from './pages/OrchestrationPage';
-import ActionsPage from './pages/ActionsPage';
 
 export default function App() {
   return (
@@ -29,7 +28,6 @@ export default function App() {
           <Route path="/traders" element={<TradersPage />} />
           <Route path="/strategies" element={<StrategiesPage />} />
           <Route path="/auto-trade" element={<AutoTradePage />} />
-          <Route path="/actions" element={<ActionsPage />} />
           <Route path="/ai" element={<AIPage />} />
           <Route path="/orchestration" element={<OrchestrationPage />} />
           <Route path="/console" element={<ConsolePage />} />
