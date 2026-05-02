@@ -12,11 +12,13 @@ import { getStrategies } from '../lib/engines/strategies/index';
 import type { AutoTradeConfig, FollowedWallet } from '../lib/types';
 
 import '../lib/engines/strategies/copy_swap_filtered';
-import '../lib/engines/strategies/momentum_dex';
+import '../lib/engines/strategies/trend_momentum_safe';
+import '../lib/engines/strategies/breakout_retest_safe';
+import '../lib/engines/strategies/volume_spike_safe';
+import '../lib/engines/strategies/mean_reversion_safe';
 import '../lib/engines/strategies/defensive_exit';
+import '../lib/engines/strategies/no_trade';
 import '../lib/engines/strategies/payout_150_eur';
-import '../lib/engines/strategies/ultra_aggressive';
-import '../lib/engines/strategies/all_tokens_scanner';
 
 const MODE_LABELS: Record<string, { label: string; desc: string; color: string }> = {
   auto: { label: 'Full Auto', desc: 'AI confirms trades automatically', color: 'text-brand-400' },
