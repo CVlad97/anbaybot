@@ -1,4 +1,14 @@
 import type { PreparedAction, RiskCheck } from '../../types';
+import './trend_momentum_safe';
+import './breakout_retest_safe';
+import './volume_spike_safe';
+import './mean_reversion_safe';
+import './no_trade';
+import './defensive_exit';
+import './copy_swap_filtered';
+import './payout_150_eur';
+import './all_tokens_scanner';
+import './ultra_aggressive';
 
 export interface StrategyContext {
   signals: Array<{ source: string; chain: string; token_address: string; token_symbol: string; meta: Record<string, unknown> }>;

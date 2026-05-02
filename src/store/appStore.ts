@@ -48,7 +48,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   managedWallets: [],
   followedWallets: [],
   transactions: [],
-  enabledStrategies: ['copy_swap_filtered', 'momentum_dex', 'defensive_exit', 'payout_150_eur'],
+  enabledStrategies: ['copy_swap_filtered', 'trend_momentum_safe', 'breakout_retest_safe', 'volume_spike_safe', 'mean_reversion_safe', 'defensive_exit', 'no_trade'],
   loading: false,
   walletBalances: [],
   portfolioHistory: [],
