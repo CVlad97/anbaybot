@@ -26,10 +26,10 @@ interface Action {
   amountIn: string;
   expectedAmountOut?: string;
   txData?: string;
-  payload: any;
-  riskChecks: any;
+  payload: Record<string, unknown>;
+  riskChecks: Record<string, unknown>;
   createdAt: string;
-  wallet?: any;
+  wallet?: { address: string; label?: string };
 }
 
 interface MarketToken {
@@ -159,9 +159,9 @@ export default function Home() {
       if (res.ok) {
         showNotification('success', `Connected to ${platform}!`);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Wallet connection error:', err);
-      setWalletError(err.message || 'Failed to connect wallet');
+      setWalletError(err instanceof Error ? err.message : 'Failed to connect wallet');
     }
   };
 
@@ -202,9 +202,9 @@ export default function Home() {
       } else {
         showNotification('error', data.error || 'Failed to build transaction');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Build transaction error:', err);
-      showNotification('error', err.message || 'Failed to build transaction');
+      showNotification('error', err instanceof Error ? err.message : 'Failed to build transaction');
     } finally {
       setLoading(false);
     }
@@ -259,9 +259,9 @@ export default function Home() {
         const errorData = await confirmRes.json();
         showNotification('error', errorData.error || 'Failed to confirm transaction');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Sign transaction error:', err);
-      showNotification('error', err.message || 'Failed to sign transaction');
+      showNotification('error', err instanceof Error ? err.message : 'Failed to sign transaction');
     }
   };
 

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
@@ -70,8 +71,8 @@ export async function POST(request: Request) {
           tokenOut: 'USDC_MINT_REPLACE_ME',
           amountIn: '10000000',
           walletId: validated.walletId,
-          payload: { reasons: ['Test action for pipeline validation'], testMode: true } as any,
-          riskChecks: { allPassed: true, checks: [] } as any,
+          payload: { reasons: ['Test action for pipeline validation'], testMode: true } as Prisma.InputJsonValue,
+          riskChecks: { allPassed: true, checks: [] } as Prisma.InputJsonValue,
         },
         include: {
           wallet: true,
@@ -96,8 +97,8 @@ export async function POST(request: Request) {
         minAmountOut: validated.minAmountOut,
         walletId: validated.walletId,
         signalId: validated.signalId,
-        payload: (validated.payload || {}) as any,
-        riskChecks: (validated.riskChecks || {}) as any,
+        payload: (validated.payload || {}) as Prisma.InputJsonValue,
+        riskChecks: (validated.riskChecks || {}) as Prisma.InputJsonValue,
       },
       include: {
         wallet: true,

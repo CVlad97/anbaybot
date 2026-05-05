@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getTrendingTokens, getDexMovers } from '@/lib/market-apis';
@@ -121,8 +122,8 @@ export async function POST(request: Request) {
           data: {
             status: 'PREPARED',
             ...rest,
-            payload: remainingPayload as any,
-            riskChecks: (riskChecks || []) as any,
+            payload: remainingPayload as Prisma.InputJsonValue,
+            riskChecks: (riskChecks || []) as Prisma.InputJsonValue,
           },
         });
       })

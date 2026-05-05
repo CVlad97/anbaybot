@@ -13,11 +13,11 @@ interface Action {
   token_out: string;
   amount_in: string;
   min_amount_out?: string;
-  quote_data?: any;
+  quote_data?: Record<string, unknown>;
   tx_data?: string;
   tx_signature?: string;
   refusal_reason?: string;
-  payload?: any;
+  payload?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   managed_wallets?: {
@@ -83,7 +83,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
 
     try {
       const provider = window.solana || window.solflare;
-      if (!provider || !provider.publicKey) {
+      if (!provider) {
         throw new Error('Wallet not connected');
       }
 
@@ -169,17 +169,25 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
         <div className="flex-1">
           <p className="text-xs text-surface-500 mb-1">To</p>
           <p className="text-sm text-white font-mono truncate">{action.token_out}</p>
-          {action.quote_data?.outAmount && (
-            <p className="text-xs text-surface-400 mt-1">{formatAmount(action.quote_data.outAmount)}</p>
-          )}
+          {(() => {
+            const outAmount = action.quote_data && typeof action.quote_data === 'object'
+              ? (action.quote_data as { outAmount?: string }).outAmount
+              : undefined;
+            return outAmount ? (
+              <p className="text-xs text-surface-400 mt-1">{formatAmount(outAmount)}</p>
+            ) : null;
+          })()}
         </div>
       </div>
 
-      {action.payload?.reason && (
-        <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-          <p className="text-xs text-blue-400">{action.payload.reason}</p>
-        </div>
-      )}
+      {(() => {
+        const reason = action.payload && typeof action.payload === 'object' ? (action.payload as { reason?: string }).reason : undefined;
+        return reason ? (
+          <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+            <p className="text-xs text-blue-400">{reason}</p>
+          </div>
+        ) : null;
+      })()}
 
       {error && (
         <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">

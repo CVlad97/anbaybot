@@ -30,28 +30,35 @@ export async function execute(
   if (enabledWallets.length === 0) return actions;
 
   const explosiveTokens = signals.filter(sig => {
-    const meta = sig.meta as any;
-    const priceChange1h = meta?.priceChange?.h1 || meta?.priceChange1h || 0;
-    const liq = meta?.liquidity?.usd || 0;
-    const volumeSpike = meta?.volumeSpike || false;
+    const meta = sig.meta as Record<string, unknown>;
+    const priceChange = meta.priceChange as { h1?: number } | undefined;
+    const liquidity = meta.liquidity as { usd?: number } | undefined;
+    const priceChange1h = priceChange?.h1 || (meta.priceChange1h as number | undefined) || 0;
+    const liq = liquidity?.usd || 0;
+    const volumeSpike = (meta.volumeSpike as boolean | undefined) || false;
 
     return (priceChange1h >= minPriceIncrease1h || volumeSpike) && liq >= minLiquidityNew;
   });
 
   const sortedTokens = explosiveTokens.sort((a, b) => {
-    const aPriority = ((a.meta as any)?.priceChange?.h1 || 0) + ((a.meta as any)?.volumeSpike ? 50 : 0);
-    const bPriority = ((b.meta as any)?.priceChange?.h1 || 0) + ((b.meta as any)?.volumeSpike ? 50 : 0);
+    const aMeta = a.meta as Record<string, unknown>;
+    const bMeta = b.meta as Record<string, unknown>;
+    const aPriceChange = aMeta.priceChange as { h1?: number } | undefined;
+    const bPriceChange = bMeta.priceChange as { h1?: number } | undefined;
+    const aPriority = (aPriceChange?.h1 || 0) + ((aMeta.volumeSpike as boolean | undefined) ? 50 : 0);
+    const bPriority = (bPriceChange?.h1 || 0) + ((bMeta.volumeSpike as boolean | undefined) ? 50 : 0);
     return bPriority - aPriority;
   });
 
   for (const signal of sortedTokens.slice(0, 10)) {
     const wallet = enabledWallets[Math.floor(Math.random() * enabledWallets.length)];
     const tradeSize = (portfolioValueUsd * (allocationPct as number)) / 100;
-    const meta = signal.meta as any;
+    const meta = signal.meta as Record<string, unknown>;
+    const priceChange = meta.priceChange as { h1?: number } | undefined;
 
-    const reason = meta?.volumeSpike
+    const reason = meta.volumeSpike
       ? `VOLUME SPIKE detected on ${signal.token_symbol}`
-      : `EXPLOSIVE PUMP: ${signal.token_symbol} +${((meta?.priceChange?.h1 || 0)).toFixed(1)}% in 1h`;
+      : `EXPLOSIVE PUMP: ${signal.token_symbol} +${(priceChange?.h1 || 0).toFixed(1)}% in 1h`;
 
     actions.push({
       type: 'ENTRY_PREPARED',
@@ -64,9 +71,9 @@ export async function execute(
         token_symbol: signal.token_symbol,
         side: 'BUY',
         size_usd: tradeSize,
-        price_change_1h: meta?.priceChange?.h1 || 0,
-        liquidity_usd: meta?.liquidity?.usd || 0,
-        volume_spike: meta?.volumeSpike || false,
+        price_change_1h: priceChange?.h1 || 0,
+        liquidity_usd: (meta.liquidity as { usd?: number } | undefined)?.usd || 0,
+        volume_spike: meta.volumeSpike || false,
         reason,
       },
       riskChecks: [
@@ -77,8 +84,8 @@ export async function execute(
         },
         {
           rule: 'sufficient_liquidity',
-          passed: (meta?.liquidity?.usd || 0) >= minLiquidityNew,
-          detail: `Liquidity: $${((meta?.liquidity?.usd || 0)).toLocaleString()}`,
+          passed: ((meta.liquidity as { usd?: number } | undefined)?.usd || 0) >= minLiquidityNew,
+          detail: `Liquidity: $${(((meta.liquidity as { usd?: number } | undefined)?.usd || 0)).toLocaleString()}`,
         },
         {
           rule: 'auto_scan',

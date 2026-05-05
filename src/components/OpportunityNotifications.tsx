@@ -15,6 +15,20 @@ interface Opportunity {
   autoApproved?: boolean;
 }
 
+interface PreparedAction {
+  id: string;
+  status: string;
+  payload?: {
+    token_symbol?: string;
+    price_change_24h?: number;
+    price_change_1h?: number;
+    reason?: string;
+  };
+  chain?: string;
+  strategy_id?: string;
+  created_at: string;
+}
+
 export default function OpportunityNotifications() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -26,9 +40,9 @@ export default function OpportunityNotifications() {
 
       try {
         const { data: actions } = await api.getActions();
-        const prepared = (actions || []).filter((a: any) => a.status === 'PREPARED');
+        const prepared = ((actions || []) as PreparedAction[]).filter((a) => a.status === 'PREPARED');
 
-        const newOpps: Opportunity[] = prepared.slice(0, 5).map((action: any) => {
+        const newOpps: Opportunity[] = prepared.slice(0, 5).map((action) => {
           const payload = action.payload || {};
           return {
             id: action.id,
