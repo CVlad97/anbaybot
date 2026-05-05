@@ -10,21 +10,21 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  VITE_BASE_PATH: /anbaybot/
+  VITE_ANBAYBOT_SAFE_MODE: "true"
+  VITE_ANBAYBOT_LIVE_TRADING_ENABLED: "false"
+  VITE_APP_BASE_URL: https://cvlad97.github.io/anbaybot/
+  VITE_SUPABASE_URL: https://example.supabase.co
+  VITE_SUPABASE_ANON_KEY: demo-anon-key
+
 concurrency:
-  group: pages
+  group: github-pages
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    env:
-      VITE_BASE_PATH: /anbaybot/
-      VITE_ANBAYBOT_SAFE_MODE: "true"
-      VITE_ANBAYBOT_LIVE_TRADING_ENABLED: "false"
-      VITE_APP_BASE_URL: https://cvlad97.github.io/anbaybot/
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://example.supabase.co' }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'demo-anon-key' }}
 
     steps:
       - name: Checkout
@@ -37,13 +37,16 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Typecheck
-        run: npm run typecheck --if-present
+        run: npm ci
 
       - name: Build
         run: npm run build
+
+      - name: Add SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -51,11 +54,11 @@ jobs:
           path: dist
 
   deploy:
+    runs-on: ubuntu-latest
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
 
     steps:
       - name: Deploy to GitHub Pages
