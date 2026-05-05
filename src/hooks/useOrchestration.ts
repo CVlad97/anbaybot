@@ -89,7 +89,7 @@ export function useOrchestration() {
         traderAddresses.push({
           id: copyTraders.id,
           address: copyTraders.wallet_address,
-          chain: copyTraders.chain as any,
+          chain: copyTraders.chain,
           label: copyTraders.name || 'Trader',
           isActive: copyTraders.is_active,
           profitLoss: copyTraders.total_pnl || 0,
@@ -102,7 +102,7 @@ export function useOrchestration() {
           traderAddresses.push({
             id: wallet.id,
             address: wallet.address,
-            chain: wallet.chain as any,
+            chain: wallet.chain,
             label: wallet.label || 'Wallet',
             isActive: wallet.is_active,
             profitLoss: wallet.balance || 0,

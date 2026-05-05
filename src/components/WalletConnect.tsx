@@ -31,7 +31,8 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
   useEffect(() => {
     if (!window.solana && !window.solflare) return;
 
-    const handleAccountChanged = (publicKey: any) => {
+    const handleAccountChanged = (...args: unknown[]) => {
+      const publicKey = args[0] as { toString: () => string } | null | undefined;
       if (publicKey) {
         const currentProvider = connectedWallet?.provider;
         if (currentProvider) {

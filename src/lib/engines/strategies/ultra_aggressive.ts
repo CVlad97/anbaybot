@@ -34,16 +34,18 @@ export async function execute(
   if (enabledWallets.length === 0) return actions;
 
   const aggressiveSignals = signals.filter(sig => {
-    const meta = sig.meta as any;
-    const priceChange = meta?.priceChange24h || 0;
-    const volume = meta?.volume?.h24 || 0;
-    const liq = meta?.liquidity?.usd || 0;
+    const meta = sig.meta as Record<string, unknown>;
+    const priceChange = (meta.priceChange24h as number | undefined) || 0;
+    const volume = (meta.volume as { h24?: number } | undefined)?.h24 || 0;
+    const liq = (meta.liquidity as { usd?: number } | undefined)?.usd || 0;
     return priceChange >= minPriceChange24h && volume >= minVolume24h && liq >= minLiquidity;
   });
 
   const sortedSignals = aggressiveSignals.sort((a, b) => {
-    const aChange = (a.meta as any)?.priceChange24h || 0;
-    const bChange = (b.meta as any)?.priceChange24h || 0;
+    const aMeta = a.meta as Record<string, unknown>;
+    const bMeta = b.meta as Record<string, unknown>;
+    const aChange = (aMeta.priceChange24h as number | undefined) || 0;
+    const bChange = (bMeta.priceChange24h as number | undefined) || 0;
     return bChange - aChange;
   });
 
@@ -52,7 +54,10 @@ export async function execute(
   for (const signal of topSignals) {
     const wallet = enabledWallets[Math.floor(Math.random() * enabledWallets.length)];
     const tradeSize = (portfolioValueUsd * (allocationPct as number)) / 100;
-    const meta = signal.meta as any;
+    const meta = signal.meta as Record<string, unknown>;
+    const priceChange24h = (meta.priceChange24h as number | undefined) || 0;
+    const volume24h = (meta.volume as { h24?: number } | undefined)?.h24 || 0;
+    const liquidityUsd = (meta.liquidity as { usd?: number } | undefined)?.usd || 0;
 
     actions.push({
       type: 'ENTRY_PREPARED',
@@ -65,26 +70,26 @@ export async function execute(
         token_symbol: signal.token_symbol,
         side: 'BUY',
         size_usd: tradeSize,
-        price_change_24h: meta?.priceChange24h || 0,
-        volume_24h: meta?.volume?.h24 || 0,
-        liquidity_usd: meta?.liquidity?.usd || 0,
-        reason: `ULTRA-AGGRESSIVE: ${signal.token_symbol} pumping ${((meta?.priceChange24h || 0)).toFixed(1)}% in 24h`,
+        price_change_24h: priceChange24h,
+        volume_24h: volume24h,
+        liquidity_usd: liquidityUsd,
+        reason: `ULTRA-AGGRESSIVE: ${signal.token_symbol} pumping ${priceChange24h.toFixed(1)}% in 24h`,
       },
       riskChecks: [
         {
           rule: 'min_price_change',
-          passed: (meta?.priceChange24h || 0) >= minPriceChange24h,
-          detail: `Price change: ${((meta?.priceChange24h || 0)).toFixed(2)}% (min: ${minPriceChange24h}%)`,
+          passed: priceChange24h >= minPriceChange24h,
+          detail: `Price change: ${priceChange24h.toFixed(2)}% (min: ${minPriceChange24h}%)`,
         },
         {
           rule: 'min_volume',
-          passed: (meta?.volume?.h24 || 0) >= minVolume24h,
-          detail: `Volume 24h: $${((meta?.volume?.h24 || 0)).toLocaleString()}`,
+          passed: volume24h >= minVolume24h,
+          detail: `Volume 24h: $${volume24h.toLocaleString()}`,
         },
         {
           rule: 'min_liquidity',
-          passed: (meta?.liquidity?.usd || 0) >= minLiquidity,
-          detail: `Liquidity: $${((meta?.liquidity?.usd || 0)).toLocaleString()}`,
+          passed: liquidityUsd >= minLiquidity,
+          detail: `Liquidity: $${liquidityUsd.toLocaleString()}`,
         },
         {
           rule: 'auto_execute',
