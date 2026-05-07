@@ -192,3 +192,88 @@ export interface AIRecommendation {
   trend: number;
   timestamp: string;
 }
+
+export interface BinanceTicker {
+  symbol: string;
+  lastPrice: number;
+  priceChangePercent: number;
+  quoteVolume: number;
+}
+
+export interface BinanceAccountAsset {
+  asset: string;
+  free: number;
+  locked: number;
+  usdValue: number;
+  priceUsd: number;
+}
+
+export interface BinanceAccountSnapshot {
+  totalAccountValueUsd: number;
+  freeStableUsd: number;
+  tradableCapitalUsd: number;
+  canTradeLive: boolean;
+  missingConfig: boolean;
+  assets: BinanceAccountAsset[];
+  note?: string;
+}
+
+export interface TradingRecommendation {
+  action: 'BUY' | 'SELL' | 'WAIT';
+  symbol: string;
+  side: 'BUY' | 'SELL' | 'HOLD';
+  amountUsd: number;
+  confidence: number;
+  momentum: number;
+  reasoning: string[];
+  timestamp: string;
+}
+
+export interface TradingValidationIssue {
+  field: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
+export interface TradingValidation {
+  passed: boolean;
+  canSubmit: boolean;
+  killSwitchActive: boolean;
+  liveTradingEnabled: boolean;
+  tradableCapitalUsd: number;
+  maxOrderUsd: number;
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  amountUsd: number;
+  issues: TradingValidationIssue[];
+}
+
+export interface TradeExecutionResult {
+  mode: 'TEST' | 'LIVE';
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  amountUsd: number;
+  status: string;
+  message: string;
+  orderId?: string;
+  clientOrderId?: string;
+  raw?: Record<string, unknown>;
+}
+
+export interface TradingPnL {
+  totalValueUsd: number;
+  pnlUsd: number;
+  pnlPct: number;
+  sinceLabel: string;
+}
+
+export interface TradingCockpitSnapshot {
+  updatedAt: string;
+  settings: Settings;
+  prices: BinanceTicker[];
+  account: BinanceAccountSnapshot;
+  recommendation: TradingRecommendation;
+  validation: TradingValidation;
+  pnl: TradingPnL;
+  liveTradingReady: boolean;
+}

@@ -1,4 +1,8 @@
-import type { WalletBalanceData, PortfolioSnapshot, AutoTradeConfig, AIConfig, AIRecommendation } from './types';
+import type {
+  WalletBalanceData, PortfolioSnapshot, AutoTradeConfig, AIConfig, AIRecommendation,
+  BinanceAccountSnapshot, BinanceTicker, TradeExecutionResult, TradingRecommendation,
+  TradingValidation, TradingPnL, TradingCockpitSnapshot,
+} from './types';
 
 const BASE = import.meta.env.VITE_SUPABASE_URL + '/functions/v1';
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -71,4 +75,21 @@ export const api = {
   updateAIConfig: (body: Partial<AIConfig>) =>
     request('/ikb-api?path=ai/config', { method: 'PUT', body: JSON.stringify(body) }),
   runAIAnalysis: () => request<{ recommendation: AIRecommendation }>('/ikb-api?path=ai/analyze', { method: 'POST' }),
+
+  getTradingCockpit: () => request<TradingCockpitSnapshot>('/ikb-api?path=trading/cockpit'),
+  getBinancePrices: () => request<{ data: BinanceTicker[] }>('/ikb-api?path=trading/prices'),
+  getTradingAccount: () => request<{ data: BinanceAccountSnapshot }>('/ikb-api?path=trading/account'),
+  getTradingRecommendation: () => request<{ data: TradingRecommendation }>('/ikb-api?path=trading/recommendation'),
+  validateTradingOrder: (body: {
+    symbol: string;
+    side: 'BUY' | 'SELL';
+    amountUsd: number;
+  }) => request<{ data: TradingValidation }>('/ikb-api?path=trading/validate', { method: 'POST', body: JSON.stringify(body) }),
+  submitTradingOrder: (body: {
+    symbol: string;
+    side: 'BUY' | 'SELL';
+    amountUsd: number;
+    mode: 'TEST' | 'LIVE';
+  }) => request<{ data: TradeExecutionResult }>('/ikb-api?path=trading/order', { method: 'POST', body: JSON.stringify(body) }),
+  getTradingPnL: () => request<{ data: TradingPnL }>('/ikb-api?path=trading/pnl'),
 };
