@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type {
   Settings, Action, Signal, AuditLog, ManagedWallet, FollowedWallet,
   Transaction, WalletBalanceData, PortfolioSnapshot, AutoTradeConfig, AIConfig,
+  BinanceAccountSnapshot, BinanceTicker, TradingRecommendation, TradingValidation,
+  TradeExecutionResult, TradingPnL,
 } from '../lib/types';
 
 interface AppState {
@@ -22,6 +24,12 @@ interface AppState {
   prices: { sol: number; eth: number };
   autoTradeConfigs: AutoTradeConfig[];
   aiConfig: AIConfig | null;
+  tradingAccount: BinanceAccountSnapshot | null;
+  tradingTickers: BinanceTicker[];
+  tradingRecommendation: TradingRecommendation | null;
+  tradingValidation: TradingValidation | null;
+  executionResult: TradeExecutionResult | null;
+  tradingPnl: TradingPnL | null;
 
   setSettings: (s: Settings) => void;
   setActions: (a: Action[]) => void;
@@ -37,6 +45,14 @@ interface AppState {
   setPortfolioHistory: (h: PortfolioSnapshot[]) => void;
   setAutoTradeConfigs: (c: AutoTradeConfig[]) => void;
   setAIConfig: (c: AIConfig | null) => void;
+  setTradingSnapshot: (snapshot: {
+    account: BinanceAccountSnapshot;
+    prices: BinanceTicker[];
+    recommendation: TradingRecommendation;
+    validation: TradingValidation;
+    pnl: TradingPnL;
+  }) => void;
+  setExecutionResult: (result: TradeExecutionResult | null) => void;
   addAuditLog: (event: string, meta?: Record<string, unknown>) => void;
 }
 
@@ -58,6 +74,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   prices: { sol: 0, eth: 0 },
   autoTradeConfigs: [],
   aiConfig: null,
+  tradingAccount: null,
+  tradingTickers: [],
+  tradingRecommendation: null,
+  tradingValidation: null,
+  executionResult: null,
+  tradingPnl: null,
 
   setSettings: (s) => set({ settings: s }),
   setActions: (a) => set({ actions: a }),
@@ -78,6 +100,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPortfolioHistory: (h) => set({ portfolioHistory: h }),
   setAutoTradeConfigs: (c) => set({ autoTradeConfigs: c }),
   setAIConfig: (c) => set({ aiConfig: c }),
+  setTradingSnapshot: (snapshot) => set({
+    tradingAccount: snapshot.account,
+    tradingTickers: snapshot.prices,
+    tradingRecommendation: snapshot.recommendation,
+    tradingValidation: snapshot.validation,
+    tradingPnl: snapshot.pnl,
+  }),
+  setExecutionResult: (result) => set({ executionResult: result }),
   addAuditLog: (event, meta = {}) => {
     const log: AuditLog = {
       id: crypto.randomUUID(),
