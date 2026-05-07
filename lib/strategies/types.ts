@@ -5,7 +5,7 @@ export interface Signal {
   chain: string;
   source: string;
   signalType: string;
-  meta: any;
+  meta: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -36,7 +36,7 @@ export interface PreparedAction {
       passed: boolean;
       detail: string;
     }>;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

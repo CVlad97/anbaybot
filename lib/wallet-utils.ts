@@ -1,25 +1,25 @@
+type SolanaProvider = {
+  isPhantom?: boolean;
+  connect: () => Promise<{ publicKey: { toString: () => string } }>;
+  disconnect: () => Promise<void>;
+  signAndSendTransaction?: (tx: unknown) => Promise<{ signature: string }>;
+  signTransaction?: (tx: unknown) => Promise<unknown>;
+  on?: (event: string, callback: (publicKey: { toString: () => string } | null) => void) => void;
+  removeListener?: (event: string, callback: (publicKey: { toString: () => string } | null) => void) => void;
+};
+
+type EthereumProvider = {
+  isMetaMask?: boolean;
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, callback: (publicKey: { toString: () => string } | null) => void) => void;
+  removeListener?: (event: string, callback: (publicKey: { toString: () => string } | null) => void) => void;
+};
+
 declare global {
   interface Window {
-    solana?: {
-      isPhantom?: boolean;
-      connect: () => Promise<{ publicKey: { toString: () => string } }>;
-      disconnect: () => Promise<void>;
-      signAndSendTransaction?: (tx: any) => Promise<{ signature: string }>;
-      signTransaction?: (tx: any) => Promise<any>;
-    };
-    solflare?: {
-      isSolflare?: boolean;
-      connect: () => Promise<{ publicKey: { toString: () => string } }>;
-      disconnect: () => Promise<void>;
-      signAndSendTransaction?: (tx: any) => Promise<{ signature: string }>;
-      signTransaction?: (tx: any) => Promise<any>;
-    };
-    ethereum?: {
-      isMetaMask?: boolean;
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on?: (event: string, callback: (...args: any[]) => void) => void;
-      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
-    };
+    solana?: SolanaProvider;
+    solflare?: SolanaProvider;
+    ethereum?: EthereumProvider;
   }
 }
 

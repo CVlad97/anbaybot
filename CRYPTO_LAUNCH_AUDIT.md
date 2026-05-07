@@ -3,10 +3,13 @@
 ## Statut actuel
 
 - Repo : anbaybot
+- Chemin local : /root/vladclaw/anbaybot
+- Branche : feat/live-controlled-crypto-cockpit
 - Branche distante : feat/live-controlled-crypto-cockpit
 - Base : main / 3600f92942bde9f996f46ccfc9b1b817d79ac4bb
 - Binance public check : ajouté via `scripts/binance-public-check.mjs`
-- Vérification locale Claude Code : build/lint/typecheck annoncés OK avant push, mais le commit local `491765c` n'était pas accessible depuis le connecteur GitHub.
+- Vérification locale : build, lint et typecheck à confirmer sur la branche rebasée.
+- Vérification indépendante précédente : non concluante côté agent à cause d'une limite 429, pas une erreur de build.
 
 ## Secrets
 
@@ -61,8 +64,9 @@ Aucun secret n'est lu et aucun ordre n'est passé.
 
 ### Account / soldes réels
 
-- Statut : non implémenté dans ce commit.
+- Statut : non implémenté dans le check public.
 - À faire : route serveur signée, sans exposition frontend.
+- Règle : ne lire les soldes que côté serveur et uniquement si secrets présents.
 
 ### Order test
 

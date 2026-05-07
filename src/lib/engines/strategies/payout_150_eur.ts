@@ -1,5 +1,5 @@
 import type { PreparedAction } from '../../types';
-import { registerStrategy, type StrategyContext, type StrategyPlugin } from './index';
+import { registerStrategy, type StrategyPlugin } from './index';
 
 const plugin: StrategyPlugin = {
   id: 'payout_150_eur',
@@ -8,7 +8,7 @@ const plugin: StrategyPlugin = {
   inputs: {
     thresholdEur: { type: 'number', default: 150, label: 'Payout Threshold (EUR)' },
   },
-  evaluate(_ctx: StrategyContext): PreparedAction[] {
+  evaluate(): PreparedAction[] {
     // This strategy is evaluated server-side with portfolio data
     // On client side, we return empty - the edge function handles the logic
     return [];

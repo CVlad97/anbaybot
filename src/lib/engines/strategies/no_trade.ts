@@ -1,5 +1,5 @@
 import type { PreparedAction } from '../../types';
-import { registerStrategy, type StrategyContext, type StrategyPlugin } from './index';
+import { registerStrategy, type StrategyPlugin } from './index';
 
 const plugin: StrategyPlugin = {
   id: 'no_trade',
@@ -8,7 +8,7 @@ const plugin: StrategyPlugin = {
   inputs: {
     reason: { type: 'string', default: 'Conditions not met', label: 'Reason' },
   },
-  evaluate(_ctx: StrategyContext): PreparedAction[] {
+  evaluate(): PreparedAction[] {
     return [];
   },
   explain(): string {
