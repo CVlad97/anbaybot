@@ -1,5 +1,5 @@
 import type { PreparedAction } from '../../types';
-import { registerStrategy, type StrategyPlugin } from './index';
+import { registerStrategy, type StrategyPlugin } from './core';
 
 const plugin: StrategyPlugin = {
   id: 'no_trade',

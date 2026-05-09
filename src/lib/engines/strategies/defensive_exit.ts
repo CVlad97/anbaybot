@@ -1,5 +1,5 @@
 import type { PreparedAction } from '../../types';
-import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPlugin } from './index';
+import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPlugin } from './core';
 
 const plugin: StrategyPlugin = {
   id: 'defensive_exit',

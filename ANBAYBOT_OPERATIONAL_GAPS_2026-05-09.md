@@ -11,6 +11,10 @@ Date : 2026-05-09
 - Typecheck local : OK
 - Lint local : OK
 - Mode public actuel : `demo local contrôlé`
+- Validation navigateur mobile Playwright : OK après correction runtime
+- Test trading public : scan signaux demo OK, aucun ordre réel envoyé
+- Test Binance public : prix spot accessibles en lecture seule
+- Test Binance Earn/Farming : refus sans clé API serveur, donc non testable proprement depuis GitHub Pages
 
 ## Blocage réel identifié
 
@@ -21,6 +25,7 @@ Le front GitHub Pages était publié, mais il n'avait pas de backend opérationn
 - aucune fonction Supabase `ikb-api` trouvée sur les projets testés ;
 - les accès directs aux tables Supabase depuis le front rendaient le comportement fragile ;
 - les routes internes directes GitHub Pages pouvaient retourner 404 sans hash routing.
+- le module de stratégies avait une boucle d'import runtime : les stratégies importaient `./index` pendant que `index.ts` les importait, ce qui cassait le rendu avec `Cannot access 'registry' before initialization`.
 
 ## Correctifs appliqués
 
@@ -39,6 +44,7 @@ Le front GitHub Pages était publié, mais il n'avait pas de backend opérationn
   - validation ;
   - ordres test bloqués en live.
 - Ajout d'un bandeau public indiquant clairement le mode demo.
+- Séparation du registre de stratégies dans `strategies/core.ts` pour supprimer la boucle d'import et éviter la page blanche.
 
 ## Gaps opérationnels restants
 
@@ -59,6 +65,7 @@ Le front GitHub Pages était publié, mais il n'avait pas de backend opérationn
 
 - Garder le mode `paper` tant que l'ordre test Binance n'est pas implémenté.
 - Implémenter `/api/v3/order/test` côté serveur avant tout ordre réel.
+- Implémenter les appels Binance Simple Earn/Farming uniquement côté serveur avec clé API protégée.
 - Interdire les clés Binance avec permission retrait.
 - Ajouter whitelist IP Binance si possible.
 - Journaliser chaque validation, refus, ordre test et erreur.
