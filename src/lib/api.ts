@@ -3,9 +3,10 @@ import type {
   BinanceAccountSnapshot, BinanceTicker, TradeExecutionResult, TradingRecommendation,
   TradingValidation, TradingPnL, TradingCockpitSnapshot,
 } from './types';
+import { supabaseAnonKey, supabaseUrl } from './supabase';
 
-const BASE = import.meta.env.VITE_SUPABASE_URL + '/functions/v1';
-const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const BASE = `${supabaseUrl}/functions/v1`;
+const ANON = supabaseAnonKey;
 
 function headers(extra: Record<string, string> = {}) {
   return {

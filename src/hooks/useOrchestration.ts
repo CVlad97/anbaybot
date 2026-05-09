@@ -289,7 +289,7 @@ export function useOrchestration() {
 
   useEffect(() => {
     loadTraders();
-  }, []);
+  }, [loadTraders]);
 
   return {
     isRunning,

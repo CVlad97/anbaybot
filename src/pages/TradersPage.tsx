@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Users, Plus, Ban, Eye, EyeOff, Star, Trash2 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import EmptyState from '../components/ui/EmptyState';
@@ -13,12 +13,12 @@ export default function TradersPage() {
   const [newLabel, setNewLabel] = useState('');
   const [newChain, setNewChain] = useState('solana');
 
-  useEffect(() => { loadWallets(); }, []);
-
-  async function loadWallets() {
+  const loadWallets = useCallback(async () => {
     const { data } = await supabase.from('followed_wallets').select('*').order('score', { ascending: false });
     if (data) setFollowedWallets(data as FollowedWallet[]);
-  }
+  }, [setFollowedWallets]);
+
+  useEffect(() => { loadWallets(); }, [loadWallets]);
 
   async function addWallet() {
     if (!newAddress.trim()) return;

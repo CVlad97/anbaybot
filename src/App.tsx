@@ -13,8 +13,11 @@ import SafetyPage from './pages/SafetyPage';
 import OrchestrationPage from './pages/OrchestrationPage';
 
 export default function App() {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+
   return (
     <BrowserRouter
+      basename={basePath}
       future={{
         v7_startTransition: true,
         v7_relativeSplatPath: true,

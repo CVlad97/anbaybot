@@ -33,7 +33,18 @@ jobs:
       - name: Build
         env:
           VITE_BASE_PATH: "/${{ github.event.repository.name }}/"
+          VITE_ANBAYBOT_SAFE_MODE: "true"
+          VITE_ANBAYBOT_LIVE_TRADING_ENABLED: "false"
+          VITE_APP_BASE_URL: "https://cvlad97.github.io/${{ github.event.repository.name }}/"
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://example.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'demo-anon-key' }}
         run: npm run build
+
+      - name: Add SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - name: Add nojekyll
+        run: touch dist/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

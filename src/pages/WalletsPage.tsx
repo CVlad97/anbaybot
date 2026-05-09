@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Wallet, Plus, Trash2, ExternalLink, Smartphone,
   ToggleLeft, ToggleRight, RefreshCw, DollarSign,
@@ -33,19 +33,7 @@ export default function WalletsPage() {
   const [newPlatform, setNewPlatform] = useState<ManagedWallet['platform']>('PHANTOM');
   const [loadingBalances, setLoadingBalances] = useState(false);
 
-  useEffect(() => {
-    loadWallets();
-  }, []);
-
-  async function loadWallets() {
-    const { data } = await supabase.from('managed_wallets').select('*').order('created_at', { ascending: false });
-    if (data) {
-      setManagedWallets(data as ManagedWallet[]);
-      if (data.length > 0) refreshBalances();
-    }
-  }
-
-  async function refreshBalances() {
+  const refreshBalances = useCallback(async () => {
     setLoadingBalances(true);
     try {
       const result = await api.getBalances();
@@ -60,7 +48,19 @@ export default function WalletsPage() {
       // silent
     }
     setLoadingBalances(false);
-  }
+  }, [setPortfolioData, setWalletBalances]);
+
+  const loadWallets = useCallback(async () => {
+    const { data } = await supabase.from('managed_wallets').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setManagedWallets(data as ManagedWallet[]);
+      if (data.length > 0) refreshBalances();
+    }
+  }, [refreshBalances, setManagedWallets]);
+
+  useEffect(() => {
+    loadWallets();
+  }, [loadWallets]);
 
   async function handleConnect(provider: 'phantom' | 'solflare' | 'metamask') {
     setConnecting(provider);
