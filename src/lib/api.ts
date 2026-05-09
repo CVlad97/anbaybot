@@ -14,16 +14,28 @@ import {
   updateRows,
   upsertRow,
 } from './localDb';
+import { getAdminToken } from './auth';
 
-const BASE = `${supabaseUrl}/functions/v1`;
+const RAW_BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || (supabaseUrl ? `${supabaseUrl}/functions/v1/ikb-api` : '');
 const ANON = supabaseAnonKey;
 
 function headers(extra: Record<string, string> = {}) {
+  const token = getAdminToken();
   return {
-    Authorization: `Bearer ${ANON}`,
+    ...(ANON ? { Authorization: `Bearer ${ANON}` } : {}),
+    ...(token ? { 'X-Anbaybot-Admin-Token': token } : {}),
     'Content-Type': 'application/json',
     ...extra,
   };
+}
+
+function buildUrl(path: string) {
+  if (!RAW_BACKEND_API_URL) {
+    throw new Error('Backend API not configured. Set VITE_BACKEND_API_URL in GitHub variables.');
+  }
+  const base = RAW_BACKEND_API_URL.replace(/\/$/, '');
+  const route = path.replace(/^\/ikb-api/, '');
+  return `${base}${route}`;
 }
 
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
@@ -31,7 +43,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     return demoRequest<T>(path, opts);
   }
 
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(buildUrl(path), {
     ...opts,
     headers: headers(opts.headers as Record<string, string>),
   });
@@ -299,6 +311,22 @@ export const api = {
   runSignals: () => request('/ikb-api?path=signals/run', { method: 'POST' }),
   getSignals: () => request<{ data: unknown[] }>('/ikb-api?path=signals/list'),
 
+  getManagedWallets: () => request<{ data: unknown[] }>('/ikb-api?path=wallets/list'),
+  createManagedWallet: (body: unknown) => request<{ data: unknown }>('/ikb-api?path=wallets', { method: 'POST', body: JSON.stringify(body) }),
+  updateManagedWallet: (id: string, body: unknown) =>
+    request('/ikb-api?path=' + encodeURIComponent(`wallets/${id}`), { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteManagedWallet: (id: string) =>
+    request('/ikb-api?path=' + encodeURIComponent(`wallets/${id}`), { method: 'DELETE' }),
+
+  getFollowedWallets: () => request<{ data: unknown[] }>('/ikb-api?path=followed-wallets/list'),
+  createFollowedWallet: (body: unknown) => request<{ data: unknown }>('/ikb-api?path=followed-wallets', { method: 'POST', body: JSON.stringify(body) }),
+  updateFollowedWallet: (id: string, body: unknown) =>
+    request('/ikb-api?path=' + encodeURIComponent(`followed-wallets/${id}`), { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteFollowedWallet: (id: string) =>
+    request('/ikb-api?path=' + encodeURIComponent(`followed-wallets/${id}`), { method: 'DELETE' }),
+
+  getTransactionsTimeline: () => request<{ transactions: unknown[]; actions: unknown[] }>('/ikb-api?path=transactions/list'),
+
   getPortfolio: () => request<{ data: unknown }>('/ikb-api?path=portfolio/summary'),
 
   getBalances: () => request<{
@@ -341,6 +369,8 @@ export const api = {
     side: 'BUY' | 'SELL';
     amountUsd: number;
     mode: 'TEST' | 'LIVE';
+    confirmationPhrase?: string;
   }) => request<{ data: TradeExecutionResult }>('/ikb-api?path=trading/order', { method: 'POST', body: JSON.stringify(body) }),
   getTradingPnL: () => request<{ data: TradingPnL }>('/ikb-api?path=trading/pnl'),
+  getEarnFlexibleProducts: () => request<{ data: unknown }>('/ikb-api?path=earn/flexible/list'),
 };

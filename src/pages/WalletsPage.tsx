@@ -8,7 +8,6 @@ import EmptyState from '../components/ui/EmptyState';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useWalletStore } from '../store/walletStore';
 import { useAppStore } from '../store/appStore';
-import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
 import {
   connectPhantom, connectSolflare,
@@ -51,7 +50,7 @@ export default function WalletsPage() {
   }, [setPortfolioData, setWalletBalances]);
 
   const loadWallets = useCallback(async () => {
-    const { data } = await supabase.from('managed_wallets').select('*').order('created_at', { ascending: false });
+    const { data } = await api.getManagedWallets();
     if (data) {
       setManagedWallets(data as ManagedWallet[]);
       if (data.length > 0) refreshBalances();
@@ -91,13 +90,13 @@ export default function WalletsPage() {
   async function saveWallet(address: string, chain: string, platform: ManagedWallet['platform'], label: string) {
     const existing = managedWallets.find(w => w.address === address);
     if (existing) return;
-    await supabase.from('managed_wallets').insert({ address, chain, platform, label });
+    await api.createManagedWallet({ address, chain, platform, label });
     await loadWallets();
   }
 
   async function addManualWallet() {
     if (!newAddress.trim()) return;
-    await supabase.from('managed_wallets').insert({
+    await api.createManagedWallet({
       address: newAddress.trim(),
       chain: newChain,
       platform: newPlatform,
@@ -111,12 +110,12 @@ export default function WalletsPage() {
   }
 
   async function toggleWallet(id: string, enabled: boolean) {
-    await supabase.from('managed_wallets').update({ enabled: !enabled }).eq('id', id);
+    await api.updateManagedWallet(id, { enabled: !enabled });
     await loadWallets();
   }
 
   async function removeWallet(id: string) {
-    await supabase.from('managed_wallets').delete().eq('id', id);
+    await api.deleteManagedWallet(id);
     await loadWallets();
     addAuditLog('wallet_removed', { id });
   }

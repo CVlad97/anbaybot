@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [orderSymbol, setOrderSymbol] = useState('BTC');
   const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderAmountUsd, setOrderAmountUsd] = useState('25');
+  const [confirmationPhrase, setConfirmationPhrase] = useState('');
   const [cockpitLoading, setCockpitLoading] = useState(false);
 
   const refreshBalances = useCallback(async () => {
@@ -120,6 +121,7 @@ export default function DashboardPage() {
         side: orderSide,
         amountUsd: amount,
         mode: orderMode,
+        confirmationPhrase: orderMode === 'LIVE' ? confirmationPhrase : undefined,
       });
       setExecutionResult(result.data);
     } catch (error) {
@@ -258,8 +260,8 @@ export default function DashboardPage() {
             <h3 className="text-base font-semibold text-white mb-4">Execution</h3>
             <div className="space-y-3">
               <select value={orderMode} onChange={e => setOrderMode(e.target.value as 'TEST' | 'LIVE')} className="input">
-                <option value="TEST">Test order</option>
-                <option value="LIVE">Live order</option>
+                <option value="TEST">Real Binance test order</option>
+                <option value="LIVE">Live order gated</option>
               </select>
               <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbol" />
               <div className="grid grid-cols-2 gap-3">
@@ -269,7 +271,22 @@ export default function DashboardPage() {
                 </select>
                 <input value={orderAmountUsd} onChange={e => setOrderAmountUsd(e.target.value)} className="input" placeholder="USD amount" inputMode="decimal" />
               </div>
-              <button onClick={handleSubmitOrder} className="btn-primary w-full">Submit order</button>
+              {orderMode === 'LIVE' && (
+                <div className="rounded-lg border border-danger-500/30 bg-danger-500/10 p-3">
+                  <p className="text-xs text-danger-200 mb-2">
+                    Live order requires server switch ALLOW_LIVE_TRADING=true and the exact confirmation phrase configured on the Edge Function.
+                  </p>
+                  <input
+                    value={confirmationPhrase}
+                    onChange={e => setConfirmationPhrase(e.target.value)}
+                    className="input"
+                    placeholder="Confirmation phrase"
+                  />
+                </div>
+              )}
+              <button onClick={handleSubmitOrder} className="btn-primary w-full">
+                {orderMode === 'TEST' ? 'Submit real Binance test order' : 'Submit gated live order'}
+              </button>
               {executionResult && (
                 <div className="rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-sm">
                   <p className="font-semibold text-white flex items-center gap-2"><CheckCircle2 size={14} className="text-brand-400" />{executionResult.status}</p>

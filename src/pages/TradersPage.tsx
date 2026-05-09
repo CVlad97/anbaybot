@@ -3,7 +3,7 @@ import { Users, Plus, Ban, Eye, EyeOff, Star, Trash2 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import EmptyState from '../components/ui/EmptyState';
 import { useAppStore } from '../store/appStore';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import type { FollowedWallet } from '../lib/types';
 
 export default function TradersPage() {
@@ -14,7 +14,7 @@ export default function TradersPage() {
   const [newChain, setNewChain] = useState('solana');
 
   const loadWallets = useCallback(async () => {
-    const { data } = await supabase.from('followed_wallets').select('*').order('score', { ascending: false });
+    const { data } = await api.getFollowedWallets();
     if (data) setFollowedWallets(data as FollowedWallet[]);
   }, [setFollowedWallets]);
 
@@ -22,7 +22,7 @@ export default function TradersPage() {
 
   async function addWallet() {
     if (!newAddress.trim()) return;
-    await supabase.from('followed_wallets').insert({
+    await api.createFollowedWallet({
       address: newAddress.trim(),
       chain: newChain,
       label: newLabel || `Trader ${newAddress.slice(0, 8)}...`,
@@ -37,18 +37,18 @@ export default function TradersPage() {
   }
 
   async function toggleFollow(id: string, enabled: boolean) {
-    await supabase.from('followed_wallets').update({ enabled: !enabled }).eq('id', id);
+    await api.updateFollowedWallet(id, { enabled: !enabled });
     await loadWallets();
   }
 
   async function toggleBlacklist(id: string, blacklisted: boolean) {
-    await supabase.from('followed_wallets').update({ blacklisted: !blacklisted, enabled: blacklisted }).eq('id', id);
+    await api.updateFollowedWallet(id, { blacklisted: !blacklisted, enabled: blacklisted });
     await loadWallets();
     addAuditLog('followed_wallet_blacklist_toggle', { id, blacklisted: !blacklisted });
   }
 
   async function removeWallet(id: string) {
-    await supabase.from('followed_wallets').delete().eq('id', id);
+    await api.deleteFollowedWallet(id);
     await loadWallets();
   }
 

@@ -15,6 +15,8 @@ Date : 2026-05-09
 - Test trading public : scan signaux demo OK, aucun ordre réel envoyé
 - Test Binance public : prix spot accessibles en lecture seule
 - Test Binance Earn/Farming : refus sans clé API serveur, donc non testable proprement depuis GitHub Pages
+- Mode reel prepare : Edge Function avec token admin, CORS limite, Binance signe cote serveur, test order Binance reel
+- Variable GitHub `VITE_BACKEND_API_URL` configuree vers `https://luqvqwpglceeqtbbtvuo.supabase.co/functions/v1/ikb-api`
 
 ## Blocage réel identifié
 
@@ -26,6 +28,7 @@ Le front GitHub Pages était publié, mais il n'avait pas de backend opérationn
 - les accès directs aux tables Supabase depuis le front rendaient le comportement fragile ;
 - les routes internes directes GitHub Pages pouvaient retourner 404 sans hash routing.
 - le module de stratégies avait une boucle d'import runtime : les stratégies importaient `./index` pendant que `index.ts` les importait, ce qui cassait le rendu avec `Cannot access 'registry' before initialization`.
+- la fonction Supabase `ikb-api` n'est pas encore deployee sur `luqvqwpglceeqtbbtvuo` au moment du test public : Supabase retourne `404 NOT_FOUND Requested function was not found`.
 
 ## Correctifs appliqués
 
@@ -45,12 +48,28 @@ Le front GitHub Pages était publié, mais il n'avait pas de backend opérationn
   - ordres test bloqués en live.
 - Ajout d'un bandeau public indiquant clairement le mode demo.
 - Séparation du registre de stratégies dans `strategies/core.ts` pour supprimer la boucle d'import et éviter la page blanche.
+- Refonte de `ikb-api` en backend reel :
+  - routes privees protegees par `ANBAYBOT_ADMIN_TOKEN` ;
+  - CORS limite aux origines configurees ;
+  - compte Binance lu par requetes signees serveur ;
+  - `/api/v3/order/test` Binance implemente pour les ordres test ;
+  - ordres live refuses sauf `ALLOW_LIVE_TRADING=true` + phrase de confirmation exacte ;
+  - Simple Earn liste en lecture signee, aucune souscription automatique.
+- Suppression du mode demo par defaut dans GitHub Pages.
+- Ajout d'une migration de durcissement retirant les politiques anon ouvertes.
 
 ## Gaps opérationnels restants
 
 ### Backend Supabase
 
 - Déployer la fonction Edge `ikb-api`.
+- Configurer les secrets Edge Function :
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `ANBAYBOT_ADMIN_TOKEN`
+  - `BINANCE_API_KEY`
+  - `BINANCE_API_SECRET`
+  - `ALLOW_LIVE_TRADING=false`
+  - `ALLOW_EARN_ACTIONS=false`
 - Appliquer les migrations Supabase `managed_wallets`, `followed_wallets`, `signals`, `actions`, `transactions`, `settings`, `audit_logs`, `wallet_balances`, `portfolio_snapshots`, `auto_trade_config`, `ai_config`.
 - Configurer `SUPABASE_SERVICE_ROLE_KEY` uniquement côté Edge Function.
 - Mettre des politiques RLS strictes si un accès direct front est conservé.

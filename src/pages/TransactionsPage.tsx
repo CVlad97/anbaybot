@@ -3,7 +3,7 @@ import { ListOrdered, ExternalLink, Clock, CheckCircle, XCircle } from 'lucide-r
 import PageHeader from '../components/ui/PageHeader';
 import EmptyState from '../components/ui/EmptyState';
 import StatusBadge from '../components/ui/StatusBadge';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import type { Transaction, Action } from '../lib/types';
 
 interface TxWithAction extends Transaction {
@@ -19,12 +19,9 @@ export default function TransactionsPage() {
   }, []);
 
   async function loadData() {
-    const [txRes, actRes] = await Promise.all([
-      supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(50),
-      supabase.from('actions').select('*').order('created_at', { ascending: false }).limit(100),
-    ]);
-    const txList = (txRes.data || []) as Transaction[];
-    const actList = (actRes.data || []) as Action[];
+    const { transactions: txRows, actions: actionRows } = await api.getTransactionsTimeline();
+    const txList = (txRows || []) as Transaction[];
+    const actList = (actionRows || []) as Action[];
     setActions(actList);
     setTransactions(
       txList.map(tx => ({ ...tx, action: actList.find(a => a.id === tx.action_id) }))

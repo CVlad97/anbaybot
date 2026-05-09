@@ -6,7 +6,7 @@ import {
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAppStore } from '../store/appStore';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import type { Settings as SettingsType, AuditLog } from '../lib/types';
 
 export default function SafetyPage() {
@@ -23,8 +23,8 @@ export default function SafetyPage() {
 
   const loadData = useCallback(async () => {
     const [setRes, logRes] = await Promise.all([
-      supabase.from('settings').select('*').limit(1).maybeSingle(),
-      supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100),
+      api.getSettings(),
+      api.getAudit(),
     ]);
     if (setRes.data) {
       const s = setRes.data as SettingsType;
@@ -58,7 +58,7 @@ export default function SafetyPage() {
 
   async function saveRiskParams() {
     if (!settings) return;
-    await supabase.from('settings').update({
+    await api.updateSettings({
       risk_params: {
         maxTradeSizeEur: riskForm.maxTradeSizeEur,
         maxTradesPerDay: riskForm.maxTradesPerDay,
@@ -68,8 +68,7 @@ export default function SafetyPage() {
       },
       payout_threshold_eur: riskForm.payoutThresholdEur,
       updated_at: new Date().toISOString(),
-    }).eq('id', settings.id);
-    await supabase.from('audit_logs').insert({ event: 'risk_params_updated', meta: riskForm });
+    });
     setEditMode(false);
     await loadData();
   }

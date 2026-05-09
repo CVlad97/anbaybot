@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
-import { isDemoSupabase } from '../lib/supabase';
+import { isBackendConfigured, isDemoSupabase } from '../lib/supabase';
+import { clearAdminToken, getAdminToken, setAdminToken } from '../lib/auth';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,6 +26,8 @@ const NAV_ITEMS = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [tokenInput, setTokenInput] = useState(() => getAdminToken());
+  const [hasToken, setHasToken] = useState(() => Boolean(getAdminToken()));
   const location = useLocation();
   const navigate = useNavigate();
   const { solanaAddress, evmAddress } = useWalletStore();
@@ -104,6 +107,48 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <strong className="text-warn-300">Mode public demo actif.</strong>{' '}
               GitHub Pages fonctionne sans secret. Les donnees sont locales au navigateur et aucune execution live n'est envoyee.
               Configure Supabase Edge Function + variables GitHub pour activer le cockpit reel.
+            </div>
+          )}
+          {!isDemoSupabase && (
+            <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${isBackendConfigured ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : 'border-danger-500/40 bg-danger-500/10 text-danger-100'}`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <strong className={isBackendConfigured ? 'text-brand-300' : 'text-danger-300'}>Mode reel serveur.</strong>{' '}
+                  {isBackendConfigured
+                    ? 'Les operations passent par la fonction Edge securisee. Renseigne le token cockpit localement pour utiliser les routes privees.'
+                    : 'Backend non configure: ajoute VITE_BACKEND_API_URL dans GitHub Pages.'}
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    type="password"
+                    className="input min-w-0 sm:w-72"
+                    placeholder="Token cockpit local"
+                    value={tokenInput}
+                    onChange={e => setTokenInput(e.target.value)}
+                  />
+                  <button
+                    className="btn-secondary whitespace-nowrap"
+                    onClick={() => {
+                      setAdminToken(tokenInput);
+                      setHasToken(Boolean(tokenInput.trim()));
+                    }}
+                  >
+                    {hasToken ? 'Mettre a jour' : 'Activer'}
+                  </button>
+                  {hasToken && (
+                    <button
+                      className="btn-ghost whitespace-nowrap"
+                      onClick={() => {
+                        clearAdminToken();
+                        setTokenInput('');
+                        setHasToken(false);
+                      }}
+                    >
+                      Oublier
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
           {children}

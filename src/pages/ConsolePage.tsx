@@ -9,7 +9,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
 import { useAppStore } from '../store/appStore';
 import { useWalletStore } from '../store/walletStore';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { signAndSendWithProvider } from '../lib/wallets/solana';
 import type { Action, Settings } from '../lib/types';
 
@@ -21,8 +21,8 @@ export default function ConsolePage() {
 
   const loadData = useCallback(async () => {
     const [actRes, setRes] = await Promise.all([
-      supabase.from('actions').select('*').order('created_at', { ascending: false }).limit(50),
-      supabase.from('settings').select('*').limit(1).maybeSingle(),
+      api.getActions(),
+      api.getSettings(),
     ]);
     if (actRes.data) setActions(actRes.data as Action[]);
     if (setRes.data) setSettings(setRes.data as Settings);
@@ -33,7 +33,7 @@ export default function ConsolePage() {
   async function toggleKillSwitch() {
     if (!settings) return;
     const newState = !settings.kill_switch;
-    await supabase.from('settings').update({ kill_switch: newState }).eq('id', settings.id);
+    await api.killSwitch(newState);
     addAuditLog(newState ? 'kill_switch_activated' : 'kill_switch_deactivated', {});
     await loadData();
   }
@@ -46,30 +46,21 @@ export default function ConsolePage() {
     addAuditLog('action_build_started', { actionId: action.id });
 
     try {
-      await supabase.from('actions').update({ status: 'BUILDING', updated_at: new Date().toISOString() }).eq('id', action.id);
+      await api.buildAction(action.id);
       await loadData();
 
-      // In production, this would call Jupiter API for the swap transaction
-      // For now, we simulate the build step
+      // Wallet-side signing remains explicit. The backend never signs from the public front.
       const mockTxBase64 = '';
 
       if (mockTxBase64) {
         const sig = await signAndSendWithProvider(solanaProvider, mockTxBase64);
-        await supabase.from('actions').update({ status: 'CONFIRMED', updated_at: new Date().toISOString() }).eq('id', action.id);
-        await supabase.from('transactions').insert({
-          action_id: action.id,
-          signature: sig,
-          explorer_url: `https://solscan.io/tx/${sig}`,
-          status: 'SUCCESS',
-        });
+        await api.confirmAction(action.id, sig);
         addAuditLog('action_confirmed', { actionId: action.id, signature: sig });
       } else {
-        await supabase.from('actions').update({ status: 'PREPARED', updated_at: new Date().toISOString() }).eq('id', action.id);
         addAuditLog('action_build_no_tx', { actionId: action.id, reason: 'Jupiter integration requires API key' });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase.from('actions').update({ status: 'FAILED', updated_at: new Date().toISOString() }).eq('id', action.id);
       addAuditLog('action_build_failed', { actionId: action.id, error: msg });
     } finally {
       setBuildingId(null);
@@ -78,7 +69,7 @@ export default function ConsolePage() {
   }
 
   async function handleRefuse(action: Action) {
-    await supabase.from('actions').update({ status: 'REFUSED', updated_at: new Date().toISOString() }).eq('id', action.id);
+    await api.refuseAction(action.id);
     addAuditLog('action_refused', { actionId: action.id });
     await loadData();
   }
@@ -87,48 +78,7 @@ export default function ConsolePage() {
     setLoading(true);
     addAuditLog('manual_signal_scan_started', {});
     try {
-      const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/TOKEN_IN_PLACEHOLDER');
-      const data = await res.json();
-      const pairs = (data.pairs || []).slice(0, 10);
-
-      for (const pair of pairs) {
-        const priceChange = pair.priceChange?.h24 || 0;
-        const volume = pair.volume?.h24 || 0;
-        const liquidity = pair.liquidity?.usd || 0;
-
-        if (priceChange > 10 && volume > 30000 && liquidity > 10000) {
-          await supabase.from('signals').insert({
-            source: 'dexscreener',
-            chain: 'solana',
-            token_address: pair.baseToken?.address || '',
-            token_symbol: pair.baseToken?.symbol || '',
-            meta: { priceChange24h: priceChange, volume24h: volume, liquidity: { usd: liquidity }, priceUsd: pair.priceUsd },
-          });
-
-          const riskChecks = [
-            { rule: 'liquidity_check', passed: liquidity >= 10000, detail: `Liq: $${(liquidity / 1000).toFixed(0)}K` },
-            { rule: 'volume_check', passed: volume >= 30000, detail: `Vol: $${(volume / 1000).toFixed(0)}K` },
-          ];
-
-          if (riskChecks.every(r => r.passed)) {
-            await supabase.from('actions').insert({
-              type: 'ENTRY_PREPARED',
-              status: 'PREPARED',
-              chain: 'solana',
-              strategy_id: 'momentum_dex',
-              payload: {
-                tokenAddress: pair.baseToken?.address,
-                symbol: pair.baseToken?.symbol,
-                priceUsd: pair.priceUsd,
-                priceChange24h: priceChange,
-                volume24h: volume,
-                liquidity,
-              },
-              risk_checks: riskChecks,
-            });
-          }
-        }
-      }
+      await api.runSignals();
     } catch {
       // API unavailable
     }
