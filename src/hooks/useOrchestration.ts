@@ -11,6 +11,26 @@ export interface TraderAddress {
   winRate?: number;
 }
 
+interface CopyTraderRow {
+  id: string;
+  wallet_address: string;
+  chain: TraderAddress['chain'];
+  name?: string;
+  is_active: boolean;
+  total_pnl?: number;
+  win_rate?: number;
+}
+
+interface WalletRow {
+  id: string;
+  address: string;
+  chain: TraderAddress['chain'];
+  label?: string;
+  is_active?: boolean;
+  enabled?: boolean;
+  balance?: number;
+}
+
 export interface OrchestrationMetrics {
   portfolioValue: number;
   totalPnL: number;
@@ -84,27 +104,29 @@ export function useOrchestration() {
         .limit(20);
 
       const traderAddresses: TraderAddress[] = [];
+      const copyTrader = copyTraders as CopyTraderRow | null;
+      const walletRows = (wallets || []) as WalletRow[];
 
-      if (copyTraders) {
+      if (copyTrader) {
         traderAddresses.push({
-          id: copyTraders.id,
-          address: copyTraders.wallet_address,
-          chain: copyTraders.chain,
-          label: copyTraders.name || 'Trader',
-          isActive: copyTraders.is_active,
-          profitLoss: copyTraders.total_pnl || 0,
-          winRate: copyTraders.win_rate || 0,
+          id: copyTrader.id,
+          address: copyTrader.wallet_address,
+          chain: copyTrader.chain,
+          label: copyTrader.name || 'Trader',
+          isActive: copyTrader.is_active,
+          profitLoss: copyTrader.total_pnl || 0,
+          winRate: copyTrader.win_rate || 0,
         });
       }
 
-      if (wallets && wallets.length > 0) {
-        wallets.forEach(wallet => {
+      if (walletRows.length > 0) {
+        walletRows.forEach((wallet) => {
           traderAddresses.push({
             id: wallet.id,
             address: wallet.address,
             chain: wallet.chain,
             label: wallet.label || 'Wallet',
-            isActive: wallet.is_active,
+            isActive: wallet.is_active ?? wallet.enabled ?? true,
             profitLoss: wallet.balance || 0,
             winRate: 0,
           });
@@ -145,8 +167,9 @@ export function useOrchestration() {
         .from('transactions')
         .select('*', { count: 'exact', head: true });
 
-      const totalValue = portfolioData?.total_value || 0;
-      const dailyPnl = portfolioData?.daily_pnl || 0;
+      const portfolio = portfolioData as { total_value?: number; daily_pnl?: number } | null;
+      const totalValue = portfolio?.total_value || 0;
+      const dailyPnl = portfolio?.daily_pnl || 0;
       const activeWallets = traderList.filter(t => t.isActive).length;
 
       const avgWinRate = traderList.reduce((sum, t) => sum + (t.winRate || 0), 0) /

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
+import { isDemoSupabase } from '../lib/supabase';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -98,6 +99,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 min-h-screen lg:ml-0">
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-16 lg:pt-8">
+          {isDemoSupabase && (
+            <div className="mb-6 rounded-2xl border border-warn-500/30 bg-warn-500/10 px-4 py-3 text-sm text-warn-100">
+              <strong className="text-warn-300">Mode public demo actif.</strong>{' '}
+              GitHub Pages fonctionne sans secret. Les donnees sont locales au navigateur et aucune execution live n'est envoyee.
+              Configure Supabase Edge Function + variables GitHub pour activer le cockpit reel.
+            </div>
+          )}
           {children}
         </div>
         <OpportunityNotifications />
