@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
 import WalletsPage from './pages/WalletsPage';
@@ -13,11 +13,8 @@ import SafetyPage from './pages/SafetyPage';
 import OrchestrationPage from './pages/OrchestrationPage';
 
 export default function App() {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
-
   return (
-    <BrowserRouter
-      basename={basePath}
+    <HashRouter
       future={{
         v7_startTransition: true,
         v7_relativeSplatPath: true,
@@ -38,6 +35,6 @@ export default function App() {
           <Route path="/safety" element={<SafetyPage />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
