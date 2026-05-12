@@ -4,9 +4,9 @@ interface WalletState {
   solanaAddress: string | null;
   solanaProvider: 'phantom' | 'solflare' | null;
   evmAddress: string | null;
-  evmProvider: 'metamask' | null;
+  evmProvider: 'metamask' | 'trust' | 'base' | null;
   setSolana: (address: string | null, provider: 'phantom' | 'solflare' | null) => void;
-  setEvm: (address: string | null, provider: 'metamask' | null) => void;
+  setEvm: (address: string | null, provider: 'metamask' | 'trust' | 'base' | null) => void;
   disconnect: () => void;
 }
 

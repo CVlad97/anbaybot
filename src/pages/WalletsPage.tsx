@@ -14,7 +14,14 @@ import {
   isPhantomInstalled, isSolflareInstalled,
   getPhantomDeeplink, getSolflareDeeplink,
 } from '../lib/wallets/solana';
-import { connectMetaMask, isMetaMaskInstalled, formatEvmAddress } from '../lib/wallets/evm';
+import {
+  connectEvmWallet,
+  formatEvmAddress,
+  getEvmWalletDeeplink,
+  isEvmWalletInstalled,
+  walletLabel,
+  type EvmWalletId,
+} from '../lib/wallets/evm';
 import type { ManagedWallet } from '../lib/types';
 
 function formatUsd(n: number) {
@@ -22,7 +29,7 @@ function formatUsd(n: number) {
 }
 
 export default function WalletsPage() {
-  const { solanaAddress, evmAddress, setSolana, setEvm } = useWalletStore();
+  const { solanaAddress, solanaProvider, evmAddress, evmProvider, setSolana, setEvm } = useWalletStore();
   const { managedWallets, setManagedWallets, walletBalances, setWalletBalances, setPortfolioData, addAuditLog } = useAppStore();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -61,7 +68,7 @@ export default function WalletsPage() {
     loadWallets();
   }, [loadWallets]);
 
-  async function handleConnect(provider: 'phantom' | 'solflare' | 'metamask') {
+  async function handleConnect(provider: 'phantom' | 'solflare' | EvmWalletId) {
     setConnecting(provider);
     try {
       let address: string;
@@ -74,9 +81,10 @@ export default function WalletsPage() {
         setSolana(address, 'solflare');
         await saveWallet(address, 'solana', 'SOLFLARE', `Solflare (${address.slice(0, 6)}...)`);
       } else {
-        address = await connectMetaMask();
-        setEvm(address, 'metamask');
-        await saveWallet(address, 'evm', 'EVM', `MetaMask (${formatEvmAddress(address)})`);
+        address = await connectEvmWallet(provider);
+        setEvm(address, provider);
+        const platform = provider === 'trust' ? 'TRUST' : provider === 'base' ? 'BASE' : 'METAMASK';
+        await saveWallet(address, 'evm', platform, `${walletLabel(provider)} (${formatEvmAddress(address)})`);
       }
       addAuditLog('wallet_connected', { provider, address });
     } catch (err: unknown) {
@@ -151,14 +159,14 @@ export default function WalletsPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
         <ConnectorCard
           name="Phantom"
           chain="Solana"
           color="#AB9FF2"
           letter="P"
-          connected={!!(solanaAddress && useWalletStore.getState().solanaProvider === 'phantom')}
-          address={solanaAddress && useWalletStore.getState().solanaProvider === 'phantom' ? solanaAddress : null}
+          connected={!!(solanaAddress && solanaProvider === 'phantom')}
+          address={solanaAddress && solanaProvider === 'phantom' ? solanaAddress : null}
           installed={isPhantomInstalled()}
           connecting={connecting === 'phantom'}
           onConnect={() => handleConnect('phantom')}
@@ -169,8 +177,8 @@ export default function WalletsPage() {
           chain="Solana"
           color="#FC8C2C"
           letter="S"
-          connected={!!(solanaAddress && useWalletStore.getState().solanaProvider === 'solflare')}
-          address={solanaAddress && useWalletStore.getState().solanaProvider === 'solflare' ? solanaAddress : null}
+          connected={!!(solanaAddress && solanaProvider === 'solflare')}
+          address={solanaAddress && solanaProvider === 'solflare' ? solanaAddress : null}
           installed={isSolflareInstalled()}
           connecting={connecting === 'solflare'}
           onConnect={() => handleConnect('solflare')}
@@ -181,12 +189,36 @@ export default function WalletsPage() {
           chain="Base / Ethereum"
           color="#F6851B"
           letter="M"
-          connected={!!evmAddress}
-          address={evmAddress ? formatEvmAddress(evmAddress) : null}
-          installed={isMetaMaskInstalled()}
+          connected={!!(evmAddress && evmProvider === 'metamask')}
+          address={evmAddress && evmProvider === 'metamask' ? formatEvmAddress(evmAddress) : null}
+          installed={isEvmWalletInstalled('metamask')}
           connecting={connecting === 'metamask'}
           onConnect={() => handleConnect('metamask')}
-          deeplink={null}
+          deeplink={isMobile ? getEvmWalletDeeplink('metamask', appUrl) : null}
+        />
+        <ConnectorCard
+          name="Trust Wallet"
+          chain="Base / EVM"
+          color="#3375BB"
+          letter="T"
+          connected={!!(evmAddress && evmProvider === 'trust')}
+          address={evmAddress && evmProvider === 'trust' ? formatEvmAddress(evmAddress) : null}
+          installed={isEvmWalletInstalled('trust')}
+          connecting={connecting === 'trust'}
+          onConnect={() => handleConnect('trust')}
+          deeplink={isMobile ? getEvmWalletDeeplink('trust', appUrl) : null}
+        />
+        <ConnectorCard
+          name="Base Wallet"
+          chain="Coinbase / Base"
+          color="#0052FF"
+          letter="B"
+          connected={!!(evmAddress && evmProvider === 'base')}
+          address={evmAddress && evmProvider === 'base' ? formatEvmAddress(evmAddress) : null}
+          installed={isEvmWalletInstalled('base')}
+          connecting={connecting === 'base'}
+          onConnect={() => handleConnect('base')}
+          deeplink={isMobile ? getEvmWalletDeeplink('base', appUrl) : null}
         />
       </div>
 
@@ -203,6 +235,9 @@ export default function WalletsPage() {
             <select className="input" value={newPlatform} onChange={e => setNewPlatform(e.target.value as ManagedWallet['platform'])}>
               <option value="PHANTOM">Phantom</option>
               <option value="SOLFLARE">Solflare</option>
+              <option value="METAMASK">MetaMask</option>
+              <option value="TRUST">Trust Wallet</option>
+              <option value="BASE">Base / Coinbase Wallet</option>
               <option value="EVM">EVM</option>
               <option value="CEX">CEX (V2)</option>
             </select>
@@ -281,11 +316,7 @@ function ConnectorCard({ name, chain, color, letter, connected, address, install
   deeplink: string | null;
 }) {
   return (
-    <button
-      onClick={() => installed ? onConnect() : undefined}
-      disabled={connecting}
-      className="card-hover p-5 text-left group"
-    >
+    <div className="card-hover p-5 text-left group">
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
           <span className="text-lg font-bold" style={{ color }}>{letter}</span>
@@ -299,14 +330,16 @@ function ConnectorCard({ name, chain, color, letter, connected, address, install
       {connected && address ? (
         <p className="text-xs text-brand-400 font-mono truncate">{address}</p>
       ) : installed ? (
-        <p className="text-xs text-surface-400">Click to connect</p>
+        <button onClick={onConnect} disabled={connecting} className="text-xs text-surface-300 hover:text-brand-300">
+          Click to connect
+        </button>
       ) : deeplink ? (
-        <a href={deeplink} className="text-xs text-brand-400 flex items-center gap-1">
+        <a href={deeplink} className="text-xs text-brand-400 flex items-center gap-1" rel="noopener noreferrer">
           <Smartphone size={12} /> Open in {name}
         </a>
       ) : (
         <p className="text-xs text-surface-500">Not installed</p>
       )}
-    </button>
+    </div>
   );
 }
