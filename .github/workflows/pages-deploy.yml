@@ -33,8 +33,10 @@ jobs:
       - name: Build
         env:
           VITE_BASE_PATH: "/${{ github.event.repository.name }}/"
-          VITE_ANBAYBOT_DEMO_ENABLED: "false"
-          VITE_ANBAYBOT_SAFE_MODE: "false"
+          # GitHub Pages must remain secret-free. Keep the public site operational
+          # by using local demo storage and disabling any live execution path.
+          VITE_ANBAYBOT_DEMO_ENABLED: "true"
+          VITE_ANBAYBOT_SAFE_MODE: "true"
           VITE_ANBAYBOT_LIVE_TRADING_ENABLED: "false"
           VITE_APP_BASE_URL: "https://cvlad97.github.io/${{ github.event.repository.name }}/"
           VITE_BACKEND_API_URL: ${{ vars.VITE_BACKEND_API_URL }}
