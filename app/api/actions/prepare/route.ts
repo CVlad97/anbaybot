@@ -67,8 +67,8 @@ export async function POST(request: Request) {
           actionType: 'SWAP',
           chain: 'solana',
           strategyId: 'test_mode',
-          tokenIn: 'TOKEN_IN_PLACEHOLDER',
-          tokenOut: 'TOKEN_OUT_PLACEHOLDER',
+          tokenIn: 'TOKEN_IN_PLACEHOLDER', // gitleaks:allow (public Solana mint address)
+          tokenOut: 'TOKEN_OUT_PLACEHOLDER', // gitleaks:allow (public Solana mint address)
           amountIn: '10000000',
           walletId: validated.walletId,
           payload: { reasons: ['Test action for pipeline validation'], testMode: true } as Prisma.InputJsonValue,

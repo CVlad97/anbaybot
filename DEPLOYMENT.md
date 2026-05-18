@@ -222,7 +222,7 @@ Deploy to your own server (Ubuntu/Debian).
    crontab -e
 
    # Add line (every 5 minutes):
-   */5 * * * * curl -X POST -H "Authorization: Bearer <CRON_TOKEN> https://your-domain.com/api/signals/run
+   */5 * * * * curl -X POST -H "Authorization: Bearer <CRON_TOKEN> https://your-domain.com/api/signals/run  # gitleaks:allow (placeholder)
    ```
 
 ## Post-Deployment
