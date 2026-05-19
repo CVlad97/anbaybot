@@ -59,7 +59,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Test mode: create minimal SOL->USDC swap for pipeline validation
+    // Test mode: create a minimal swap for pipeline validation.
+    // Do not hardcode long base58 addresses here (they can be mistaken for secrets by scanners).
     if (validated.testMode) {
       const action = await prisma.action.create({
         data: {
@@ -67,9 +68,9 @@ export async function POST(request: Request) {
           actionType: 'SWAP',
           chain: 'solana',
           strategyId: 'test_mode',
-          tokenIn: 'TOKEN_IN_PLACEHOLDER', // gitleaks:allow (public Solana mint address)
-          tokenOut: 'TOKEN_OUT_PLACEHOLDER', // gitleaks:allow (public Solana mint address)
-          amountIn: '10000000',
+          tokenIn: validated.tokenIn,
+          tokenOut: validated.tokenOut,
+          amountIn: validated.amountIn,
           walletId: validated.walletId,
           payload: { reasons: ['Test action for pipeline validation'], testMode: true } as Prisma.InputJsonValue,
           riskChecks: { allPassed: true, checks: [] } as Prisma.InputJsonValue,
