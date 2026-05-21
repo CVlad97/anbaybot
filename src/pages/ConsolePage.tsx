@@ -18,6 +18,7 @@ export default function ConsolePage() {
   const { solanaAddress, solanaProvider } = useWalletStore();
   const [loading, setLoading] = useState(false);
   const [buildingId, setBuildingId] = useState<string | null>(null);
+  const txSigningEnabled = import.meta.env.VITE_ENABLE_TX_SIGNING === 'true';
 
   const loadData = useCallback(async () => {
     const [actRes, setRes] = await Promise.all([
@@ -39,7 +40,7 @@ export default function ConsolePage() {
   }
 
   async function handleBuild(action: Action) {
-    if (!solanaAddress || !solanaProvider) return;
+    if (txSigningEnabled && (!solanaAddress || !solanaProvider)) return;
     if (settings?.kill_switch) return;
 
     setBuildingId(action.id);
@@ -50,14 +51,25 @@ export default function ConsolePage() {
       await loadData();
 
       // Wallet-side signing remains explicit. The backend never signs from the public front.
+      // Signing stays disabled unless a transaction builder is explicitly enabled.
       const mockTxBase64 = '';
 
-      if (mockTxBase64) {
-        const sig = await signAndSendWithProvider(solanaProvider, mockTxBase64);
+      if (txSigningEnabled && mockTxBase64) {
+        const provider = solanaProvider;
+        if (!provider) {
+          addAuditLog('action_build_no_tx', { actionId: action.id, reason: 'Wallet provider missing' });
+          return;
+        }
+        const sig = await signAndSendWithProvider(provider, mockTxBase64);
         await api.confirmAction(action.id, sig);
         addAuditLog('action_confirmed', { actionId: action.id, signature: sig });
       } else {
-        addAuditLog('action_build_no_tx', { actionId: action.id, reason: 'Jupiter integration requires API key' });
+        addAuditLog('action_build_no_tx', {
+          actionId: action.id,
+          reason: txSigningEnabled
+            ? 'Transaction builder not configured'
+            : 'Wallet signing disabled in this environment',
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -189,19 +201,22 @@ export default function ConsolePage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleBuild(a)}
-                  disabled={buildingId === a.id || killSwitch || !solanaAddress}
+                  disabled={buildingId === a.id || killSwitch || (txSigningEnabled && !solanaAddress)}
                   className="btn-primary flex items-center gap-2 text-sm"
                 >
                   {buildingId === a.id ? <LoadingSpinner size={14} /> : <Check size={14} />}
-                  Build & Sign
+                  {txSigningEnabled ? 'Build & Sign' : 'Prepare Action'}
                 </button>
                 <button onClick={() => handleRefuse(a)} className="btn-danger flex items-center gap-2 text-sm">
                   <X size={14} />
                   Refuse
                 </button>
               </div>
-              {!solanaAddress && (
+              {txSigningEnabled && !solanaAddress && (
                 <p className="text-xs text-warn-400 mt-2">Connect a Solana wallet to sign transactions</p>
+              )}
+              {!txSigningEnabled && (
+                <p className="text-xs text-surface-500 mt-2">Signing disabled: action remains prepared until server-side transaction builder is enabled.</p>
               )}
             </div>
           ))}
