@@ -47,7 +47,7 @@ export default function SafetyPage() {
 
     const checks = await Promise.allSettled([
       fetch('https://api.coingecko.com/api/v3/ping').then(r => r.ok),
-      fetch('https://api.dexscreener.com/latest/dex/tokens/TOKEN_IN_PLACEHOLDER').then(r => r.ok),
+      fetch('https://api.dexscreener.com/latest/dex/search?q=SOL').then(r => r.ok),
     ]);
 
     setApiStatuses({

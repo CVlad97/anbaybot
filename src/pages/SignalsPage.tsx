@@ -3,6 +3,7 @@ import { TrendingUp, Search, RefreshCw, ExternalLink, Flame, BarChart3 } from 'l
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
+import { api } from '../lib/api';
 
 interface MarketItem {
   id?: string;
@@ -30,9 +31,8 @@ export default function SignalsPage() {
   const fetchTrending = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://api.coingecko.com/api/v3/search/trending');
-      const data = await res.json();
-      const items = (data.coins || []).map((c: { item: MarketItem }) => c.item);
+      const data = await api.trending();
+      const items = (data.items || []) as MarketItem[];
       setTrending(items);
     } catch {
       setTrending([]);
@@ -43,9 +43,8 @@ export default function SignalsPage() {
   const fetchMovers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/TOKEN_IN_PLACEHOLDER');
-      const data = await res.json();
-      setMovers((data.pairs || []).slice(0, 20));
+      const data = await api.dexMovers();
+      setMovers((data.items || []) as MarketItem[]);
     } catch {
       setMovers([]);
     }
@@ -56,9 +55,8 @@ export default function SignalsPage() {
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      setSearchResults((data.pairs || []).slice(0, 20));
+      const data = await api.tokenSearch(query);
+      setSearchResults((data.items || []) as MarketItem[]);
     } catch {
       setSearchResults([]);
     }

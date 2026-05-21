@@ -46,7 +46,13 @@ function routeFromUrl(req: Request) {
 }
 
 function isPublicRoute(path: string) {
-  return path === "health" || path === "trading/prices";
+  return [
+    "health",
+    "trading/prices",
+    "market/trending",
+    "market/dex-movers",
+    "market/token-search",
+  ].includes(path);
 }
 
 function requireAdmin(req: Request, path: string) {
@@ -91,6 +97,72 @@ function getRiskParams(settingsRow: Record<string, unknown> | null | undefined) 
     minLiquidityUsd: 10000,
     ...((settingsRow?.risk_params as Record<string, unknown> | undefined) || {}),
   };
+}
+
+type DexPair = {
+  chainId?: string;
+  pairAddress?: string;
+  url?: string;
+  baseToken?: { address?: string; symbol?: string; name?: string };
+  quoteToken?: { address?: string; symbol?: string; name?: string };
+  priceUsd?: string;
+  priceChange?: { h24?: number };
+  volume?: { h24?: number };
+  liquidity?: { usd?: number };
+};
+
+function dexscreenerQueries() {
+  const raw = Deno.env.get("DEXSCREENER_MOVER_QUERIES");
+  if (!raw) return ["SOL/USDC", "SOL/USDT", "BONK", "WIF", "JUP", "RAY"];
+  return raw.split(",").map((q) => q.trim()).filter(Boolean);
+}
+
+function dexscreenerChainFilter() {
+  return (Deno.env.get("DEXSCREENER_CHAIN_FILTER") || "solana").trim().toLowerCase();
+}
+
+function pairScore(pair: DexPair) {
+  const liquidity = Number(pair.liquidity?.usd || 0);
+  const volume = Number(pair.volume?.h24 || 0);
+  const change = Math.abs(Number(pair.priceChange?.h24 || 0));
+  return liquidity * 0.55 + volume * 0.4 + change * 200;
+}
+
+function uniqPairKey(pair: DexPair) {
+  return `${pair.chainId || "unknown"}:${pair.pairAddress || pair.url || pair.baseToken?.address || pair.baseToken?.symbol || Math.random().toString(36)}`;
+}
+
+function normalizeDexPairs(input: unknown) {
+  const rows = Array.isArray(input) ? input : [];
+  return rows as DexPair[];
+}
+
+async function fetchDexSearchPairs(query: string) {
+  const url = `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`DexScreener search ${res.status}`);
+  const json = await res.json() as { pairs?: unknown[] };
+  const pairs = normalizeDexPairs(json.pairs);
+  const chain = dexscreenerChainFilter();
+  return pairs.filter((pair) => {
+    if (!pair.pairAddress) return false;
+    if (!chain) return true;
+    return String(pair.chainId || "").toLowerCase() === chain;
+  });
+}
+
+async function fetchDexMovers(limit = 20) {
+  const queries = dexscreenerQueries();
+  const settled = await Promise.allSettled(queries.map((query) => fetchDexSearchPairs(query)));
+  const merged = [] as DexPair[];
+  for (const item of settled) {
+    if (item.status === "fulfilled") merged.push(...item.value);
+  }
+  const deduped = new Map<string, DexPair>();
+  for (const pair of merged) deduped.set(uniqPairKey(pair), pair);
+  return Array.from(deduped.values())
+    .sort((a, b) => pairScore(b) - pairScore(a))
+    .slice(0, limit);
 }
 
 async function getSettings(supabase: SupabaseClient) {
@@ -497,25 +569,21 @@ Deno.serve(async (req: Request) => {
     }
 
     if (path === "market/dex-movers") {
-      const res = await fetch("https://api.dexscreener.com/latest/dex/tokens/TOKEN_IN_PLACEHOLDER");
-      const data = await res.json();
-      return json(req, { items: (data.pairs || []).slice(0, 20) });
+      const items = await fetchDexMovers(20);
+      return json(req, { items });
     }
 
     if (path === "market/token-search") {
       const q = new URL(req.url).searchParams.get("q") || "";
       if (!q) return json(req, { items: [] });
-      const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      return json(req, { items: (data.pairs || []).slice(0, 20) });
+      const items = await fetchDexSearchPairs(q);
+      return json(req, { items: items.slice(0, 20) });
     }
 
     if (path === "signals/run" && req.method === "POST") {
       const settings = await getSettings(supabase);
       if (settings.kill_switch) return json(req, { signalsCreated: 0, actionsCreated: 0, reason: "kill_switch_active" });
-      const res = await fetch("https://api.dexscreener.com/latest/dex/tokens/TOKEN_IN_PLACEHOLDER");
-      const dexData = await res.json();
-      const pairs = (dexData.pairs || []).slice(0, 15);
+      const pairs = await fetchDexMovers(15);
       const risk = getRiskParams(settings);
       let signalsCreated = 0;
       let actionsCreated = 0;

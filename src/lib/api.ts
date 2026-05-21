@@ -103,6 +103,53 @@ function buildRecommendation(prices: BinanceTicker[], capital = 0): TradingRecom
   };
 }
 
+type DexPair = {
+  chainId?: string;
+  pairAddress?: string;
+  url?: string;
+  baseToken?: { address?: string; symbol?: string; name?: string };
+  quoteToken?: { address?: string; symbol?: string; name?: string };
+  priceUsd?: string;
+  priceChange?: { h24?: number };
+  volume?: { h24?: number };
+  liquidity?: { usd?: number };
+};
+
+const DEX_MOVER_QUERIES = ['SOL/USDC', 'SOL/USDT', 'BONK', 'WIF', 'JUP', 'RAY'];
+const DEX_MOVER_CHAIN = 'solana';
+
+function scoreDexPair(pair: DexPair) {
+  const liquidity = Number(pair.liquidity?.usd || 0);
+  const volume = Number(pair.volume?.h24 || 0);
+  const change = Math.abs(Number(pair.priceChange?.h24 || 0));
+  return liquidity * 0.55 + volume * 0.4 + change * 200;
+}
+
+function dexPairKey(pair: DexPair) {
+  return `${pair.chainId || 'unknown'}:${pair.pairAddress || pair.url || pair.baseToken?.address || pair.baseToken?.symbol || ''}`;
+}
+
+async function fetchDexSearchPairs(query: string): Promise<DexPair[]> {
+  const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const rows = (data?.pairs || []) as DexPair[];
+  return rows.filter((pair) => pair.pairAddress && String(pair.chainId || '').toLowerCase() === DEX_MOVER_CHAIN);
+}
+
+async function fetchDexMovers(limit = 20): Promise<DexPair[]> {
+  const settled = await Promise.allSettled(DEX_MOVER_QUERIES.map((query) => fetchDexSearchPairs(query)));
+  const allPairs: DexPair[] = [];
+  for (const result of settled) {
+    if (result.status === 'fulfilled') allPairs.push(...result.value);
+  }
+  const deduped = new Map<string, DexPair>();
+  for (const pair of allPairs) deduped.set(dexPairKey(pair), pair);
+  return Array.from(deduped.values())
+    .sort((a, b) => scoreDexPair(b) - scoreDexPair(a))
+    .slice(0, limit);
+}
+
 async function demoTradingCockpit(): Promise<TradingCockpitSnapshot> {
   const settings = getLocalSettings();
   const prices = await fetchBinancePrices();
@@ -156,15 +203,7 @@ async function demoTradingCockpit(): Promise<TradingCockpitSnapshot> {
 
 async function demoRunSignals() {
   try {
-    const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/TOKEN_IN_PLACEHOLDER');
-    const data = await res.json();
-    const pairs = (data.pairs || []).slice(0, 10) as Array<{
-      baseToken?: { address?: string; symbol?: string };
-      priceChange?: { h24?: number };
-      volume?: { h24?: number };
-      liquidity?: { usd?: number };
-      priceUsd?: string;
-    }>;
+    const pairs = await fetchDexMovers(10);
     let signalsCreated = 0;
     let actionsCreated = 0;
 
@@ -208,6 +247,23 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
   const body = opts.body ? JSON.parse(String(opts.body)) : {};
 
   if (route === 'health') return { status: 'ok', mode: 'local_demo', timestamp: new Date().toISOString() } as T;
+  if (route === 'market/trending') {
+    try {
+      const res = await fetch('https://api.coingecko.com/api/v3/search/trending');
+      const data = await res.json();
+      return { items: (data.coins || []).map((coin: { item: unknown }) => coin.item) } as T;
+    } catch {
+      return { items: [] } as T;
+    }
+  }
+  if (route === 'market/dex-movers') {
+    return { items: await fetchDexMovers(20) } as T;
+  }
+  if (route === 'market/token-search') {
+    const q = url.searchParams.get('q') || '';
+    if (!q.trim()) return { items: [] } as T;
+    return { items: await fetchDexSearchPairs(q) } as T;
+  }
   if (route === 'config') {
     if (opts.method === 'PUT') {
       const settings = getLocalSettings();
