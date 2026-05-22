@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { path: '/strategies', label: 'Stratégies', icon: Cpu },
   { path: '/auto-trade', label: 'Pilotage des ordres', icon: Repeat },
   { path: '/ai', label: 'Gestion IA', icon: Brain },
-  { path: '/orchestration', label: 'Orchestration', icon: Activity },
+  { path: '/orchestration', label: 'Coordination', icon: Activity },
   { path: '/console', label: 'Console', icon: Terminal },
   { path: '/transactions', label: 'Historique', icon: ListOrdered },
   { path: '/safety', label: 'Sécurité', icon: Shield },

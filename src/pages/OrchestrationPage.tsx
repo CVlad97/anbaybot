@@ -29,8 +29,8 @@ export default function OrchestrationPage() {
     <div className="space-y-6">
       <PageHeader
         icon={Activity}
-        title="Orchestration trading"
-        subtitle="Pilotage multi-wallet avec garde-fous risque"
+        title="Coordination trading (semi-auto)"
+        subtitle="Pilotage multi-portefeuilles avec contrôles de risque"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -77,7 +77,7 @@ export default function OrchestrationPage() {
                   <span className="text-sm font-medium text-green-900">Taux de réussite</span>
                 </div>
                 <p className="text-2xl font-bold text-green-900">{metrics.winRate.toFixed(1)}%</p>
-                <p className="text-sm text-green-700 mt-1">{metrics.tradesExecuted} trades</p>
+                <p className="text-sm text-green-700 mt-1">{metrics.tradesExecuted} ordres</p>
               </div>
 
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">

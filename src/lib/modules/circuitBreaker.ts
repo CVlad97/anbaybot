@@ -74,13 +74,13 @@ export class CircuitBreaker {
         } else {
           return {
             allowed: false,
-            reason: 'Circuit breaker tripped. Manual reset required.',
+            reason: 'Circuit breaker déclenché. Réinitialisation manuelle requise.',
           };
         }
       } else {
         return {
           allowed: false,
-          reason: `Circuit breaker in cooldown until ${new Date(
+          reason: `Circuit breaker en pause jusqu’à ${new Date(
             this.state.cooldownEndsAt || 0
           ).toLocaleTimeString()}`,
         };
@@ -88,24 +88,24 @@ export class CircuitBreaker {
     }
 
     if (this.state.metrics.currentDrawdown > this.config.maxDrawdownPct) {
-      this.trip(`Maximum drawdown exceeded: ${this.state.metrics.currentDrawdown.toFixed(2)}%`);
+      this.trip(`Drawdown maximum dépassé: ${this.state.metrics.currentDrawdown.toFixed(2)}%`);
       return { allowed: false, reason: this.state.reason };
     }
 
     if (this.state.metrics.dailyLoss > this.config.maxDailyLossPct) {
-      this.trip(`Daily loss limit exceeded: ${this.state.metrics.dailyLoss.toFixed(2)}%`);
+      this.trip(`Perte journalière maximale dépassée: ${this.state.metrics.dailyLoss.toFixed(2)}%`);
       return { allowed: false, reason: this.state.reason };
     }
 
     if (this.state.metrics.consecutiveLosses >= this.config.maxConsecutiveLosses) {
-      this.trip(`Too many consecutive losses: ${this.state.metrics.consecutiveLosses}`);
+      this.trip(`Trop de pertes consécutives: ${this.state.metrics.consecutiveLosses}`);
       return { allowed: false, reason: this.state.reason };
     }
 
     if (this.state.metrics.currentDrawdown > this.config.maxDrawdownPct * 0.8) {
       this.notifyListeners({
         type: 'warning',
-        reason: `Approaching drawdown limit: ${this.state.metrics.currentDrawdown.toFixed(2)}%`,
+        reason: `Approche de la limite de drawdown: ${this.state.metrics.currentDrawdown.toFixed(2)}%`,
         timestamp: Date.now(),
       });
     }

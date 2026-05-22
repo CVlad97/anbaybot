@@ -2,8 +2,8 @@ import type { Strategy, PreparedAction, Signal, ManagedWallet } from '../../type
 
 const strategy: Strategy = {
   id: 'all_tokens_scanner',
-  name: 'All Tokens Scanner',
-  description: 'Scans ALL tokens on DEX (not just trending). Detects new launches, sudden volume spikes, and price explosions. Maximum coverage for opportunities.',
+  name: 'Scanner multi-tokens',
+  description: 'Analyse un large univers de tokens DEX (pas seulement les tendances) et prépare des opportunités à valider manuellement.',
   enabled: false,
   inputs: {
     minVolumeSpike: 200,
@@ -12,7 +12,7 @@ const strategy: Strategy = {
     maxTokenAgeHours: 24,
     allocationPct: 10,
     scanIntervalSeconds: 30,
-    autoExecute: true,
+    autoExecute: false,
   },
 };
 
@@ -57,8 +57,8 @@ export async function execute(
     const priceChange = meta.priceChange as { h1?: number } | undefined;
 
     const reason = meta.volumeSpike
-      ? `VOLUME SPIKE detected on ${signal.token_symbol}`
-      : `EXPLOSIVE PUMP: ${signal.token_symbol} +${(priceChange?.h1 || 0).toFixed(1)}% in 1h`;
+      ? `Pic de volume détecté sur ${signal.token_symbol}`
+      : `Hausse rapide: ${signal.token_symbol} +${(priceChange?.h1 || 0).toFixed(1)}% en 1h`;
 
     actions.push({
       type: 'ENTRY_PREPARED',
@@ -85,12 +85,12 @@ export async function execute(
         {
           rule: 'sufficient_liquidity',
           passed: ((meta.liquidity as { usd?: number } | undefined)?.usd || 0) >= minLiquidityNew,
-          detail: `Liquidity: $${(((meta.liquidity as { usd?: number } | undefined)?.usd || 0)).toLocaleString()}`,
+          detail: `Liquidité: $${(((meta.liquidity as { usd?: number } | undefined)?.usd || 0)).toLocaleString()}`,
         },
         {
           rule: 'auto_scan',
           passed: true,
-          detail: 'Real-time scanning enabled',
+          detail: 'Analyse continue activée (exécution toujours sous validation utilisateur)',
         },
       ],
     });

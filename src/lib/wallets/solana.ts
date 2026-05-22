@@ -33,13 +33,13 @@ export function getSolflareProvider(): SolanaProvider | null {
 
 function readPublicKey(provider: SolanaProvider): string {
   const pk = provider.publicKey;
-  if (!pk) throw new Error('No public key available after connect');
+  if (!pk) throw new Error('Aucune clé publique disponible après connexion');
   return pk.toBase58 ? pk.toBase58() : pk.toString();
 }
 
 export async function connectPhantom(): Promise<string> {
   const provider = getPhantomProvider();
-  if (!provider) throw new Error('Phantom not found. Install the Phantom extension.');
+  if (!provider) throw new Error('Phantom non détecté. Installez l’extension Phantom.');
   const resp = await provider.connect();
   if (resp && resp.publicKey) {
     return resp.publicKey.toString();
@@ -49,7 +49,7 @@ export async function connectPhantom(): Promise<string> {
 
 export async function connectSolflare(): Promise<string> {
   const provider = getSolflareProvider();
-  if (!provider) throw new Error('Solflare not found. Install the Solflare extension.');
+  if (!provider) throw new Error('Solflare non détecté. Installez l’extension Solflare.');
   await provider.connect();
   await new Promise(r => setTimeout(r, 300));
   return readPublicKey(provider);
@@ -99,14 +99,14 @@ export async function signAndSendWithProvider(
   const bytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
 
   const p = provider === 'phantom' ? getPhantomProvider() : getSolflareProvider();
-  if (!p) throw new Error(`${provider} provider not found`);
+  if (!p) throw new Error(`${provider} non détecté`);
 
   if (!p.isConnected && !p.publicKey) {
     await p.connect();
   }
 
   if (!p.signAndSendTransaction) {
-    throw new Error(`${provider} does not support signAndSendTransaction`);
+    throw new Error(`${provider} ne supporte pas signAndSendTransaction`);
   }
 
   const result = await p.signAndSendTransaction(bytes);

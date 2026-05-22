@@ -3,11 +3,11 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 
 const plugin: StrategyPlugin = {
   id: 'defensive_exit',
-  name: 'Defensive Exit',
-  description: 'Monitors held positions for excessive drawdown or volatility. Prepares exits to USDC stablecoin.',
+  name: 'Sortie défensive',
+  description: 'Surveille les positions en forte baisse et prépare une sortie défensive vers USDC.',
   inputs: {
-    maxDrawdownPct: { type: 'number', default: -20, label: 'Max Drawdown (%)' },
-    volatilityThreshold: { type: 'number', default: 50, label: 'Volatility Threshold (%)' },
+    maxDrawdownPct: { type: 'number', default: -20, label: 'Drawdown max (%)' },
+    volatilityThreshold: { type: 'number', default: 50, label: 'Seuil volatilité (%)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const dexSignals = ctx.signals.filter(s => s.source === 'dexscreener');
@@ -31,7 +31,7 @@ const plugin: StrategyPlugin = {
           symbol: signal.token_symbol,
           exitTo: 'USDC',
           drawdown: priceChange,
-          reason: `Defensive exit: ${priceChange.toFixed(1)}% drawdown detected`,
+          reason: `Sortie défensive: drawdown détecté à ${priceChange.toFixed(1)}%`,
         },
         riskChecks: checks,
       });
@@ -40,7 +40,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Defensive exit: ${p.symbol || 'token'} to ${p.exitTo}. Drawdown: ${p.drawdown}%`;
+    return `Sortie défensive: ${p.symbol || 'token'} vers ${p.exitTo}. Drawdown: ${p.drawdown}%`;
   },
 };
 

@@ -66,14 +66,14 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
     try {
       const provider = window.solana;
       if (!provider) {
-        throw new Error('Phantom wallet not found');
+        throw new Error('Wallet Phantom non détecté');
       }
       const resp = await provider.connect();
       if (resp && resp.publicKey) {
         onConnect(resp.publicKey.toString(), 'phantom');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect');
+      setError(err instanceof Error ? err.message : 'Connexion impossible');
     } finally {
       setConnecting(false);
     }
@@ -85,14 +85,14 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
     try {
       const provider = window.solflare;
       if (!provider) {
-        throw new Error('Solflare wallet not found');
+        throw new Error('Wallet Solflare non détecté');
       }
       const resp = await provider.connect();
       if (resp && resp.publicKey) {
         onConnect(resp.publicKey.toString(), 'solflare');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect');
+      setError(err instanceof Error ? err.message : 'Connexion impossible');
     } finally {
       setConnecting(false);
     }
@@ -141,7 +141,7 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
           onClick={disconnect}
           className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
         >
-          Disconnect
+          Déconnecter
         </button>
       </div>
     );
@@ -158,7 +158,7 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
       {isMobile && !hasPhantom && !hasSolflare ? (
         <div className="space-y-2">
           <p className="text-sm text-gray-600 mb-3">
-            Open this app in your wallet browser:
+            Ouvrez cette app dans le navigateur du wallet :
           </p>
           <button
             onClick={openPhantomDeeplink}
@@ -166,7 +166,7 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
           >
             <div className="flex items-center gap-3">
               <Smartphone className="w-5 h-5" />
-              <span className="font-medium">Open in Phantom</span>
+              <span className="font-medium">Ouvrir dans Phantom</span>
             </div>
             <ExternalLink className="w-4 h-4" />
           </button>
@@ -176,7 +176,7 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
           >
             <div className="flex items-center gap-3">
               <Smartphone className="w-5 h-5" />
-              <span className="font-medium">Open in Solflare</span>
+              <span className="font-medium">Ouvrir dans Solflare</span>
             </div>
             <ExternalLink className="w-4 h-4" />
           </button>
@@ -190,7 +190,7 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
               className="w-full flex items-center justify-center gap-3 p-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-lg transition-colors font-medium"
             >
               <Wallet className="w-5 h-5" />
-              {connecting ? 'Connecting...' : 'Connect Phantom'}
+              {connecting ? 'Connexion...' : 'Connecter Phantom'}
             </button>
           )}
           {hasSolflare && (
@@ -200,13 +200,13 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
               className="w-full flex items-center justify-center gap-3 p-3 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-300 text-white rounded-lg transition-colors font-medium"
             >
               <Wallet className="w-5 h-5" />
-              {connecting ? 'Connecting...' : 'Connect Solflare'}
+              {connecting ? 'Connexion...' : 'Connecter Solflare'}
             </button>
           )}
           {!hasPhantom && !hasSolflare && !isMobile && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800 mb-3">
-                No Solana wallet detected. Please install:
+                Aucun wallet Solana détecté. Installez :
               </p>
               <div className="flex gap-2">
                 <a

@@ -3,13 +3,13 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 
 const plugin: StrategyPlugin = {
   id: 'volume_spike_safe',
-  name: 'Volume Spike (Safe)',
-  description: 'Follows strong volume expansion only when liquidity stays healthy and the move is not too extended.',
+  name: 'Pic de volume (sécurisé)',
+  description: 'Prépare une entrée seulement si le volume monte avec une liquidité correcte et un mouvement encore maîtrisé.',
   inputs: {
-    minVolume24h: { type: 'number', default: 60000, label: 'Min Volume 24h (USD)' },
-    minPriceChange24h: { type: 'number', default: 3, label: 'Min Price Change 24h (%)' },
-    maxPriceChange24h: { type: 'number', default: 18, label: 'Max Price Change 24h (%)' },
-    entrySizeUsd: { type: 'number', default: 10, label: 'Entry Size (USD)' },
+    minVolume24h: { type: 'number', default: 60000, label: 'Volume min 24h (USD)' },
+    minPriceChange24h: { type: 'number', default: 3, label: 'Variation min 24h (%)' },
+    maxPriceChange24h: { type: 'number', default: 18, label: 'Variation max 24h (%)' },
+    entrySizeUsd: { type: 'number', default: 10, label: 'Taille d’entrée (USD)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const dexSignals = ctx.signals.filter((s) => s.source === 'dexscreener');
@@ -41,7 +41,7 @@ const plugin: StrategyPlugin = {
           volumeSpike,
           stopLossPct: 2.2,
           takeProfitPct: 4,
-          reason: `Volume spike with controlled extension on ${signal.token_symbol}`,
+          reason: `Pic de volume avec extension contrôlée sur ${signal.token_symbol}`,
         },
         riskChecks: checks,
       });
@@ -51,7 +51,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Volume spike: ${p.symbol || 'token'} with ${p.volume24h ? 'confirmed' : 'unconfirmed'} activity.`;
+    return `Pic de volume: ${p.symbol || 'token'} (${p.volume24h ? 'activité confirmée' : 'activité non confirmée'}). Validation utilisateur obligatoire.`;
   },
 };
 

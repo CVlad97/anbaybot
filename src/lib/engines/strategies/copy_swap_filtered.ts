@@ -3,11 +3,11 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 
 const plugin: StrategyPlugin = {
   id: 'copy_swap_filtered',
-  name: 'Copy Swap (Filtered)',
-  description: 'Copies swaps from followed wallets detected via Helius webhook. Prepares a Jupiter swap with controlled slippage.',
+  name: 'Copie de swaps (filtrée)',
+  description: 'Repère les swaps des wallets suivis et prépare une action contrôlée. Validation utilisateur obligatoire avant toute exécution.',
   inputs: {
-    maxSlippageBps: { type: 'number', default: 300, label: 'Max Slippage (bps)' },
-    minTradeSizeUsd: { type: 'number', default: 10, label: 'Min Trade Size (USD)' },
+    maxSlippageBps: { type: 'number', default: 300, label: 'Slippage max (bps)' },
+    minTradeSizeUsd: { type: 'number', default: 10, label: 'Taille mini (USD)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const heliusSignals = ctx.signals.filter(s => s.source === 'helius');
@@ -34,7 +34,7 @@ const plugin: StrategyPlugin = {
           symbol: signal.token_symbol,
           amountIn: meta.amountUsd || 0,
           slippageBps: ctx.riskParams.maxSlippageBps,
-          reason: `Copy swap from ${fromWallet.slice(0, 8)}...`,
+          reason: `Swap suivi détecté depuis ${fromWallet.slice(0, 8)}...`,
         },
         riskChecks: checks,
       });
@@ -43,7 +43,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Copy swap: Buy ${p.symbol || 'token'} for ~$${p.amountIn} from followed wallet activity. Slippage: ${p.slippageBps}bps.`;
+    return `Préparation copie swap: ${p.symbol || 'token'} (~$${p.amountIn}). Slippage ${p.slippageBps} bps. Confirmation utilisateur requise.`;
   },
 };
 

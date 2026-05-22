@@ -66,7 +66,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
     try {
       await onBuild(action.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Build failed');
+      setError(err instanceof Error ? err.message : 'Préparation de transaction échouée');
     } finally {
       setBuilding(false);
     }
@@ -74,7 +74,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
 
   const handleSign = async () => {
     if (!action.tx_data || !action.managed_wallets?.address) {
-      setError('Transaction data or wallet address missing');
+      setError('Données transaction ou adresse wallet manquantes');
       return;
     }
 
@@ -84,7 +84,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
     try {
       const provider = window.solana || window.solflare;
       if (!provider) {
-        throw new Error('Wallet not connected');
+        throw new Error('Wallet non connecté');
       }
 
       const txBuffer = Uint8Array.from(atob(action.tx_data), c => c.charCodeAt(0));
@@ -101,13 +101,13 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
         const rawTransaction = signedTx.serialize();
         signature = await connection.sendRawTransaction(rawTransaction);
       } else {
-        throw new Error('Wallet does not support signing transactions');
+        throw new Error('Ce wallet ne supporte pas la signature de transaction');
       }
 
       await onConfirm(action.id, signature);
     } catch (err) {
       console.error('Sign error:', err);
-      setError(err instanceof Error ? err.message : 'Signing failed');
+      setError(err instanceof Error ? err.message : 'Signature échouée');
     } finally {
       setSigning(false);
     }
@@ -115,7 +115,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
 
   const handleRefuse = async () => {
     if (!refusalReason.trim()) {
-      setError('Please provide a reason for refusal');
+      setError('Veuillez indiquer un motif de refus');
       return;
     }
 
@@ -126,7 +126,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
       await onRefuse(action.id, refusalReason);
       setRefusalReason('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Refusal failed');
+      setError(err instanceof Error ? err.message : 'Refus échoué');
     } finally {
       setRefusing(false);
     }
@@ -150,7 +150,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
           </div>
           {action.managed_wallets && (
             <p className="text-xs text-surface-500 font-mono">
-              Wallet: {action.managed_wallets.label} ({action.managed_wallets.address.slice(0, 4)}...{action.managed_wallets.address.slice(-4)})
+              Portefeuille: {action.managed_wallets.label} ({action.managed_wallets.address.slice(0, 4)}...{action.managed_wallets.address.slice(-4)})
             </p>
           )}
         </div>
@@ -161,13 +161,13 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
 
       <div className="flex items-center gap-3 p-3 bg-surface-900 rounded-lg">
         <div className="flex-1">
-          <p className="text-xs text-surface-500 mb-1">From</p>
+          <p className="text-xs text-surface-500 mb-1">De</p>
           <p className="text-sm text-white font-mono truncate">{action.token_in}</p>
           <p className="text-xs text-surface-400 mt-1">{formatAmount(action.amount_in)}</p>
         </div>
         <ArrowRight className="text-surface-600" size={20} />
         <div className="flex-1">
-          <p className="text-xs text-surface-500 mb-1">To</p>
+          <p className="text-xs text-surface-500 mb-1">Vers</p>
           <p className="text-sm text-white font-mono truncate">{action.token_out}</p>
           {(() => {
             const outAmount = action.quote_data && typeof action.quote_data === 'object'
@@ -197,7 +197,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
 
       {action.refusal_reason && (
         <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
-          <p className="text-xs text-red-400">Refused: {action.refusal_reason}</p>
+          <p className="text-xs text-red-400">Refusée: {action.refusal_reason}</p>
         </div>
       )}
 
@@ -208,7 +208,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-xs text-brand-400 hover:text-brand-300"
         >
-          View on Solscan
+          Voir sur Solscan
           <ExternalLink size={12} />
         </a>
       )}
@@ -222,7 +222,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
               {building ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-              {building ? 'Building...' : 'Build Transaction'}
+              {building ? 'Préparation...' : 'Préparer la transaction'}
             </button>
             <button
               onClick={() => setRefusing(!refusing)}
@@ -241,7 +241,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
               {signing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-              {signing ? 'Signing...' : 'Sign & Submit'}
+              {signing ? 'Signature...' : 'Signer et envoyer'}
             </button>
             <button
               onClick={() => setRefusing(!refusing)}
@@ -253,7 +253,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
         )}
 
         {['CONFIRMED', 'FAILED', 'REJECTED'].includes(action.status) && (
-          <span className="text-xs text-surface-500 italic">Action completed</span>
+          <span className="text-xs text-surface-500 italic">Action terminée</span>
         )}
       </div>
 
@@ -261,7 +261,7 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
         <div className="space-y-2 pt-2 border-t border-surface-800">
           <input
             type="text"
-            placeholder="Reason for refusal..."
+            placeholder="Motif du refus..."
             value={refusalReason}
             onChange={(e) => setRefusalReason(e.target.value)}
             className="input"
@@ -272,13 +272,13 @@ export default function ActionCard({ action, onConfirm, onRefuse, onBuild }: Act
               disabled={refusing}
               className="btn-ghost text-red-400 hover:bg-red-500/10 flex-1"
             >
-              {refusing ? 'Refusing...' : 'Confirm Refusal'}
+              {refusing ? 'Refus...' : 'Confirmer le refus'}
             </button>
             <button
               onClick={() => setRefusing(false)}
               className="btn-ghost"
             >
-              Cancel
+              Annuler
             </button>
           </div>
         </div>

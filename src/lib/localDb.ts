@@ -138,8 +138,8 @@ export function createLocalAction(payload: Row) {
     strategy_id: 'market_scan_demo',
     payload,
     risk_checks: [
-      { rule: 'mode', passed: true, detail: 'Local demo only - no live execution' },
-      { rule: 'manual_validation', passed: true, detail: 'Human confirmation required' },
+      { rule: 'mode', passed: true, detail: 'Mode local de démonstration - aucune exécution live' },
+      { rule: 'manual_validation', passed: true, detail: 'Confirmation utilisateur obligatoire' },
     ],
     created_at: now(),
     updated_at: now(),

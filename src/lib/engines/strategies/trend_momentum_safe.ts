@@ -3,13 +3,13 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 
 const plugin: StrategyPlugin = {
   id: 'trend_momentum_safe',
-  name: 'Trend Momentum (Safe)',
-  description: 'Looks for steady upward moves with liquidity and volume confirmation. Keeps size small and avoids chasing vertical candles.',
+  name: 'Tendance momentum (sécurisé)',
+  description: 'Recherche des hausses régulières validées par le volume et la liquidité. Garde des tailles réduites.',
   inputs: {
-    minPriceChange24h: { type: 'number', default: 6, label: 'Min Price Change 24h (%)' },
-    minVolume24h: { type: 'number', default: 40000, label: 'Min Volume 24h (USD)' },
-    maxPriceChange24h: { type: 'number', default: 24, label: 'Max Price Change 24h (%)' },
-    entrySizeUsd: { type: 'number', default: 15, label: 'Entry Size (USD)' },
+    minPriceChange24h: { type: 'number', default: 6, label: 'Variation min 24h (%)' },
+    minVolume24h: { type: 'number', default: 40000, label: 'Volume min 24h (USD)' },
+    maxPriceChange24h: { type: 'number', default: 24, label: 'Variation max 24h (%)' },
+    entrySizeUsd: { type: 'number', default: 15, label: 'Taille d’entrée (USD)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const dexSignals = ctx.signals.filter((s) => s.source === 'dexscreener');
@@ -40,7 +40,7 @@ const plugin: StrategyPlugin = {
           liquidityUsd: liquidity,
           stopLossPct: 2.5,
           takeProfitPct: 4.5,
-          reason: `Safe momentum: +${priceChange.toFixed(1)}% with volume confirmation`,
+          reason: `Momentum sécurisé: +${priceChange.toFixed(1)}% avec confirmation volume`,
         },
         riskChecks: checks,
       });
@@ -50,7 +50,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Trend momentum: ${p.symbol || 'token'} with measured strength. Entry size $${p.entrySizeUsd}.`;
+    return `Tendance momentum: ${p.symbol || 'token'} avec force mesurée. Taille entrée $${p.entrySizeUsd}. Validation utilisateur obligatoire.`;
   },
 };
 

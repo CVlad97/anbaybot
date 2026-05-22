@@ -3,13 +3,13 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 
 const plugin: StrategyPlugin = {
   id: 'mean_reversion_safe',
-  name: 'Mean Reversion (Safe)',
-  description: 'Uses only liquid assets and small sizes when the move is stretched but not broken.',
+  name: 'Retour à la moyenne (sécurisé)',
+  description: 'Utilise uniquement des actifs liquides avec petites tailles lorsque le mouvement est étiré sans rupture.',
   inputs: {
-    minLiquidityUsd: { type: 'number', default: 50000, label: 'Min Liquidity (USD)' },
-    minOversoldChange24h: { type: 'number', default: -12, label: 'Min Price Change 24h (%)' },
-    maxOversoldChange24h: { type: 'number', default: -4, label: 'Max Price Change 24h (%)' },
-    entrySizeUsd: { type: 'number', default: 8, label: 'Entry Size (USD)' },
+    minLiquidityUsd: { type: 'number', default: 50000, label: 'Liquidité mini (USD)' },
+    minOversoldChange24h: { type: 'number', default: -12, label: 'Variation mini 24h (%)' },
+    maxOversoldChange24h: { type: 'number', default: -4, label: 'Variation max 24h (%)' },
+    entrySizeUsd: { type: 'number', default: 8, label: 'Taille d’entrée (USD)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const dexSignals = ctx.signals.filter((s) => s.source === 'dexscreener');
@@ -43,7 +43,7 @@ const plugin: StrategyPlugin = {
           rsi,
           stopLossPct: 2,
           takeProfitPct: 3.5,
-          reason: `Mean reversion candidate on ${signal.token_symbol} with liquid market conditions`,
+          reason: `Candidat retour à la moyenne sur ${signal.token_symbol} avec conditions de liquidité correctes`,
         },
         riskChecks: checks,
       });
@@ -53,7 +53,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Mean reversion: ${p.symbol || 'token'} is extended but still liquid.`;
+    return `Retour à la moyenne: ${p.symbol || 'token'} est étiré mais reste liquide. Confirmation utilisateur obligatoire.`;
   },
 };
 

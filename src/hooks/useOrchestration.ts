@@ -265,7 +265,7 @@ export function useOrchestration() {
     }
 
     if (correctionCount > 0) {
-      addEvent('info', `Auto-corrected ${correctionCount} trader addresses`);
+      addEvent('info', `${correctionCount} adresses corrigées automatiquement`);
     }
 
     return corrected;
@@ -273,7 +273,7 @@ export function useOrchestration() {
 
   const startOrchestrator = useCallback(async () => {
     setIsRunning(true);
-    addEvent('info', 'Orchestrator started');
+    addEvent('info', 'Orchestrateur démarré');
 
     const traderList = await loadTraders();
     const correctedTraders = await autoCorrectAddresses(traderList);
@@ -299,13 +299,13 @@ export function useOrchestration() {
 
   const stopOrchestrator = useCallback(() => {
     setIsRunning(false);
-    addEvent('warning', 'Orchestrator stopped');
+    addEvent('warning', 'Orchestrateur arrêté');
   }, [addEvent]);
 
   const toggleFeature = useCallback((feature: keyof typeof config) => {
     setConfig(prev => {
       const newConfig = { ...prev, [feature]: !prev[feature] };
-      addEvent('info', `${feature} ${newConfig[feature] ? 'enabled' : 'disabled'}`);
+      addEvent('info', `${feature} ${newConfig[feature] ? 'activé' : 'désactivé'}`);
       return newConfig;
     });
   }, [addEvent]);

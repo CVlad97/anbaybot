@@ -65,9 +65,11 @@ export async function getConnectedEvmAddress(wallet: EvmWalletId): Promise<strin
 
 export async function connectEvmWallet(wallet: EvmWalletId): Promise<string> {
   const provider = wallet === 'metamask' ? getMetaMaskProvider() : findProvider(wallet);
-  if (!provider) throw new Error(`${walletLabel(wallet)} provider not found. Open this page inside the wallet browser.`);
+  if (!provider) {
+    throw new Error(`${walletLabel(wallet)} non détecté. Ouvrez la page dans le navigateur du wallet.`);
+  }
   const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[];
-  if (!accounts[0]) throw new Error('No account returned');
+  if (!accounts[0]) throw new Error('Aucun compte renvoyé par le wallet.');
   if (wallet === 'base' || wallet === 'trust' || wallet === 'metamask') {
     await switchToBase(provider).catch(() => {
       // Keep connection even if the wallet refuses network switching.

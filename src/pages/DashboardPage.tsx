@@ -134,7 +134,7 @@ export default function DashboardPage() {
         side: orderSide,
         amountUsd: amount,
         status: 'ERROR',
-        message: error instanceof Error ? error.message : 'Order failed',
+        message: error instanceof Error ? error.message : 'Échec de l’ordre',
       });
     }
   };
@@ -143,8 +143,8 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={LayoutDashboard}
-        title="Cockpit trading"
-        subtitle="Prix Binance, soldes, contrôles risque et exécution sous confirmation"
+        title="Pilotage crypto (semi-auto)"
+        subtitle="Suivi des prix, contrôle du risque et actions uniquement après votre confirmation"
         action={
           <button
             onClick={() => {
@@ -163,21 +163,21 @@ export default function DashboardPage() {
       <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
         <p className="text-xs text-surface-300">
           Les performances passées ne garantissent aucun gain futur.
-          Chaque ordre doit être validé par vous avant exécution.
+          Ce site prépare des actions, mais chaque ordre réel doit être validé par vous.
         </p>
       </div>
 
       {settings?.kill_switch && (
         <div className="card p-4 mb-6 border-l-4 border-l-danger-500 bg-danger-600/5 flex items-center gap-3">
           <AlertTriangle size={18} className="text-danger-400 shrink-0" />
-          <p className="text-sm text-danger-400">Kill switch actif: le trading est bloqué.</p>
+          <p className="text-sm text-danger-400">Kill switch actif : le trading est bloqué.</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <SummaryCard icon={DollarSign} label="Portefeuille total" value={formatUsd(totalValueUsd)} sub={lastRefresh ? `Mis à jour ${lastRefresh}` : 'Chargement...'} color="text-brand-400" bgColor="bg-brand-600/10" />
         <SummaryCard icon={pnlPositive ? TrendingUp : TrendingDown} label="P&L" value={`${pnlPositive ? '+' : ''}${formatUsd(pnlUsd)}`} sub={`${pnlPositive ? '+' : ''}${pnlPct.toFixed(2)}%`} color={pnlPositive ? 'text-brand-400' : 'text-danger-400'} bgColor={pnlPositive ? 'bg-brand-600/10' : 'bg-danger-600/10'} />
-        <SummaryCard icon={Wallet} label="Wallets connectés" value={String(connectedCount)} sub={`${managedWallets.length} total`} color="text-blue-400" bgColor="bg-blue-500/10" />
+        <SummaryCard icon={Wallet} label="Portefeuilles connectés" value={String(connectedCount)} sub={`${managedWallets.length} total`} color="text-blue-400" bgColor="bg-blue-500/10" />
         <SummaryCard icon={Cpu} label="Stratégies actives" value={String(enabledStrategies.length)} sub={settings?.kill_switch ? 'Bloqué par kill switch' : 'Prêt à trader'} color="text-warn-400" bgColor="bg-warn-500/10" />
       </div>
 
@@ -233,10 +233,10 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold text-white">{tradingRecommendation.action} {tradingRecommendation.symbol}</p>
                 <p className="text-sm text-surface-400">{tradingRecommendation.reasoning.join(' • ')}</p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Row label="Confidence" value={`${tradingRecommendation.confidence}%`} />
-                  <Row label="Size" value={formatUsd(tradingRecommendation.amountUsd)} />
+                  <Row label="Confiance" value={`${tradingRecommendation.confidence}%`} />
+                  <Row label="Taille" value={formatUsd(tradingRecommendation.amountUsd)} />
                   <Row label="Momentum" value={`${tradingRecommendation.momentum.toFixed(2)}%`} />
-                  <Row label="Side" value={tradingRecommendation.side} />
+                  <Row label="Sens" value={tradingRecommendation.side} />
                 </div>
               </div>
             ) : (
@@ -270,8 +270,8 @@ export default function DashboardPage() {
             <h3 className="text-base font-semibold text-white mb-4">Exécution</h3>
             <div className="space-y-3">
               <select value={orderMode} onChange={e => setOrderMode(e.target.value as 'TEST' | 'LIVE')} className="input">
-                <option value="TEST">Ordre test Binance réel</option>
-                <option value="LIVE">Ordre live sécurisé</option>
+                <option value="TEST">Mode test Binance</option>
+                <option value="LIVE">Mode réel sécurisé</option>
               </select>
               <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbole" />
               <div className="grid grid-cols-2 gap-3">
@@ -304,7 +304,7 @@ export default function DashboardPage() {
                 <span>Je confirme que je valide cet ordre et que le risque financier est sous ma responsabilité.</span>
               </label>
               <button onClick={handleSubmitOrder} disabled={orderBlockedByConfirmation} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">
-                {orderMode === 'TEST' ? 'Envoyer ordre test Binance' : 'Envoyer ordre live sécurisé'}
+                {orderMode === 'TEST' ? 'Envoyer en mode test' : 'Envoyer en mode réel sécurisé'}
               </button>
               {orderBlockedByConfirmation && (
                 <p className="text-xs text-warn-400">

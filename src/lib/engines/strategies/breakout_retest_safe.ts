@@ -3,13 +3,13 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 
 const plugin: StrategyPlugin = {
   id: 'breakout_retest_safe',
-  name: 'Breakout Retest (Safe)',
-  description: 'Waits for a breakout and a clean retest before preparing an entry. Avoids buying the first impulse candle.',
+  name: 'Cassure + retest (sécurisé)',
+  description: 'Attend une cassure puis un retest propre avant de préparer une entrée. Évite les achats sur la première impulsion.',
   inputs: {
-    minPriceChange24h: { type: 'number', default: 4, label: 'Min Price Change 24h (%)' },
-    maxPriceChange24h: { type: 'number', default: 20, label: 'Max Price Change 24h (%)' },
-    minVolume24h: { type: 'number', default: 30000, label: 'Min Volume 24h (USD)' },
-    entrySizeUsd: { type: 'number', default: 12, label: 'Entry Size (USD)' },
+    minPriceChange24h: { type: 'number', default: 4, label: 'Variation min 24h (%)' },
+    maxPriceChange24h: { type: 'number', default: 20, label: 'Variation max 24h (%)' },
+    minVolume24h: { type: 'number', default: 30000, label: 'Volume min 24h (USD)' },
+    entrySizeUsd: { type: 'number', default: 12, label: 'Taille d’entrée (USD)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const dexSignals = ctx.signals.filter((s) => s.source === 'dexscreener');
@@ -43,8 +43,8 @@ const plugin: StrategyPlugin = {
           stopLossPct: 2.8,
           takeProfitPct: 5.2,
           reason: retestConfirmed
-            ? `Breakout retest confirmed on ${signal.token_symbol}`
-            : `Potential breakout on ${signal.token_symbol}, but only small size is considered`,
+            ? `Retest de cassure confirmé sur ${signal.token_symbol}`
+            : `Cassure potentielle sur ${signal.token_symbol}, taille réduite uniquement`,
         },
         riskChecks: checks,
       });
@@ -54,7 +54,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Breakout retest: ${p.symbol || 'token'} with retest=${String(p.retestConfirmed)}.`;
+    return `Cassure + retest: ${p.symbol || 'token'} (retest confirmé: ${String(p.retestConfirmed)}). Confirmation utilisateur obligatoire.`;
   },
 };
 

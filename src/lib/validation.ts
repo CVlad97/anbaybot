@@ -13,32 +13,32 @@ export const ActionStatusSchema = z.enum([
 ]);
 
 export const PrepareActionSchema = z.object({
-  strategyId: z.string().min(1, 'Strategy ID is required'),
+  strategyId: z.string().min(1, 'Identifiant de stratégie requis'),
   actionType: ActionTypeSchema,
-  tokenIn: z.string().min(1, 'Token input is required'),
-  tokenOut: z.string().min(1, 'Token output is required'),
+  tokenIn: z.string().min(1, 'Token d’entrée requis'),
+  tokenOut: z.string().min(1, 'Token de sortie requis'),
   amountIn: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-    message: 'Amount must be a positive number'
+    message: 'Le montant doit être un nombre positif'
   }),
   minAmountOut: z.string().optional(),
-  walletId: z.string().uuid('Invalid wallet ID format'),
+  walletId: z.string().uuid('Format ID wallet invalide'),
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
 export const BuildActionSchema = z.object({
-  userPublicKey: z.string().min(32, 'Public key must be at least 32 characters')
+  userPublicKey: z.string().min(32, 'La clé publique doit contenir au moins 32 caractères')
 });
 
 export const ConfirmActionSchema = z.object({
-  txSignature: z.string().min(64, 'Transaction signature must be at least 64 characters')
+  txSignature: z.string().min(64, 'La signature transaction doit contenir au moins 64 caractères')
 });
 
 export const RefuseActionSchema = z.object({
-  reason: z.string().min(1, 'Reason is required').max(500, 'Reason must be less than 500 characters')
+  reason: z.string().min(1, 'Raison requise').max(500, 'La raison doit faire moins de 500 caractères')
 });
 
 export const MarketSearchSchema = z.object({
-  query: z.string().min(1, 'Query is required').max(100, 'Query must be less than 100 characters'),
+  query: z.string().min(1, 'Recherche requise').max(100, 'La recherche doit faire moins de 100 caractères'),
   limit: z.number().int().min(1).max(50).optional().default(10)
 });
 
@@ -66,8 +66,8 @@ export const HeliusWebhookSchema = z.object({
 export const AuditLogSchema = z.object({
   event: z.string(),
   userId: z.string().optional(),
-  walletId: z.string().uuid('Invalid wallet ID format').optional(),
-  actionId: z.string().uuid('Invalid action ID format').optional(),
+  walletId: z.string().uuid('Format ID wallet invalide').optional(),
+  actionId: z.string().uuid('Format ID action invalide').optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   ipAddress: z.string().optional()
 });

@@ -58,22 +58,22 @@ export function makeRiskChecks(ctx: StrategyContext, token: string, liquidity: n
   checks.push({
     rule: 'kill_switch',
     passed: !ctx.killSwitch,
-    detail: ctx.killSwitch ? 'Kill switch is ON' : 'Kill switch OFF',
+    detail: ctx.killSwitch ? 'Kill switch actif' : 'Kill switch inactif',
   });
   checks.push({
     rule: 'max_trades_per_day',
     passed: ctx.todayTradeCount < ctx.riskParams.maxTradesPerDay,
-    detail: `${ctx.todayTradeCount}/${ctx.riskParams.maxTradesPerDay} trades today`,
+    detail: `${ctx.todayTradeCount}/${ctx.riskParams.maxTradesPerDay} ordres aujourd’hui`,
   });
   checks.push({
     rule: 'token_blacklist',
     passed: !ctx.riskParams.tokenBlacklist.includes(token),
-    detail: ctx.riskParams.tokenBlacklist.includes(token) ? 'Token is blacklisted' : 'Token not blacklisted',
+    detail: ctx.riskParams.tokenBlacklist.includes(token) ? 'Token en liste noire' : 'Token hors liste noire',
   });
   checks.push({
     rule: 'min_liquidity',
     passed: liquidity >= ctx.riskParams.minLiquidityUsd,
-    detail: `Liquidity $${liquidity.toLocaleString()} vs min $${ctx.riskParams.minLiquidityUsd.toLocaleString()}`,
+    detail: `Liquidité $${liquidity.toLocaleString()} (min: $${ctx.riskParams.minLiquidityUsd.toLocaleString()})`,
   });
   return checks;
 }

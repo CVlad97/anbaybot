@@ -4,11 +4,11 @@ import { registerStrategy, makeRiskChecks, type StrategyContext, type StrategyPl
 const plugin: StrategyPlugin = {
   id: 'momentum_dex',
   name: 'Momentum (DexScreener)',
-  description: 'Detects tokens with strong upward momentum from DexScreener movers. Prepares small entry positions.',
+  description: 'Détecte les tokens en forte dynamique haussière et prépare de petites entrées sous contrôle.',
   inputs: {
-    minPriceChange: { type: 'number', default: 15, label: 'Min Price Change 24h (%)' },
-    minVolume24h: { type: 'number', default: 50000, label: 'Min Volume 24h (USD)' },
-    entrySizeUsd: { type: 'number', default: 20, label: 'Entry Size (USD)' },
+    minPriceChange: { type: 'number', default: 15, label: 'Variation min 24h (%)' },
+    minVolume24h: { type: 'number', default: 50000, label: 'Volume min 24h (USD)' },
+    entrySizeUsd: { type: 'number', default: 20, label: 'Taille d’entrée (USD)' },
   },
   evaluate(ctx: StrategyContext): PreparedAction[] {
     const dexSignals = ctx.signals.filter(s => s.source === 'dexscreener');
@@ -37,7 +37,7 @@ const plugin: StrategyPlugin = {
           priceChange24h: priceChange,
           volume24h: volume,
           liquidity,
-          reason: `Momentum: +${priceChange.toFixed(1)}% / Vol $${(volume / 1000).toFixed(0)}K`,
+          reason: `Momentum: +${priceChange.toFixed(1)}% / Volume $${(volume / 1000).toFixed(0)}K`,
         },
         riskChecks: checks,
       });
@@ -46,7 +46,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Momentum entry: ${p.symbol || 'token'} at $${p.entrySizeUsd}. ${p.reason}`;
+    return `Entrée momentum: ${p.symbol || 'token'} pour $${p.entrySizeUsd}. ${p.reason}. Validation utilisateur obligatoire.`;
   },
 };
 
