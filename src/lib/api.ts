@@ -3,7 +3,14 @@ import type {
   BinanceAccountSnapshot, BinanceTicker, TradeExecutionResult, TradingRecommendation,
   TradingValidation, TradingPnL, TradingCockpitSnapshot,
 } from './types';
-import { isDemoSupabase, supabaseAnonKey, supabaseUrl } from './supabase';
+import {
+  clearRuntimeBackendFallback,
+  isDemoSupabase,
+  isRuntimeFallbackCoolingDown,
+  setRuntimeBackendMode,
+  supabaseAnonKey,
+  supabaseUrl,
+} from './supabase';
 import {
   addAudit,
   createLocalAction,
@@ -38,20 +45,59 @@ function buildUrl(path: string) {
   return `${base}${route}`;
 }
 
+function shouldFallbackFromError(status: number) {
+  return status >= 500 || status === 404 || status === 408 || status === 429;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 8000) {
+  if (init.signal) return fetch(url, init);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  if (isDemoSupabase) {
+  if (isDemoSupabase || !RAW_BACKEND_API_URL) {
     return demoRequest<T>(path, opts);
   }
 
-  const res = await fetch(buildUrl(path), {
-    ...opts,
-    headers: headers(opts.headers as Record<string, string>),
-  });
+  if (isRuntimeFallbackCoolingDown()) {
+    return demoRequest<T>(path, opts);
+  }
+
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(buildUrl(path), {
+      ...opts,
+      headers: headers((opts.headers || {}) as Record<string, string>),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'network_error';
+    setRuntimeBackendMode('fallback', reason);
+    return demoRequest<T>(path, opts);
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => 'Unknown error');
+    if (shouldFallbackFromError(res.status)) {
+      setRuntimeBackendMode('fallback', `api_${res.status}`);
+      return demoRequest<T>(path, opts);
+    }
     throw new Error(`API ${res.status}: ${text}`);
   }
-  return res.json();
+
+  try {
+    const data = await res.json();
+    clearRuntimeBackendFallback();
+    return data;
+  } catch {
+    setRuntimeBackendMode('fallback', 'invalid_json_response');
+    return demoRequest<T>(path, opts);
+  }
 }
 
 async function fetchBinancePrices(): Promise<BinanceTicker[]> {

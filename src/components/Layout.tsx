@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Wallet, TrendingUp, Users, Cpu, Terminal, ListOrdered,
@@ -7,7 +7,12 @@ import {
 } from 'lucide-react';
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
-import { isBackendConfigured, isDemoSupabase } from '../lib/supabase';
+import {
+  getRuntimeFallbackInfo,
+  isBackendConfigured,
+  isDemoSupabase,
+  isRuntimeFallbackEnabled,
+} from '../lib/supabase';
 import { clearAdminToken, getAdminToken, setAdminToken } from '../lib/auth';
 import { useWalletAutoReconnect } from '../hooks/useWalletAutoReconnect';
 
@@ -31,11 +36,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tokenInput, setTokenInput] = useState(() => getAdminToken());
   const [hasToken, setHasToken] = useState(() => Boolean(getAdminToken()));
+  const [runtimeFallback, setRuntimeFallback] = useState(() => isRuntimeFallbackEnabled());
+  const [runtimeReason, setRuntimeReason] = useState(() => getRuntimeFallbackInfo().reason);
   const location = useLocation();
   const navigate = useNavigate();
   const { solanaAddress, evmAddress } = useWalletStore();
 
   const activeAddress = solanaAddress || evmAddress;
+
+  useEffect(() => {
+    const syncRuntimeMode = () => {
+      const info = getRuntimeFallbackInfo();
+      setRuntimeFallback(info.mode === 'fallback');
+      setRuntimeReason(info.reason);
+    };
+    syncRuntimeMode();
+    window.addEventListener('anbaybot-runtime-mode-changed', syncRuntimeMode);
+    window.addEventListener('storage', syncRuntimeMode);
+    return () => {
+      window.removeEventListener('anbaybot-runtime-mode-changed', syncRuntimeMode);
+      window.removeEventListener('storage', syncRuntimeMode);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -113,13 +135,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {!isDemoSupabase && (
-            <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${isBackendConfigured ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : 'border-danger-500/40 bg-danger-500/10 text-danger-100'}`}>
+            <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${runtimeFallback ? 'border-warn-500/40 bg-warn-500/10 text-warn-100' : isBackendConfigured ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : 'border-danger-500/40 bg-danger-500/10 text-danger-100'}`}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <strong className={isBackendConfigured ? 'text-brand-300' : 'text-danger-300'}>Mode reel serveur.</strong>{' '}
-                  {isBackendConfigured
-                    ? 'Les operations passent par la fonction Edge securisee. Renseigne le token cockpit localement pour utiliser les routes privees.'
-                    : 'Backend non configure: ajoute VITE_BACKEND_API_URL dans GitHub Pages.'}
+                  <strong className={runtimeFallback ? 'text-warn-300' : isBackendConfigured ? 'text-brand-300' : 'text-danger-300'}>
+                    {runtimeFallback ? 'Serveur indisponible, mode simulation actif.' : 'Mode reel serveur.'}
+                  </strong>{' '}
+                  {runtimeFallback
+                    ? `Le backend ne repond pas. Le site bascule automatiquement en mode local pour rester utilisable.${runtimeReason ? ` (${runtimeReason})` : ''}`
+                    : isBackendConfigured
+                      ? 'Les operations passent par la fonction Edge securisee. Renseigne le token cockpit localement pour utiliser les routes privees.'
+                      : 'Backend non configure: ajoute VITE_BACKEND_API_URL dans GitHub Pages.'}
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <input
