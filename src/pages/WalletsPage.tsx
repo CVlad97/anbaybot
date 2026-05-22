@@ -108,7 +108,7 @@ export default function WalletsPage() {
       address: newAddress.trim(),
       chain: newChain,
       platform: newPlatform,
-      label: newLabel || `Wallet ${newAddress.slice(0, 8)}...`,
+      label: newLabel || `Portefeuille ${newAddress.slice(0, 8)}...`,
     });
     setNewAddress('');
     setNewLabel('');

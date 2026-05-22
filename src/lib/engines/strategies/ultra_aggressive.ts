@@ -2,8 +2,9 @@ import type { Strategy, PreparedAction, Signal, ManagedWallet } from '../../type
 
 const strategy: Strategy = {
   id: 'ultra_aggressive',
-  name: 'Ultra Aggressive Gains',
-  description: 'Maximum speed trading on all tokens with high volatility. Auto-entry on pumps >5%, auto-exit on dumps >3%. High allocation for fast gains.',
+  name: 'Scénario volatilité élevée (piloté)',
+  description:
+    'Scénario de détection de volatilité élevée. Les actions restent des préparations en simulation: validation utilisateur obligatoire avant toute exécution réelle.',
   enabled: false,
   inputs: {
     minPriceChange24h: 5,
@@ -73,13 +74,13 @@ export async function execute(
         price_change_24h: priceChange24h,
         volume_24h: volume24h,
         liquidity_usd: liquidityUsd,
-        reason: `ULTRA-AGGRESSIVE: ${signal.token_symbol} pumping ${priceChange24h.toFixed(1)}% in 24h`,
+        reason: `VOLATILITÉ ÉLEVÉE: ${signal.token_symbol} +${priceChange24h.toFixed(1)}% sur 24h`,
       },
       riskChecks: [
         {
           rule: 'min_price_change',
           passed: priceChange24h >= minPriceChange24h,
-          detail: `Price change: ${priceChange24h.toFixed(2)}% (min: ${minPriceChange24h}%)`,
+          detail: `Variation prix: ${priceChange24h.toFixed(2)}% (min: ${minPriceChange24h}%)`,
         },
         {
           rule: 'min_volume',
@@ -89,12 +90,12 @@ export async function execute(
         {
           rule: 'min_liquidity',
           passed: liquidityUsd >= minLiquidity,
-          detail: `Liquidity: $${liquidityUsd.toLocaleString()}`,
+          detail: `Liquidité: $${liquidityUsd.toLocaleString()}`,
         },
         {
-          rule: 'auto_execute',
+          rule: 'user_confirmation_required',
           passed: true,
-          detail: 'Auto-execution enabled for maximum speed',
+          detail: 'Validation utilisateur obligatoire avant exécution réelle',
         },
       ],
     });

@@ -50,7 +50,7 @@ export default function OpportunityNotifications() {
             chain: action.chain || 'unknown',
             change: payload.price_change_24h || payload.price_change_1h || 0,
             strategy: action.strategy_id || 'unknown',
-            reason: payload.reason || 'New opportunity detected',
+            reason: payload.reason || 'Nouvelle opportunité détectée',
             timestamp: new Date(action.created_at).getTime(),
             actionId: action.id,
             autoApproved: false,
@@ -75,7 +75,7 @@ export default function OpportunityNotifications() {
     setOpportunities(prev => prev.filter(o => o.id !== id));
   };
 
-  const autoApprove = async (opp: Opportunity) => {
+  const approveForReview = async (opp: Opportunity) => {
     if (!opp.actionId) return;
     try {
       await api.buildAction(opp.actionId);
@@ -115,16 +115,16 @@ export default function OpportunityNotifications() {
               {opp.autoApproved ? (
                 <div className="flex items-center gap-1 text-xs text-brand-400">
                   <CheckCircle size={12} />
-                  <span>Auto-approved!</span>
+                  <span>Action préparée pour validation</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => autoApprove(opp)}
+                    onClick={() => approveForReview(opp)}
                     className="btn-primary text-xs py-1 px-3 flex items-center gap-1"
                   >
                     <TrendingUp size={12} />
-                    <span>Trade Now</span>
+                    <span>Préparer</span>
                   </button>
                   <button
                     onClick={() => dismiss(opp.id)}

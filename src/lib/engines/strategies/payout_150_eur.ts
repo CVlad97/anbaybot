@@ -3,10 +3,11 @@ import { registerStrategy, type StrategyPlugin } from './core';
 
 const plugin: StrategyPlugin = {
   id: 'payout_150_eur',
-  name: 'Auto-Payout (150 EUR)',
-  description: 'When realizable gains reach the configured EUR threshold (default 150), prepares a payout to the primary wallet. Manual signature required.',
+  name: 'Préparation versement (150 EUR)',
+  description:
+    'Quand le seuil de gains réalisables est atteint (150 EUR par défaut), prépare une proposition de versement vers le wallet principal. Signature manuelle obligatoire.',
   inputs: {
-    thresholdEur: { type: 'number', default: 150, label: 'Payout Threshold (EUR)' },
+    thresholdEur: { type: 'number', default: 150, label: 'Seuil versement (EUR)' },
   },
   evaluate(): PreparedAction[] {
     // This strategy is evaluated server-side with portfolio data
@@ -15,7 +16,7 @@ const plugin: StrategyPlugin = {
   },
   explain(action: PreparedAction): string {
     const p = action.payload;
-    return `Payout prepared: ${p.amountEur || 'N/A'} EUR to primary wallet. Manual signature required.`;
+    return `Proposition de versement: ${p.amountEur || 'N/A'} EUR vers le wallet principal. Signature manuelle obligatoire.`;
   },
 };
 
