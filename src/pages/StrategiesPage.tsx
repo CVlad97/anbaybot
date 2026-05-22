@@ -30,17 +30,17 @@ export default function StrategiesPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Cpu}
-        title="Strategies"
-        subtitle="Enable and configure trading strategy plugins"
+        title="Stratégies"
+        subtitle="Activez et réglez vos stratégies de trading"
       />
 
       <div className="card p-4 mb-6 border-l-4 border-l-brand-500/50">
         <div className="flex items-start gap-3">
           <Info size={16} className="text-brand-400 mt-0.5 shrink-0" />
           <p className="text-xs text-surface-400">
-            Each strategy is a plugin that evaluates market signals and prepares actions.
-            All actions require your manual confirmation (signature) before execution.
-            Adding new strategies in the future will not affect existing ones.
+            Chaque stratégie évalue le marché et prépare des actions.
+            Toute exécution nécessite votre confirmation manuelle avant envoi.
+            Ajouter une nouvelle stratégie n'altère pas les stratégies existantes.
           </p>
         </div>
       </div>
@@ -58,7 +58,7 @@ export default function StrategiesPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="text-base font-semibold text-white">{s.name}</h3>
-                    {enabled ? <span className="badge-green">Active</span> : <span className="badge-neutral">Disabled</span>}
+                    {enabled ? <span className="badge-green">Active</span> : <span className="badge-neutral">Inactive</span>}
                   </div>
                   <p className="text-sm text-surface-400 mb-4">{s.description}</p>
                   <div className="flex flex-wrap gap-3">
@@ -84,7 +84,7 @@ export default function StrategiesPage() {
 
       {strategies.length === 0 && (
         <div className="card p-8 text-center">
-          <p className="text-surface-500">No strategy plugins loaded.</p>
+          <p className="text-surface-500">Aucune stratégie chargée.</p>
         </div>
       )}
     </div>

@@ -55,6 +55,14 @@ export async function connectMetaMask(): Promise<string> {
   return connectEvmWallet('metamask');
 }
 
+export async function getConnectedEvmAddress(wallet: EvmWalletId): Promise<string | null> {
+  const provider = wallet === 'metamask' ? getMetaMaskProvider() : findProvider(wallet);
+  if (!provider) return null;
+  const accounts = (await provider.request({ method: 'eth_accounts' })) as string[];
+  if (!accounts[0]) return null;
+  return accounts[0];
+}
+
 export async function connectEvmWallet(wallet: EvmWalletId): Promise<string> {
   const provider = wallet === 'metamask' ? getMetaMaskProvider() : findProvider(wallet);
   if (!provider) throw new Error(`${walletLabel(wallet)} provider not found. Open this page inside the wallet browser.`);

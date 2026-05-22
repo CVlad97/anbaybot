@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface WalletState {
   solanaAddress: string | null;
@@ -10,12 +11,26 @@ interface WalletState {
   disconnect: () => void;
 }
 
-export const useWalletStore = create<WalletState>((set) => ({
-  solanaAddress: null,
-  solanaProvider: null,
-  evmAddress: null,
-  evmProvider: null,
-  setSolana: (address, provider) => set({ solanaAddress: address, solanaProvider: provider }),
-  setEvm: (address, provider) => set({ evmAddress: address, evmProvider: provider }),
-  disconnect: () => set({ solanaAddress: null, solanaProvider: null, evmAddress: null, evmProvider: null }),
-}));
+export const useWalletStore = create<WalletState>()(
+  persist(
+    (set) => ({
+      solanaAddress: null,
+      solanaProvider: null,
+      evmAddress: null,
+      evmProvider: null,
+      setSolana: (address, provider) => set({ solanaAddress: address, solanaProvider: provider }),
+      setEvm: (address, provider) => set({ evmAddress: address, evmProvider: provider }),
+      disconnect: () => set({ solanaAddress: null, solanaProvider: null, evmAddress: null, evmProvider: null }),
+    }),
+    {
+      name: 'ikb-wallet-state',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        solanaAddress: state.solanaAddress,
+        solanaProvider: state.solanaProvider,
+        evmAddress: state.evmAddress,
+        evmProvider: state.evmProvider,
+      }),
+    }
+  )
+);

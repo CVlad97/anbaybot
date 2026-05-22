@@ -28,9 +28,9 @@ export default function QuickStartBanner() {
         </div>
 
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-white mb-2">Mode ULTRA RAPIDE activé</h3>
+          <h3 className="text-lg font-bold text-white mb-2">Mode débutant sécurisé</h3>
           <p className="text-sm text-surface-300 mb-4">
-            L'application est maintenant configurée pour détecter et trader automatiquement tous les tokens à fort potentiel de gains.
+            Le cockpit vous aide à analyser et préparer des ordres, mais la validation finale reste toujours côté utilisateur.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -39,9 +39,9 @@ export default function QuickStartBanner() {
                 <Target size={16} className="text-brand-400" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-white mb-1">1. Activez Auto-Trade</p>
+                <p className="text-xs font-semibold text-white mb-1">1. Réglez vos limites</p>
                 <p className="text-[10px] text-surface-400">
-                  Allez dans <span className="text-brand-400">Auto-Trade</span> → Activez "Ultra Aggressive" et "All Tokens Scanner"
+                  Dans <span className="text-brand-400">Pilotage des ordres</span>, fixez allocation et perte max.
                 </p>
               </div>
             </div>
@@ -51,9 +51,9 @@ export default function QuickStartBanner() {
                 <TrendingUp size={16} className="text-brand-400" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-white mb-1">2. Mode Full Auto</p>
+                <p className="text-xs font-semibold text-white mb-1">2. Gardez le semi-auto</p>
                 <p className="text-[10px] text-surface-400">
-                  Sélectionnez "Full Auto" pour approuver automatiquement les trades sans validation
+                  L’IA propose, vous confirmez chaque ordre avant envoi.
                 </p>
               </div>
             </div>
@@ -63,9 +63,9 @@ export default function QuickStartBanner() {
                 <Cpu size={16} className="text-brand-400" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-white mb-1">3. AI Manager</p>
+                <p className="text-xs font-semibold text-white mb-1">3. Lancez l’analyse IA</p>
                 <p className="text-[10px] text-surface-400">
-                  Activez l'IA en mode "Aggressive" pour optimisation maximale
+                  Vérifiez la recommandation, puis validez manuellement en connaissance du risque.
                 </p>
               </div>
             </div>
@@ -74,7 +74,7 @@ export default function QuickStartBanner() {
           <div className="flex items-center gap-3 mt-4 pt-4 border-t border-surface-800">
             <div className="flex items-center gap-2 text-xs">
               <div className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
-              <span className="text-surface-400">Les notifications apparaîtront en haut à droite pour chaque opportunité détectée</span>
+              <span className="text-surface-400">Aucun profit n’est garanti. Les notifications servent d’aide à la décision.</span>
             </div>
           </div>
         </div>

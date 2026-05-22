@@ -11,9 +11,9 @@ import { api } from '../lib/api';
 import type { AIConfig, AIRecommendation } from '../lib/types';
 
 const RISK_LEVELS = [
-  { value: 'conservative', label: 'Conservative', desc: 'Lower risk, smaller positions', icon: Shield, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-  { value: 'moderate', label: 'Moderate', desc: 'Balanced risk-reward ratio', icon: Target, color: 'text-warn-400', bg: 'bg-warn-500/10' },
-  { value: 'aggressive', label: 'Aggressive', desc: 'Higher risk, larger positions', icon: Gauge, color: 'text-danger-400', bg: 'bg-danger-500/10' },
+  { value: 'conservative', label: 'Prudent', desc: 'Risque plus faible, positions plus petites', icon: Shield, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  { value: 'moderate', label: 'Équilibré', desc: 'Compromis risque / rendement', icon: Target, color: 'text-warn-400', bg: 'bg-warn-500/10' },
+  { value: 'aggressive', label: 'Dynamique', desc: 'Risque plus élevé, positions plus grandes', icon: Gauge, color: 'text-danger-400', bg: 'bg-danger-500/10' },
 ] as const;
 
 const SENTIMENT_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
@@ -23,10 +23,10 @@ const SENTIMENT_CONFIG: Record<string, { icon: React.ElementType; color: string;
 };
 
 const ACTION_CONFIG: Record<string, { label: string; color: string }> = {
-  HOLD: { label: 'HOLD', color: 'text-surface-300' },
-  INCREASE_EXPOSURE: { label: 'INCREASE EXPOSURE', color: 'text-brand-400' },
-  REDUCE_EXPOSURE: { label: 'REDUCE EXPOSURE', color: 'text-warn-400' },
-  EMERGENCY_STOP: { label: 'EMERGENCY STOP', color: 'text-danger-400' },
+  HOLD: { label: 'ATTENTE', color: 'text-surface-300' },
+  INCREASE_EXPOSURE: { label: 'AUGMENTER L’EXPOSITION', color: 'text-brand-400' },
+  REDUCE_EXPOSURE: { label: 'RÉDUIRE L’EXPOSITION', color: 'text-warn-400' },
+  EMERGENCY_STOP: { label: 'ARRÊT D’URGENCE', color: 'text-danger-400' },
 };
 
 export default function AIPage() {
@@ -107,7 +107,7 @@ export default function AIPage() {
   if (loading) {
     return (
       <div className="animate-fade-in">
-        <PageHeader icon={Brain} title="AI Manager" subtitle="Algorithmic portfolio management" />
+        <PageHeader icon={Brain} title="Gestion IA" subtitle="Pilotage algorithmique du portefeuille" />
         <div className="card p-12 flex items-center justify-center">
           <LoadingSpinner size={24} />
         </div>
@@ -124,8 +124,8 @@ export default function AIPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Brain}
-        title="AI Manager"
-        subtitle="Algorithmic analysis and portfolio management"
+        title="Gestion IA"
+        subtitle="Analyse IA et pilotage du portefeuille"
         action={
           <button
             onClick={runAnalysis}
@@ -133,15 +133,21 @@ export default function AIPage() {
             className="btn-primary flex items-center gap-2"
           >
             {analyzing ? <LoadingSpinner size={14} /> : <Play size={14} />}
-            <span>Run Analysis</span>
+            <span>Lancer l’analyse</span>
           </button>
         }
       />
 
+      <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
+        <p className="text-xs text-surface-300">
+          Les recommandations IA restent des suggestions techniques. La décision d’investissement vous appartient et doit être confirmée par vous.
+        </p>
+      </div>
+
       {killActive && (
         <div className="card p-4 mb-6 border-l-4 border-l-danger-500 bg-danger-600/5 flex items-center gap-3">
           <AlertTriangle size={18} className="text-danger-400 shrink-0" />
-          <p className="text-sm text-danger-400">Kill switch is ACTIVE. AI operations are paused.</p>
+          <p className="text-sm text-danger-400">Kill switch actif: les opérations IA sont en pause.</p>
         </div>
       )}
 
@@ -153,8 +159,8 @@ export default function AIPage() {
                 <Brain size={20} className={isEnabled ? 'text-brand-400' : 'text-surface-500'} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">AI Engine</h3>
-                <p className="text-[10px] text-surface-500">Main algorithm switch</p>
+                <h3 className="text-sm font-semibold text-white">Moteur IA</h3>
+                <p className="text-[10px] text-surface-500">Interrupteur principal</p>
               </div>
             </div>
             <button onClick={toggleEnabled} className="p-1">
@@ -164,12 +170,12 @@ export default function AIPage() {
             </button>
           </div>
           <div className={`text-2xl font-bold ${isEnabled ? 'text-brand-400' : 'text-surface-500'}`}>
-            {isEnabled ? 'ACTIVE' : 'OFF'}
+            {isEnabled ? 'ACTIF' : 'ARRÊT'}
           </div>
           {aiConfig?.last_run_at && (
             <p className="text-[10px] text-surface-500 mt-2 flex items-center gap-1">
               <Clock size={10} />
-              Last run: {new Date(aiConfig.last_run_at).toLocaleString()}
+              Dernière analyse: {new Date(aiConfig.last_run_at).toLocaleString()}
             </p>
           )}
         </div>
@@ -180,8 +186,8 @@ export default function AIPage() {
               <RefreshCw size={20} className="text-surface-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Auto-Rebalance</h3>
-              <p className="text-[10px] text-surface-500">Periodic portfolio rebalancing</p>
+              <h3 className="text-sm font-semibold text-white">Rééquilibrage auto</h3>
+              <p className="text-[10px] text-surface-500">Rééquilibrage périodique</p>
             </div>
           </div>
           <button
@@ -192,10 +198,10 @@ export default function AIPage() {
                 : 'bg-surface-800 text-surface-500 border border-surface-700'
             }`}
           >
-            {autoRebalance ? 'Enabled' : 'Disabled'}
+            {autoRebalance ? 'Activé' : 'Désactivé'}
           </button>
           <div>
-            <label className="text-[10px] text-surface-500 block mb-1">Interval: {interval}h</label>
+            <label className="text-[10px] text-surface-500 block mb-1">Intervalle: {interval}h</label>
             <input
               type="range"
               min={1}
@@ -209,7 +215,7 @@ export default function AIPage() {
         </div>
 
         <div className="card p-6">
-          <h3 className="text-sm font-semibold text-white mb-4">Risk Tolerance</h3>
+          <h3 className="text-sm font-semibold text-white mb-4">Niveau de risque</h3>
           <div className="space-y-2">
             {RISK_LEVELS.map(level => {
               const selected = riskTolerance === level.value;
@@ -240,7 +246,7 @@ export default function AIPage() {
       {!recommendation && (
         <div className="card p-8 text-center">
           <Brain size={32} className="text-surface-600 mx-auto mb-3" />
-          <p className="text-surface-400">No analysis results yet. Click "Run Analysis" to get AI recommendations.</p>
+          <p className="text-surface-400">Aucun résultat pour l’instant. Cliquez sur “Lancer l’analyse”.</p>
         </div>
       )}
     </div>
@@ -256,12 +262,12 @@ function RecommendationPanel({ rec }: { rec: AIRecommendation }) {
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-white flex items-center gap-2">
         <BarChart3 size={18} className="text-brand-400" />
-        AI Recommendation
+        Recommandation IA
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card p-5">
-          <p className="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Action</p>
+          <p className="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Action proposée</p>
           <p className={`text-xl font-bold ${actionConf.color}`}>{actionConf.label}</p>
           <div className="mt-2 flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-surface-800 rounded-full overflow-hidden">
@@ -275,7 +281,7 @@ function RecommendationPanel({ rec }: { rec: AIRecommendation }) {
         </div>
 
         <div className="card p-5">
-          <p className="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Market Sentiment</p>
+          <p className="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Sentiment marché</p>
           <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-lg ${sentimentConf.bg} flex items-center justify-center`}>
               <SentimentIcon size={16} className={sentimentConf.color} />
@@ -283,26 +289,26 @@ function RecommendationPanel({ rec }: { rec: AIRecommendation }) {
             <span className={`text-xl font-bold capitalize ${sentimentConf.color}`}>{rec.marketSentiment}</span>
           </div>
           <p className="text-xs text-surface-500 mt-2">
-            Trend: {rec.trend >= 0 ? '+' : ''}{rec.trend.toFixed(2)}%
+            Tendance: {rec.trend >= 0 ? '+' : ''}{rec.trend.toFixed(2)}%
           </p>
         </div>
 
         <div className="card p-5">
-          <p className="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Portfolio</p>
+          <p className="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Portefeuille</p>
           <p className="text-xl font-bold text-white">
             ${rec.portfolioValueUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </p>
-          <p className="text-xs text-surface-500 mt-2">{rec.walletCount} wallets monitored</p>
+          <p className="text-xs text-surface-500 mt-2">{rec.walletCount} wallets suivis</p>
         </div>
       </div>
 
       <div className="card p-6">
-        <h3 className="text-sm font-semibold text-white mb-3">Reasoning</h3>
+        <h3 className="text-sm font-semibold text-white mb-3">Explication</h3>
         <p className="text-sm text-surface-300 leading-relaxed">{rec.reasoning}</p>
       </div>
 
       <div className="card p-6">
-        <h3 className="text-sm font-semibold text-white mb-4">Suggested Allocations</h3>
+        <h3 className="text-sm font-semibold text-white mb-4">Allocations suggérées</h3>
         <div className="space-y-3">
           {Object.entries(rec.suggestedAllocations).map(([stratId, pct]) => (
             <div key={stratId} className="flex items-center gap-3">
@@ -320,7 +326,7 @@ function RecommendationPanel({ rec }: { rec: AIRecommendation }) {
       </div>
 
       <p className="text-[10px] text-surface-600 text-center">
-        Analysis performed at {new Date(rec.timestamp).toLocaleString()}
+        Analyse effectuée le {new Date(rec.timestamp).toLocaleString()}
       </p>
     </div>
   );

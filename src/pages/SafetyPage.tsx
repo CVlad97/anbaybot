@@ -79,8 +79,8 @@ export default function SafetyPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Shield}
-        title="Safety"
-        subtitle="Risk parameters, API status, and audit trail"
+        title="Sécurité"
+        subtitle="Paramètres de risque, statut API et audit"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -89,13 +89,13 @@ export default function SafetyPage() {
             {killSwitch ? <ShieldAlert size={24} className="text-danger-400" /> : <ShieldCheck size={24} className="text-brand-400" />}
             <div>
               <h3 className="text-lg font-semibold text-white">Kill Switch</h3>
-              <p className="text-xs text-surface-500">Emergency stop for all operations</p>
+              <p className="text-xs text-surface-500">Arrêt d'urgence global</p>
             </div>
           </div>
           <div className={`text-3xl font-bold mb-2 ${killSwitch ? 'text-danger-400' : 'text-brand-400'}`}>
-            {killSwitch ? 'ACTIVE' : 'INACTIVE'}
+            {killSwitch ? 'ACTIF' : 'INACTIF'}
           </div>
-          <p className="text-xs text-surface-500">Managed from the Console page</p>
+          <p className="text-xs text-surface-500">Géré depuis la page Console</p>
         </div>
 
         <div className="card p-6">
@@ -104,7 +104,7 @@ export default function SafetyPage() {
               <Activity size={24} className="text-brand-400" />
               <div>
                 <h3 className="text-lg font-semibold text-white">API Status</h3>
-                <p className="text-xs text-surface-500">External service health</p>
+                <p className="text-xs text-surface-500">Santé des services externes</p>
               </div>
             </div>
             <button onClick={checkApis} className="btn-ghost p-2"><RefreshCw size={16} /></button>
@@ -116,11 +116,11 @@ export default function SafetyPage() {
                 {apiStatuses[api] === 'checking' ? (
                   <LoadingSpinner size={16} />
                 ) : apiStatuses[api] === 'ok' ? (
-                  <span className="badge-green">Online</span>
+                  <span className="badge-green">En ligne</span>
                 ) : apiStatuses[api] === 'error' ? (
-                  <span className="badge-red">Offline</span>
+                  <span className="badge-red">Hors ligne</span>
                 ) : (
-                  <span className="badge-neutral">Not checked</span>
+                  <span className="badge-neutral">Non vérifié</span>
                 )}
               </div>
             ))}
@@ -132,19 +132,19 @@ export default function SafetyPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Settings size={20} className="text-surface-400" />
-            <h3 className="text-lg font-semibold text-white">Risk Parameters</h3>
+            <h3 className="text-lg font-semibold text-white">Paramètres de risque</h3>
           </div>
           <button onClick={() => setEditMode(!editMode)} className="btn-secondary text-sm">
-            {editMode ? 'Cancel' : 'Edit'}
+            {editMode ? 'Annuler' : 'Modifier'}
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { label: 'Max Trade Size (EUR)', key: 'maxTradeSizeEur' as const },
-            { label: 'Max Trades/Day', key: 'maxTradesPerDay' as const },
-            { label: 'Max Slippage (bps)', key: 'maxSlippageBps' as const },
-            { label: 'Min Liquidity (USD)', key: 'minLiquidityUsd' as const },
-            { label: 'Payout Threshold (EUR)', key: 'payoutThresholdEur' as const },
+            { label: 'Taille max ordre (EUR)', key: 'maxTradeSizeEur' as const },
+            { label: 'Max trades / jour', key: 'maxTradesPerDay' as const },
+            { label: 'Slippage max (bps)', key: 'maxSlippageBps' as const },
+            { label: 'Liquidité mini (USD)', key: 'minLiquidityUsd' as const },
+            { label: 'Seuil payout (EUR)', key: 'payoutThresholdEur' as const },
           ].map(field => (
             <div key={field.key}>
               <label className="text-xs text-surface-500 block mb-1.5">{field.label}</label>
@@ -163,14 +163,14 @@ export default function SafetyPage() {
         </div>
         {editMode && (
           <div className="flex gap-3 mt-6">
-            <button onClick={saveRiskParams} className="btn-primary">Save Changes</button>
-            <button onClick={() => setEditMode(false)} className="btn-ghost">Cancel</button>
+            <button onClick={saveRiskParams} className="btn-primary">Enregistrer</button>
+            <button onClick={() => setEditMode(false)} className="btn-ghost">Annuler</button>
           </div>
         )}
 
         {settings?.risk_params.tokenBlacklist && settings.risk_params.tokenBlacklist.length > 0 && (
           <div className="mt-6 pt-6 border-t border-surface-800">
-            <h4 className="text-sm font-semibold text-surface-300 mb-3">Token Blacklist</h4>
+            <h4 className="text-sm font-semibold text-surface-300 mb-3">Tokens en liste noire</h4>
             <div className="flex flex-wrap gap-2">
               {settings.risk_params.tokenBlacklist.map((t, i) => (
                 <span key={i} className="badge-red font-mono text-[10px]">{t}</span>
@@ -183,11 +183,11 @@ export default function SafetyPage() {
       <div className="card p-6">
         <div className="flex items-center gap-3 mb-6">
           <Clock size={20} className="text-surface-400" />
-          <h3 className="text-lg font-semibold text-white">Audit Log</h3>
-          <span className="badge-neutral">{auditLogs.length} entries</span>
+          <h3 className="text-lg font-semibold text-white">Journal d’audit</h3>
+          <span className="badge-neutral">{auditLogs.length} entrées</span>
         </div>
         {auditLogs.length === 0 ? (
-          <p className="text-sm text-surface-500 text-center py-8">No audit events recorded yet.</p>
+          <p className="text-sm text-surface-500 text-center py-8">Aucun événement d’audit pour l’instant.</p>
         ) : (
           <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
             {auditLogs.map(log => (

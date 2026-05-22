@@ -9,22 +9,25 @@ import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
 import { isBackendConfigured, isDemoSupabase } from '../lib/supabase';
 import { clearAdminToken, getAdminToken, setAdminToken } from '../lib/auth';
+import { useWalletAutoReconnect } from '../hooks/useWalletAutoReconnect';
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/wallets', label: 'Wallets', icon: Wallet },
-  { path: '/signals', label: 'Live Signals', icon: TrendingUp },
-  { path: '/traders', label: 'Top Traders', icon: Users },
-  { path: '/strategies', label: 'Strategies', icon: Cpu },
-  { path: '/auto-trade', label: 'Auto-Trade', icon: Repeat },
-  { path: '/ai', label: 'AI Manager', icon: Brain },
+  { path: '/', label: 'Tableau de bord', icon: LayoutDashboard },
+  { path: '/wallets', label: 'Portefeuilles', icon: Wallet },
+  { path: '/signals', label: 'Signaux live', icon: TrendingUp },
+  { path: '/traders', label: 'Traders suivis', icon: Users },
+  { path: '/strategies', label: 'Stratégies', icon: Cpu },
+  { path: '/auto-trade', label: 'Pilotage des ordres', icon: Repeat },
+  { path: '/ai', label: 'Gestion IA', icon: Brain },
   { path: '/orchestration', label: 'Orchestration', icon: Activity },
   { path: '/console', label: 'Console', icon: Terminal },
-  { path: '/transactions', label: 'Transactions', icon: ListOrdered },
-  { path: '/safety', label: 'Safety', icon: Shield },
+  { path: '/transactions', label: 'Historique', icon: ListOrdered },
+  { path: '/safety', label: 'Sécurité', icon: Shield },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  useWalletAutoReconnect();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tokenInput, setTokenInput] = useState(() => getAdminToken());
   const [hasToken, setHasToken] = useState(() => Boolean(getAdminToken()));
@@ -64,7 +67,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
           {activeAddress && (
             <div className="mt-4 px-3 py-2 bg-surface-900 rounded-lg border border-surface-800">
-              <p className="text-[10px] text-surface-500 uppercase tracking-wider font-medium">Connected</p>
+              <p className="text-[10px] text-surface-500 uppercase tracking-wider font-medium">Connecté</p>
               <p className="text-xs text-brand-400 font-mono mt-0.5 truncate">{activeAddress}</p>
             </div>
           )}
@@ -95,7 +98,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="p-4 border-t border-surface-800">
           <p className="text-[10px] text-surface-600 text-center">
-            AI-powered trading -- No guarantees of profit
+            Aucune garantie de profit. Confirmation utilisateur requise.
           </p>
         </div>
       </aside>

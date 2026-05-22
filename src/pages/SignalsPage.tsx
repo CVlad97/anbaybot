@@ -69,21 +69,21 @@ export default function SignalsPage() {
   }, [tab, fetchTrending, fetchMovers]);
 
   const tabs = [
-    { id: 'trending' as const, label: 'Trending', icon: Flame },
-    { id: 'movers' as const, label: 'Dex Movers', icon: BarChart3 },
-    { id: 'search' as const, label: 'Search', icon: Search },
+    { id: 'trending' as const, label: 'Tendance', icon: Flame },
+    { id: 'movers' as const, label: 'Movers DEX', icon: BarChart3 },
+    { id: 'search' as const, label: 'Recherche', icon: Search },
   ];
 
   return (
     <div className="animate-fade-in">
       <PageHeader
         icon={TrendingUp}
-        title="Live Signals"
-        subtitle="Real-time market data from CoinGecko & DexScreener"
+        title="Signaux live"
+        subtitle="Données marché en temps réel (CoinGecko et DexScreener)"
         action={
           <button onClick={() => tab === 'trending' ? fetchTrending() : fetchMovers()} className="btn-secondary flex items-center gap-2">
             <RefreshCw size={14} />
-            <span>Refresh</span>
+            <span>Actualiser</span>
           </button>
         }
       />
@@ -107,12 +107,12 @@ export default function SignalsPage() {
         <div className="flex gap-3 mb-6">
           <input
             className="input flex-1"
-            placeholder="Search token name, symbol, or address..."
+            placeholder="Rechercher un token, symbole ou adresse..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
-          <button onClick={handleSearch} className="btn-primary">Search</button>
+          <button onClick={handleSearch} className="btn-primary">Rechercher</button>
         </div>
       )}
 
@@ -120,7 +120,7 @@ export default function SignalsPage() {
         <div className="flex justify-center py-20"><LoadingSpinner size={32} /></div>
       ) : tab === 'trending' ? (
         trending.length === 0 ? (
-          <EmptyState icon={Flame} title="No trending data" description="CoinGecko API may be unavailable. Try again later." />
+          <EmptyState icon={Flame} title="Aucune donnée tendance" description="API CoinGecko indisponible. Réessayez plus tard." />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {trending.map((item, i) => (
@@ -135,7 +135,7 @@ export default function SignalsPage() {
                 </div>
                 <div className="flex items-center justify-between text-xs text-surface-400">
                   <span>Score: {(item as { score?: number }).score ?? 'N/A'}</span>
-                  <span className="badge-green">Trending</span>
+                  <span className="badge-green">Tendance</span>
                 </div>
               </div>
             ))}
@@ -145,7 +145,7 @@ export default function SignalsPage() {
         (() => {
           const items = tab === 'movers' ? movers : searchResults;
           return items.length === 0 ? (
-            <EmptyState icon={BarChart3} title="No results" description={tab === 'movers' ? 'DexScreener data unavailable' : 'Try a different search query'} />
+            <EmptyState icon={BarChart3} title="Aucun résultat" description={tab === 'movers' ? 'Données DexScreener indisponibles' : 'Essayez une autre recherche'} />
           ) : (
             <div className="space-y-3">
               {items.map((pair, i) => (

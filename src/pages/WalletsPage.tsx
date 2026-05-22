@@ -25,7 +25,7 @@ import {
 import type { ManagedWallet } from '../lib/types';
 
 function formatUsd(n: number) {
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 }
 
 export default function WalletsPage() {
@@ -139,8 +139,8 @@ export default function WalletsPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Wallet}
-        title="Wallets"
-        subtitle="Connect and manage your trading wallets"
+        title="Portefeuilles"
+        subtitle="Connectez et gérez vos wallets simplement"
         action={
           <div className="flex items-center gap-2">
             <button
@@ -149,11 +149,11 @@ export default function WalletsPage() {
               className="btn-secondary flex items-center gap-2"
             >
               {loadingBalances ? <LoadingSpinner size={14} /> : <RefreshCw size={14} />}
-              <span className="hidden sm:inline">Balances</span>
+              <span className="hidden sm:inline">Soldes</span>
             </button>
             <button onClick={() => setShowAdd(!showAdd)} className="btn-primary flex items-center gap-2">
               <Plus size={16} />
-              <span>Add Wallet</span>
+              <span>Ajouter un wallet</span>
             </button>
           </div>
         }
@@ -224,10 +224,10 @@ export default function WalletsPage() {
 
       {showAdd && (
         <div className="card p-6 mb-8 animate-slide-up">
-          <h3 className="text-sm font-semibold text-surface-200 mb-4">Add Wallet Manually</h3>
+          <h3 className="text-sm font-semibold text-surface-200 mb-4">Ajouter un wallet manuellement</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input className="input" placeholder="Label" value={newLabel} onChange={e => setNewLabel(e.target.value)} />
-            <input className="input" placeholder="Wallet address" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+            <input className="input" placeholder="Nom du wallet" value={newLabel} onChange={e => setNewLabel(e.target.value)} />
+            <input className="input" placeholder="Adresse du wallet" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
             <select className="input" value={newChain} onChange={e => setNewChain(e.target.value)}>
               <option value="solana">Solana</option>
               <option value="evm">EVM (Base/ETH)</option>
@@ -243,15 +243,15 @@ export default function WalletsPage() {
             </select>
           </div>
           <div className="flex gap-3 mt-4">
-            <button className="btn-primary" onClick={addManualWallet}>Save</button>
-            <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+            <button className="btn-primary" onClick={addManualWallet}>Enregistrer</button>
+            <button className="btn-ghost" onClick={() => setShowAdd(false)}>Annuler</button>
           </div>
         </div>
       )}
 
-      <h2 className="text-lg font-semibold text-white mb-4">Managed Wallets</h2>
+      <h2 className="text-lg font-semibold text-white mb-4">Wallets gérés</h2>
       {managedWallets.length === 0 ? (
-        <EmptyState icon={Wallet} title="No wallets yet" description="Connect a wallet above or add one manually to get started." />
+        <EmptyState icon={Wallet} title="Aucun wallet connecté" description="Connectez un wallet ci-dessus ou ajoutez-le manuellement pour démarrer." />
       ) : (
         <div className="space-y-3">
           {managedWallets.map(w => {
@@ -331,14 +331,14 @@ function ConnectorCard({ name, chain, color, letter, connected, address, install
         <p className="text-xs text-brand-400 font-mono truncate">{address}</p>
       ) : installed ? (
         <button onClick={onConnect} disabled={connecting} className="text-xs text-surface-300 hover:text-brand-300">
-          Click to connect
+          Cliquer pour connecter
         </button>
       ) : deeplink ? (
         <a href={deeplink} className="text-xs text-brand-400 flex items-center gap-1" rel="noopener noreferrer">
-          <Smartphone size={12} /> Open in {name}
+          <Smartphone size={12} /> Ouvrir dans {name}
         </a>
       ) : (
-        <p className="text-xs text-surface-500">Not installed</p>
+        <p className="text-xs text-surface-500">Non installé</p>
       )}
     </div>
   );

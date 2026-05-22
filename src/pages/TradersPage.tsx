@@ -65,48 +65,48 @@ export default function TradersPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Users}
-        title="Top Traders"
-        subtitle="Follow and rank wallet addresses by observable metrics"
+        title="Traders suivis"
+        subtitle="Suivi et classement des adresses selon des métriques observables"
         action={
           <button onClick={() => setShowAdd(!showAdd)} className="btn-primary flex items-center gap-2">
             <Plus size={16} />
-            <span>Follow Wallet</span>
+            <span>Suivre un wallet</span>
           </button>
         }
       />
 
       <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
         <p className="text-xs text-surface-400">
-          Rankings are based on observable on-chain metrics (volume, liquidity, trade frequency).
-          This is purely technical analysis and does not constitute financial advice or guarantee any returns.
+          Le classement repose sur des données on-chain observables (volume, liquidité, fréquence).
+          Ceci est une analyse technique, pas un conseil financier, et sans garantie de rendement.
         </p>
       </div>
 
       {showAdd && (
         <div className="card p-6 mb-6 animate-slide-up">
-          <h3 className="text-sm font-semibold text-surface-200 mb-4">Follow a New Wallet</h3>
+          <h3 className="text-sm font-semibold text-surface-200 mb-4">Suivre un nouveau wallet</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <input className="input" placeholder="Label" value={newLabel} onChange={e => setNewLabel(e.target.value)} />
-            <input className="input" placeholder="Wallet address" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+            <input className="input" placeholder="Nom" value={newLabel} onChange={e => setNewLabel(e.target.value)} />
+            <input className="input" placeholder="Adresse wallet" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
             <select className="input" value={newChain} onChange={e => setNewChain(e.target.value)}>
               <option value="solana">Solana</option>
               <option value="evm">EVM</option>
             </select>
           </div>
           <div className="flex gap-3 mt-4">
-            <button className="btn-primary" onClick={addWallet}>Follow</button>
-            <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+            <button className="btn-primary" onClick={addWallet}>Suivre</button>
+            <button className="btn-ghost" onClick={() => setShowAdd(false)}>Annuler</button>
           </div>
         </div>
       )}
 
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <Star size={18} className="text-warn-400" />
-        Active ({active.length})
+        Actifs ({active.length})
       </h2>
 
       {active.length === 0 ? (
-        <EmptyState icon={Users} title="No followed wallets" description="Add wallet addresses to track and rank top traders." />
+        <EmptyState icon={Users} title="Aucun wallet suivi" description="Ajoutez des adresses pour suivre les traders." />
       ) : (
         <div className="space-y-3 mb-8">
           {active.map(w => (
@@ -118,7 +118,7 @@ export default function TradersPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-semibold text-white truncate">{w.label}</p>
                   <span className="badge-neutral text-[10px]">{w.chain}</span>
-                  {w.enabled && <span className="badge-green text-[10px]">Active</span>}
+                  {w.enabled && <span className="badge-green text-[10px]">Actif</span>}
                 </div>
                 <p className="text-xs text-surface-500 font-mono truncate">{w.address}</p>
                 {w.score_reasons && w.score_reasons.length > 0 && (
@@ -151,7 +151,7 @@ export default function TradersPage() {
         <>
           <h2 className="text-lg font-semibold text-surface-400 mb-4 flex items-center gap-2">
             <Ban size={18} />
-            Blacklisted ({blacklisted.length})
+            Liste noire ({blacklisted.length})
           </h2>
           <div className="space-y-3">
             {blacklisted.map(w => (
@@ -161,7 +161,7 @@ export default function TradersPage() {
                   <p className="text-xs text-surface-600 font-mono truncate">{w.address}</p>
                 </div>
                 <button onClick={() => toggleBlacklist(w.id, w.blacklisted)} className="btn-ghost p-2 text-xs">
-                  Restore
+                  Restaurer
                 </button>
                 <button onClick={() => removeWallet(w.id)} className="btn-ghost p-2 text-danger-400">
                   <Trash2 size={14} />

@@ -21,9 +21,9 @@ import '../lib/engines/strategies/no_trade';
 import '../lib/engines/strategies/payout_150_eur';
 
 const MODE_LABELS: Record<string, { label: string; desc: string; color: string }> = {
-  auto: { label: 'Full Auto', desc: 'AI confirms trades automatically', color: 'text-brand-400' },
-  semi: { label: 'Semi-Auto', desc: 'AI suggests, you confirm', color: 'text-warn-400' },
-  manual: { label: 'Manual', desc: 'Full manual control', color: 'text-surface-400' },
+  auto: { label: 'Auto complet (bloqué)', desc: 'Désactivé: confirmation utilisateur obligatoire', color: 'text-danger-400' },
+  semi: { label: 'Semi-auto', desc: 'L’IA propose, vous confirmez', color: 'text-warn-400' },
+  manual: { label: 'Manuel', desc: 'Contrôle 100% utilisateur', color: 'text-surface-400' },
 };
 
 export default function AutoTradePage() {
@@ -47,16 +47,22 @@ export default function AutoTradePage() {
   async function updateConfig(strategyId: string, updates: Partial<AutoTradeConfig>) {
     setSaving(strategyId);
     const existing = autoTradeConfigs.find(c => c.strategy_id === strategyId);
+    const safeUpdates = {
+      ...updates,
+      trader_mode: updates.trader_mode === 'auto' ? 'semi' : updates.trader_mode,
+    };
     const payload = {
       strategy_id: strategyId,
       enabled: existing?.enabled ?? false,
       allocation_pct: existing?.allocation_pct ?? 10,
       max_loss_pct: existing?.max_loss_pct ?? 5,
       auto_stop_loss: existing?.auto_stop_loss ?? true,
-      trader_mode: existing?.trader_mode ?? 'semi',
       selected_traders: existing?.selected_traders ?? [],
-      ...updates,
+      ...safeUpdates,
     };
+    if (!payload.trader_mode) {
+      payload.trader_mode = existing?.trader_mode === 'auto' ? 'semi' : existing?.trader_mode ?? 'semi';
+    }
     try {
       await api.updateAutoTradeConfig(payload);
       await loadConfigs();
@@ -76,16 +82,23 @@ export default function AutoTradePage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Repeat}
-        title="Auto-Trade"
-        subtitle="Configure automatic trading per strategy with allocation and risk limits"
+        title="Pilotage des ordres"
+        subtitle="Réglez vos stratégies avec limites de risque et validation utilisateur"
       />
 
       <QuickStartBanner />
 
+      <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
+        <p className="text-xs text-surface-300">
+          Mode débutant: aucun ordre ne doit partir sans confirmation utilisateur.
+          L’option auto complet est volontairement bloquée côté interface.
+        </p>
+      </div>
+
       {killActive && (
         <div className="card p-4 mb-6 border-l-4 border-l-danger-500 bg-danger-600/5 flex items-center gap-3">
           <AlertTriangle size={18} className="text-danger-400 shrink-0" />
-          <p className="text-sm text-danger-400">Kill switch is ACTIVE. Auto-trading is paused.</p>
+          <p className="text-sm text-danger-400">Kill switch actif: le pilotage automatique est en pause.</p>
         </div>
       )}
 
@@ -93,19 +106,19 @@ export default function AutoTradePage() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-2">
             <Percent size={16} className="text-brand-400" />
-            <span className="text-xs text-surface-500 uppercase tracking-wider">Total Allocation</span>
+            <span className="text-xs text-surface-500 uppercase tracking-wider">Allocation totale</span>
           </div>
           <p className={`text-2xl font-bold ${totalAllocation > 100 ? 'text-danger-400' : 'text-white'}`}>
             {totalAllocation.toFixed(0)}%
           </p>
           {totalAllocation > 100 && (
-            <p className="text-[10px] text-danger-400 mt-1">Exceeds 100% -- reduce allocations</p>
+            <p className="text-[10px] text-danger-400 mt-1">Dépasse 100%: réduisez les allocations</p>
           )}
         </div>
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-2">
             <Zap size={16} className="text-warn-400" />
-            <span className="text-xs text-surface-500 uppercase tracking-wider">Available Balance</span>
+            <span className="text-xs text-surface-500 uppercase tracking-wider">Capital disponible</span>
           </div>
           <p className="text-2xl font-bold text-white">
             ${totalValueUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}
@@ -114,7 +127,7 @@ export default function AutoTradePage() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-2">
             <Shield size={16} className="text-surface-400" />
-            <span className="text-xs text-surface-500 uppercase tracking-wider">Active Configs</span>
+            <span className="text-xs text-surface-500 uppercase tracking-wider">Stratégies actives</span>
           </div>
           <p className="text-2xl font-bold text-white">
             {autoTradeConfigs.filter(c => c.enabled).length} / {strategies.length}
@@ -147,7 +160,7 @@ export default function AutoTradePage() {
                       <h3 className="text-base font-semibold text-white">{strategy.name}</h3>
                       {enabled
                         ? <span className="badge-green">Active</span>
-                        : <span className="badge-neutral">Disabled</span>}
+                        : <span className="badge-neutral">Inactive</span>}
                       {isSaving && <LoadingSpinner size={14} />}
                     </div>
                     <p className="text-sm text-surface-400">{strategy.description}</p>
@@ -203,10 +216,10 @@ export default function AutoTradePage() {
 
                   <div>
                     <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">
-                      Trading Mode
+                      Mode d’exécution
                     </label>
                     <div className="flex gap-1">
-                      {(['auto', 'semi', 'manual'] as const).map(m => (
+                      {(['semi', 'manual'] as const).map(m => (
                         <button
                           key={m}
                           onClick={() => updateConfig(strategy.id, { trader_mode: m })}
@@ -224,7 +237,7 @@ export default function AutoTradePage() {
 
                   <div>
                     <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">
-                      Auto Stop-Loss
+                      Stop-loss auto
                     </label>
                     <button
                       onClick={() => updateConfig(strategy.id, { auto_stop_loss: !autoStop })}
@@ -235,7 +248,7 @@ export default function AutoTradePage() {
                       }`}
                     >
                       <Shield size={14} />
-                      {autoStop ? 'Enabled' : 'Disabled'}
+                      {autoStop ? 'Activé' : 'Désactivé'}
                     </button>
                   </div>
                 </div>
@@ -267,12 +280,12 @@ function TraderSelector({ traders, selected, onSelect }: {
     <div className="mt-5 pt-4 border-t border-surface-800">
       <div className="flex items-center gap-2 mb-3">
         <Users size={14} className="text-surface-400" />
-        <span className="text-xs text-surface-400 font-medium">Select Traders to Copy</span>
+        <span className="text-xs text-surface-400 font-medium">Sélection des traders à suivre</span>
         <button
           onClick={() => onSelect(selected.length === traders.length ? [] : traders.map(t => t.id))}
           className="text-[10px] text-brand-400 hover:text-brand-300 ml-auto"
         >
-          {selected.length === traders.length ? 'Deselect All' : 'Select All'}
+          {selected.length === traders.length ? 'Tout désélectionner' : 'Tout sélectionner'}
         </button>
       </div>
       <div className="flex flex-wrap gap-2">

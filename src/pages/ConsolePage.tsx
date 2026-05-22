@@ -108,8 +108,8 @@ export default function ConsolePage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={Terminal}
-        title="Semi-Auto Console"
-        subtitle="Manage prepared actions and execute trades"
+        title="Console semi-auto"
+        subtitle="Gérez les actions préparées puis confirmez l’exécution"
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -122,50 +122,50 @@ export default function ConsolePage() {
             <span className="text-sm font-semibold text-white">Kill Switch</span>
           </div>
           <p className={`text-2xl font-bold ${killSwitch ? 'text-danger-400' : 'text-brand-400'}`}>
-            {killSwitch ? 'ACTIVE' : 'OFF'}
+            {killSwitch ? 'ACTIF' : 'ARRÊT'}
           </p>
-          <p className="text-xs text-surface-500 mt-1">Click to toggle</p>
+          <p className="text-xs text-surface-500 mt-1">Cliquer pour basculer</p>
         </button>
 
         <button onClick={runSignalScan} disabled={loading || killSwitch} className="card-hover p-5 text-left">
           <div className="flex items-center gap-3 mb-2">
             {loading ? <LoadingSpinner size={20} /> : <Zap size={20} className="text-warn-400" />}
-            <span className="text-sm font-semibold text-white">Scan Signals</span>
+            <span className="text-sm font-semibold text-white">Scanner les signaux</span>
           </div>
           <p className="text-2xl font-bold text-white">{prepared.length}</p>
-          <p className="text-xs text-surface-500 mt-1">Prepared actions</p>
+          <p className="text-xs text-surface-500 mt-1">Actions préparées</p>
         </button>
 
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-2">
             <Clock size={20} className="text-surface-400" />
-            <span className="text-sm font-semibold text-white">Total Actions</span>
+            <span className="text-sm font-semibold text-white">Actions totales</span>
           </div>
           <p className="text-2xl font-bold text-white">{actions.length}</p>
-          <p className="text-xs text-surface-500 mt-1">{history.filter(a => a.status === 'CONFIRMED').length} confirmed</p>
+          <p className="text-xs text-surface-500 mt-1">{history.filter(a => a.status === 'CONFIRMED').length} confirmées</p>
         </div>
       </div>
 
       {killSwitch && (
         <div className="card p-4 mb-6 border-l-4 border-l-danger-500 bg-danger-600/5 flex items-center gap-3">
           <AlertTriangle size={18} className="text-danger-400 shrink-0" />
-          <p className="text-sm text-danger-400">Kill switch is ACTIVE. No new actions can be prepared or built. Deactivate to resume.</p>
+          <p className="text-sm text-danger-400">Kill switch actif: aucune nouvelle action ne peut être préparée. Désactivez pour reprendre.</p>
         </div>
       )}
 
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <Play size={18} className="text-warn-400" />
-        Pending Actions ({prepared.length + building.length})
+        Actions en attente ({prepared.length + building.length})
       </h2>
 
       {prepared.length === 0 && building.length === 0 ? (
         <EmptyState
           icon={Terminal}
-          title="No pending actions"
-          description="Run a signal scan or wait for the automated worker to prepare actions."
+          title="Aucune action en attente"
+          description="Lancez un scan de signaux ou attendez la préparation automatique."
           action={
             <button onClick={runSignalScan} disabled={loading || killSwitch} className="btn-primary">
-              Scan Now
+              Scanner maintenant
             </button>
           }
         />
@@ -205,18 +205,18 @@ export default function ConsolePage() {
                   className="btn-primary flex items-center gap-2 text-sm"
                 >
                   {buildingId === a.id ? <LoadingSpinner size={14} /> : <Check size={14} />}
-                  {txSigningEnabled ? 'Build & Sign' : 'Prepare Action'}
+                  {txSigningEnabled ? 'Construire et signer' : 'Préparer'}
                 </button>
                 <button onClick={() => handleRefuse(a)} className="btn-danger flex items-center gap-2 text-sm">
                   <X size={14} />
-                  Refuse
+                  Refuser
                 </button>
               </div>
               {txSigningEnabled && !solanaAddress && (
-                <p className="text-xs text-warn-400 mt-2">Connect a Solana wallet to sign transactions</p>
+                <p className="text-xs text-warn-400 mt-2">Connectez un wallet Solana pour signer les transactions</p>
               )}
               {!txSigningEnabled && (
-                <p className="text-xs text-surface-500 mt-2">Signing disabled: action remains prepared until server-side transaction builder is enabled.</p>
+                <p className="text-xs text-surface-500 mt-2">Signature désactivée: l’action reste préparée tant que le builder serveur n’est pas actif.</p>
               )}
             </div>
           ))}
@@ -225,7 +225,7 @@ export default function ConsolePage() {
 
       {history.length > 0 && (
         <>
-          <h2 className="text-lg font-semibold text-surface-400 mb-4">History ({history.length})</h2>
+          <h2 className="text-lg font-semibold text-surface-400 mb-4">Historique ({history.length})</h2>
           <div className="space-y-2">
             {history.slice(0, 20).map(a => (
               <div key={a.id} className="card p-4 flex items-center gap-4 opacity-70">

@@ -12,7 +12,7 @@ import { api } from '../lib/api';
 import type { WalletBalanceData, PortfolioSnapshot, BinanceTicker, TradingCockpitSnapshot } from '../lib/types';
 
 function formatUsd(n: number) {
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 }
 
 function formatToken(n: number) {
@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderAmountUsd, setOrderAmountUsd] = useState('25');
   const [confirmationPhrase, setConfirmationPhrase] = useState('');
+  const [userOrderConfirmed, setUserOrderConfirmed] = useState(false);
   const [cockpitLoading, setCockpitLoading] = useState(false);
 
   const refreshBalances = useCallback(async () => {
@@ -94,6 +95,8 @@ export default function DashboardPage() {
   const pnlPositive = pnlUsd >= 0;
   const validationReady = !!tradingValidation?.canSubmit;
   const tradableCapital = tradingAccount?.tradableCapitalUsd || 0;
+  const liveNeedsPhrase = orderMode === 'LIVE' && confirmationPhrase.trim().length === 0;
+  const orderBlockedByConfirmation = !userOrderConfirmed || liveNeedsPhrase;
 
   const handleSubmitOrder = async () => {
     const amount = Number(orderAmountUsd);
@@ -140,8 +143,8 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={LayoutDashboard}
-        title="Trading Cockpit"
-        subtitle="Binance prices, server-side balances, risk gates, and execution controls"
+        title="Cockpit trading"
+        subtitle="Prix Binance, soldes, contrôles risque et exécution sous confirmation"
         action={
           <button
             onClick={() => {
@@ -152,30 +155,37 @@ export default function DashboardPage() {
             className="btn-secondary flex items-center gap-2"
           >
             {loading || cockpitLoading ? <LoadingSpinner size={14} /> : <RefreshCw size={14} />}
-            <span>Refresh</span>
+            <span>Actualiser</span>
           </button>
         }
       />
 
+      <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
+        <p className="text-xs text-surface-300">
+          Les performances passées ne garantissent aucun gain futur.
+          Chaque ordre doit être validé par vous avant exécution.
+        </p>
+      </div>
+
       {settings?.kill_switch && (
         <div className="card p-4 mb-6 border-l-4 border-l-danger-500 bg-danger-600/5 flex items-center gap-3">
           <AlertTriangle size={18} className="text-danger-400 shrink-0" />
-          <p className="text-sm text-danger-400">Kill switch is ACTIVE. Trading is blocked until validation clears.</p>
+          <p className="text-sm text-danger-400">Kill switch actif: le trading est bloqué.</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <SummaryCard icon={DollarSign} label="Total Portfolio" value={formatUsd(totalValueUsd)} sub={lastRefresh ? `Updated ${lastRefresh}` : 'Loading...'} color="text-brand-400" bgColor="bg-brand-600/10" />
+        <SummaryCard icon={DollarSign} label="Portefeuille total" value={formatUsd(totalValueUsd)} sub={lastRefresh ? `Mis à jour ${lastRefresh}` : 'Chargement...'} color="text-brand-400" bgColor="bg-brand-600/10" />
         <SummaryCard icon={pnlPositive ? TrendingUp : TrendingDown} label="P&L" value={`${pnlPositive ? '+' : ''}${formatUsd(pnlUsd)}`} sub={`${pnlPositive ? '+' : ''}${pnlPct.toFixed(2)}%`} color={pnlPositive ? 'text-brand-400' : 'text-danger-400'} bgColor={pnlPositive ? 'bg-brand-600/10' : 'bg-danger-600/10'} />
-        <SummaryCard icon={Wallet} label="Connected Wallets" value={String(connectedCount)} sub={`${managedWallets.length} total`} color="text-blue-400" bgColor="bg-blue-500/10" />
-        <SummaryCard icon={Cpu} label="Active Strategies" value={String(enabledStrategies.length)} sub={settings?.kill_switch ? 'Blocked by kill switch' : 'Trading ready'} color="text-warn-400" bgColor="bg-warn-500/10" />
+        <SummaryCard icon={Wallet} label="Wallets connectés" value={String(connectedCount)} sub={`${managedWallets.length} total`} color="text-blue-400" bgColor="bg-blue-500/10" />
+        <SummaryCard icon={Cpu} label="Stratégies actives" value={String(enabledStrategies.length)} sub={settings?.kill_switch ? 'Bloqué par kill switch' : 'Prêt à trader'} color="text-warn-400" bgColor="bg-warn-500/10" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2 space-y-6">
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2"><Activity size={18} className="text-brand-400" />Portfolio History</h2>
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2"><Activity size={18} className="text-brand-400" />Historique portefeuille</h2>
               <StatusBadge status={validationReady ? 'CONFIRMED' : 'PREPARED'} size="md" />
             </div>
             <PortfolioChart history={portfolioHistory} />
@@ -184,12 +194,12 @@ export default function DashboardPage() {
           <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-white">Binance Prices</h3>
+                <h3 className="text-base font-semibold text-white">Prix Binance</h3>
                 <Zap size={16} className="text-brand-400" />
               </div>
               <div className="space-y-3">
                 {tradingTickers.length === 0 ? (
-                  <p className="text-sm text-surface-500">Loading Binance quotes...</p>
+                  <p className="text-sm text-surface-500">Chargement des cotations Binance...</p>
                 ) : tradingTickers.map(ticker => (
                   <TickerRow key={ticker.symbol} ticker={ticker} />
                 ))}
@@ -198,15 +208,15 @@ export default function DashboardPage() {
 
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-white">Tradable Capital</h3>
+                <h3 className="text-base font-semibold text-white">Capital utilisable</h3>
                 <BadgeDollarSign size={16} className="text-brand-400" />
               </div>
               <p className="text-3xl font-bold text-white">{formatUsd(tradableCapital)}</p>
-              <p className="text-xs text-surface-500 mt-2">Free stable value + risk-adjusted capital</p>
+              <p className="text-xs text-surface-500 mt-2">Stable disponible + capital ajusté au risque</p>
               <div className="mt-4 space-y-2 text-sm">
-                <Row label="Account value" value={formatUsd(tradingAccount?.totalAccountValueUsd || 0)} />
-                <Row label="Free stable" value={formatUsd(tradingAccount?.freeStableUsd || 0)} />
-                <Row label="Live ready" value={tradingAccount?.canTradeLive ? 'Yes' : 'No'} />
+                <Row label="Valeur compte" value={formatUsd(tradingAccount?.totalAccountValueUsd || 0)} />
+                <Row label="Stable libre" value={formatUsd(tradingAccount?.freeStableUsd || 0)} />
+                <Row label="Live autorisé" value={tradingAccount?.canTradeLive ? 'Oui' : 'Non'} />
               </div>
             </div>
           </section>
@@ -215,7 +225,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Recommendation</h3>
+              <h3 className="text-base font-semibold text-white">Recommandation</h3>
               <StatusBadge status={tradingRecommendation?.action === 'BUY' ? 'CONFIRMED' : tradingRecommendation?.action === 'SELL' ? 'FAILED' : 'PREPARED'} />
             </div>
             {tradingRecommendation ? (
@@ -230,21 +240,21 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-surface-500">No recommendation loaded yet.</p>
+              <p className="text-sm text-surface-500">Aucune recommandation chargée.</p>
             )}
           </div>
 
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Validation</h3>
+              <h3 className="text-base font-semibold text-white">Contrôles</h3>
               <StatusBadge status={tradingValidation?.canSubmit ? 'CONFIRMED' : 'REFUSED'} />
             </div>
             {tradingValidation ? (
               <div className="space-y-2 text-sm">
-                <Row label="Pass" value={tradingValidation.passed ? 'Yes' : 'No'} />
-                <Row label="Kill switch" value={tradingValidation.killSwitchActive ? 'On' : 'Off'} />
-                <Row label="Live enabled" value={tradingValidation.liveTradingEnabled ? 'Yes' : 'No'} />
-                <Row label="Max order" value={formatUsd(tradingValidation.maxOrderUsd)} />
+                <Row label="Validation" value={tradingValidation.passed ? 'Oui' : 'Non'} />
+                <Row label="Kill switch" value={tradingValidation.killSwitchActive ? 'Actif' : 'Inactif'} />
+                <Row label="Live autorisé" value={tradingValidation.liveTradingEnabled ? 'Oui' : 'Non'} />
+                <Row label="Ordre max" value={formatUsd(tradingValidation.maxOrderUsd)} />
                 {tradingValidation.issues.map(issue => (
                   <div key={issue.field} className={`text-xs rounded-lg px-3 py-2 ${issue.severity === 'error' ? 'bg-danger-600/10 text-danger-300' : 'bg-warn-600/10 text-warn-300'}`}>
                     {issue.message}
@@ -252,41 +262,55 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-surface-500">Validation not loaded yet.</p>
+              <p className="text-sm text-surface-500">Contrôles non chargés.</p>
             )}
           </div>
 
           <div className="card p-5">
-            <h3 className="text-base font-semibold text-white mb-4">Execution</h3>
+            <h3 className="text-base font-semibold text-white mb-4">Exécution</h3>
             <div className="space-y-3">
               <select value={orderMode} onChange={e => setOrderMode(e.target.value as 'TEST' | 'LIVE')} className="input">
-                <option value="TEST">Real Binance test order</option>
-                <option value="LIVE">Live order gated</option>
+                <option value="TEST">Ordre test Binance réel</option>
+                <option value="LIVE">Ordre live sécurisé</option>
               </select>
-              <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbol" />
+              <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbole" />
               <div className="grid grid-cols-2 gap-3">
                 <select value={orderSide} onChange={e => setOrderSide(e.target.value as 'BUY' | 'SELL')} className="input">
-                  <option value="BUY">BUY</option>
-                  <option value="SELL">SELL</option>
+                  <option value="BUY">ACHAT</option>
+                  <option value="SELL">VENTE</option>
                 </select>
-                <input value={orderAmountUsd} onChange={e => setOrderAmountUsd(e.target.value)} className="input" placeholder="USD amount" inputMode="decimal" />
+                <input value={orderAmountUsd} onChange={e => setOrderAmountUsd(e.target.value)} className="input" placeholder="Montant USD" inputMode="decimal" />
               </div>
               {orderMode === 'LIVE' && (
                 <div className="rounded-lg border border-danger-500/30 bg-danger-500/10 p-3">
                   <p className="text-xs text-danger-200 mb-2">
-                    Live order requires server switch ALLOW_LIVE_TRADING=true and the exact confirmation phrase configured on the Edge Function.
+                    Le live nécessite ALLOW_LIVE_TRADING=true côté serveur et la phrase exacte de confirmation.
                   </p>
                   <input
                     value={confirmationPhrase}
                     onChange={e => setConfirmationPhrase(e.target.value)}
                     className="input"
-                    placeholder="Confirmation phrase"
+                    placeholder="Phrase de confirmation"
                   />
                 </div>
               )}
-              <button onClick={handleSubmitOrder} className="btn-primary w-full">
-                {orderMode === 'TEST' ? 'Submit real Binance test order' : 'Submit gated live order'}
+              <label className="flex items-start gap-2 rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-xs text-surface-300">
+                <input
+                  type="checkbox"
+                  checked={userOrderConfirmed}
+                  onChange={(e) => setUserOrderConfirmed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-brand-500"
+                />
+                <span>Je confirme que je valide cet ordre et que le risque financier est sous ma responsabilité.</span>
+              </label>
+              <button onClick={handleSubmitOrder} disabled={orderBlockedByConfirmation} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">
+                {orderMode === 'TEST' ? 'Envoyer ordre test Binance' : 'Envoyer ordre live sécurisé'}
               </button>
+              {orderBlockedByConfirmation && (
+                <p className="text-xs text-warn-400">
+                  Cochez la confirmation utilisateur{liveNeedsPhrase ? ' et renseignez la phrase de confirmation live' : ''}.
+                </p>
+              )}
               {executionResult && (
                 <div className="rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-sm">
                   <p className="font-semibold text-white flex items-center gap-2"><CheckCircle2 size={14} className="text-brand-400" />{executionResult.status}</p>
@@ -298,14 +322,14 @@ export default function DashboardPage() {
 
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">PnL</h3>
+              <h3 className="text-base font-semibold text-white">Résultat PnL</h3>
               <StatusBadge status={(tradingPnl?.pnlUsd || pnlUsd) >= 0 ? 'SUCCESS' : 'FAILED'} />
             </div>
             <div className="space-y-2 text-sm">
-              <Row label="Total value" value={formatUsd(tradingPnl?.totalValueUsd || totalValueUsd)} />
+              <Row label="Valeur totale" value={formatUsd(tradingPnl?.totalValueUsd || totalValueUsd)} />
               <Row label="PnL USD" value={formatUsd(tradingPnl?.pnlUsd || pnlUsd)} />
               <Row label="PnL %" value={`${(tradingPnl?.pnlPct || pnlPct).toFixed(2)}%`} />
-              <Row label="Window" value={tradingPnl?.sinceLabel || '24h'} />
+              <Row label="Fenêtre" value={tradingPnl?.sinceLabel || '24h'} />
             </div>
           </div>
         </div>
@@ -313,16 +337,16 @@ export default function DashboardPage() {
 
       <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
         <Wallet size={18} className="text-brand-400" />
-        Wallet Balances
+        Soldes wallets
       </h2>
       {loading && walletBalances.length === 0 ? (
         <div className="card p-12 flex items-center justify-center">
           <LoadingSpinner size={24} />
-          <span className="ml-3 text-surface-400">Fetching balances...</span>
+          <span className="ml-3 text-surface-400">Récupération des soldes...</span>
         </div>
       ) : walletBalances.length === 0 ? (
         <div className="card p-8 text-center">
-          <p className="text-surface-400">No enabled wallets found. Connect a wallet to see balances.</p>
+          <p className="text-surface-400">Aucun wallet actif. Connectez un wallet pour voir les soldes.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -372,7 +396,7 @@ function TickerRow({ ticker }: { ticker: BinanceTicker }) {
     <div className="flex items-center justify-between rounded-lg border border-surface-800 bg-surface-900/60 px-3 py-2">
       <div>
         <p className="text-sm font-semibold text-white">{ticker.symbol}</p>
-        <p className="text-[10px] text-surface-500">24h volume {ticker.quoteVolume.toLocaleString()}</p>
+        <p className="text-[10px] text-surface-500">Volume 24h {ticker.quoteVolume.toLocaleString()}</p>
       </div>
       <div className="text-right">
         <p className="text-sm font-semibold text-white">{formatUsd(ticker.lastPrice)}</p>
@@ -386,7 +410,7 @@ function PortfolioChart({ history }: { history: PortfolioSnapshot[] }) {
   if (history.length === 0) {
     return (
       <div className="card p-8 text-center">
-        <p className="text-surface-400 text-sm">No portfolio history yet. Refresh balances to start tracking.</p>
+        <p className="text-surface-400 text-sm">Aucun historique portefeuille. Actualisez les soldes pour démarrer.</p>
       </div>
     );
   }
@@ -423,13 +447,13 @@ function PortfolioChart({ history }: { history: PortfolioSnapshot[] }) {
         })}
       </div>
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-800">
-        <span className="text-[10px] text-surface-500">{history.length} snapshots</span>
+        <span className="text-[10px] text-surface-500">{history.length} points</span>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1 text-[10px] text-brand-400">
             <ArrowUpRight size={10} /> Gain
           </span>
           <span className="flex items-center gap-1 text-[10px] text-danger-400">
-            <ArrowDownRight size={10} /> Loss
+            <ArrowDownRight size={10} /> Perte
           </span>
         </div>
       </div>
@@ -477,7 +501,7 @@ function WalletCard({ data, totalPortfolio }: { data: WalletBalanceData; totalPo
 
           <div className="mt-4 pt-3 border-t border-surface-800">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-surface-500">Portfolio share</span>
+              <span className="text-xs text-surface-500">Part du portefeuille</span>
               <span className="text-xs font-semibold text-surface-300">{pct.toFixed(1)}%</span>
             </div>
             <div className="mt-1.5 h-1.5 bg-surface-800 rounded-full overflow-hidden">

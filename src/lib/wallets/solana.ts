@@ -11,7 +11,7 @@ interface SolanaProvider {
   isSolflare?: boolean;
   isConnected?: boolean;
   publicKey?: { toString: () => string; toBase58?: () => string } | null;
-  connect: () => Promise<{ publicKey?: { toString: () => string } } | void>;
+  connect: (options?: unknown) => Promise<{ publicKey?: { toString: () => string } } | void>;
   disconnect: () => Promise<void>;
   signAndSendTransaction?: (tx: unknown) => Promise<{ signature: string }>;
   signTransaction?: (tx: unknown) => Promise<unknown>;
@@ -52,6 +52,21 @@ export async function connectSolflare(): Promise<string> {
   if (!provider) throw new Error('Solflare not found. Install the Solflare extension.');
   await provider.connect();
   await new Promise(r => setTimeout(r, 300));
+  return readPublicKey(provider);
+}
+
+export async function getConnectedSolanaAddress(which: 'phantom' | 'solflare'): Promise<string | null> {
+  const provider = which === 'phantom' ? getPhantomProvider() : getSolflareProvider();
+  if (!provider) return null;
+  if (provider.publicKey) {
+    return readPublicKey(provider);
+  }
+  try {
+    await provider.connect({ onlyIfTrusted: true });
+  } catch {
+    return null;
+  }
+  if (!provider.publicKey) return null;
   return readPublicKey(provider);
 }
 

@@ -29,8 +29,8 @@ export default function OrchestrationPage() {
     <div className="space-y-6">
       <PageHeader
         icon={Activity}
-        title="Trading Orchestration"
-        subtitle="Advanced multi-wallet automation & risk management"
+        title="Orchestration trading"
+        subtitle="Pilotage multi-wallet avec garde-fous risque"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -40,7 +40,7 @@ export default function OrchestrationPage() {
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {isRunning ? 'Orchestrator Active' : 'Orchestrator Stopped'}
+                  {isRunning ? 'Orchestrateur actif' : 'Orchestrateur arrêté'}
                 </h2>
               </div>
               <button
@@ -51,7 +51,7 @@ export default function OrchestrationPage() {
                     : 'bg-green-500 hover:bg-green-600 text-white'
                 }`}
               >
-                {isRunning ? 'Stop' : 'Start'}
+                {isRunning ? 'Arrêter' : 'Démarrer'}
               </button>
             </div>
 
@@ -59,7 +59,7 @@ export default function OrchestrationPage() {
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">Portfolio</span>
+                  <span className="text-sm font-medium text-blue-900">Portefeuille</span>
                 </div>
                 <p className="text-2xl font-bold text-blue-900">
                   {metrics.portfolioValue > 0
@@ -74,7 +74,7 @@ export default function OrchestrationPage() {
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-900">Win Rate</span>
+                  <span className="text-sm font-medium text-green-900">Taux de réussite</span>
                 </div>
                 <p className="text-2xl font-bold text-green-900">{metrics.winRate.toFixed(1)}%</p>
                 <p className="text-sm text-green-700 mt-1">{metrics.tradesExecuted} trades</p>
@@ -83,7 +83,7 @@ export default function OrchestrationPage() {
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-900">AI Score</span>
+                  <span className="text-sm font-medium text-purple-900">Score IA</span>
                 </div>
                 <p className="text-2xl font-bold text-purple-900">{sentiment.score.toFixed(2)}</p>
                 <p className="text-sm text-purple-700 mt-1 capitalize">{sentiment.label}</p>
@@ -102,14 +102,14 @@ export default function OrchestrationPage() {
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Active Traders ({traders.length})
-              </h3>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                Traders actifs ({traders.length})
+                </h3>
               <button
                 onClick={() => loadTraders()}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Refresh traders"
+                title="Actualiser les traders"
               >
                 <RefreshCw className="w-4 h-4 text-gray-600" />
               </button>
@@ -149,12 +149,12 @@ export default function OrchestrationPage() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Sentiment Analysis</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Analyse de sentiment IA</h3>
 
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-600">Market Sentiment</span>
+                  <span className="text-gray-600">Sentiment marché</span>
                   <span className="font-medium text-gray-900">{(sentiment.score * 100).toFixed(0)}/100</span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -169,7 +169,7 @@ export default function OrchestrationPage() {
 
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-600">Confidence Level</span>
+                  <span className="text-gray-600">Niveau de confiance</span>
                   <span className="font-medium text-gray-900">{(sentiment.confidence * 100).toFixed(0)}%</span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -182,7 +182,7 @@ export default function OrchestrationPage() {
 
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-600">Recommended Exposure</span>
+                  <span className="text-gray-600">Exposition recommandée</span>
                   <span className="font-medium text-gray-900">{sentiment.exposure}%</span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -196,8 +196,8 @@ export default function OrchestrationPage() {
 
             <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm text-blue-900">
-                <strong>AI Recommendation:</strong> Market sentiment is <strong>{sentiment.label}</strong> with {(sentiment.confidence * 100).toFixed(0)}% confidence.
-                Recommended exposure adjusted to {sentiment.exposure}% based on current market conditions.
+                <strong>Recommandation IA:</strong> sentiment <strong>{sentiment.label}</strong> avec {(sentiment.confidence * 100).toFixed(0)}% de confiance.
+                Exposition conseillée: {sentiment.exposure}% selon les conditions actuelles.
               </p>
             </div>
           </div>
@@ -205,13 +205,13 @@ export default function OrchestrationPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Activity className="w-5 h-5" />
-              Recent Events
+              Événements récents
             </h3>
 
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {events.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  No events yet. Start the orchestrator to see activity.
+                  Aucun événement pour l'instant. Démarrez l'orchestrateur.
                 </p>
               ) : (
                 events.map((event, idx) => (
@@ -250,13 +250,13 @@ export default function OrchestrationPage() {
 
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">System Configuration</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuration système</h3>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Zap className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-900">AI Analysis</span>
+                  <span className="text-sm font-medium text-gray-900">Analyse IA</span>
                 </div>
                 <button
                   onClick={() => toggleFeature('aiEnabled')}
@@ -294,7 +294,7 @@ export default function OrchestrationPage() {
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <BarChart3 className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-900">TradFi Bridge</span>
+                  <span className="text-sm font-medium text-gray-900">Pont TradFi</span>
                 </div>
                 <button
                   onClick={() => toggleFeature('tradfiEnabled')}
@@ -313,7 +313,7 @@ export default function OrchestrationPage() {
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <TrendingUp className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-gray-900">Auto Rebalance</span>
+                  <span className="text-sm font-medium text-gray-900">Rééquilibrage auto</span>
                 </div>
                 <button
                   onClick={() => toggleFeature('autoRebalance')}
@@ -334,13 +334,13 @@ export default function OrchestrationPage() {
           <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl shadow-sm border border-orange-200 p-6">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-orange-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Risk Limits</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Limites de risque</h3>
             </div>
 
             <div className="space-y-3">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-700">Max Drawdown</span>
+                  <span className="text-gray-700">Drawdown max</span>
                   <span className="font-medium text-gray-900">7.2% / 10%</span>
                 </div>
                 <div className="h-2 bg-white/50 rounded-full overflow-hidden">
@@ -350,7 +350,7 @@ export default function OrchestrationPage() {
 
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-700">Daily Loss</span>
+                  <span className="text-gray-700">Perte journalière</span>
                   <span className="font-medium text-gray-900">2.1% / 5%</span>
                 </div>
                 <div className="h-2 bg-white/50 rounded-full overflow-hidden">
@@ -360,7 +360,7 @@ export default function OrchestrationPage() {
 
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-700">Consecutive Losses</span>
+                  <span className="text-gray-700">Pertes consécutives</span>
                   <span className="font-medium text-gray-900">2 / 5</span>
                 </div>
                 <div className="h-2 bg-white/50 rounded-full overflow-hidden">
@@ -370,13 +370,13 @@ export default function OrchestrationPage() {
             </div>
 
             <p className="text-xs text-gray-600 mt-4 leading-relaxed">
-              Circuit breaker will automatically halt all trading if any limit is exceeded.
-              60-minute cooldown period applies.
+              Le circuit breaker coupe automatiquement le trading si une limite est dépassée.
+              Un cooldown de 60 minutes s'applique.
             </p>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h3>
 
             <div className="space-y-2">
               <button
@@ -384,18 +384,18 @@ export default function OrchestrationPage() {
                 disabled={!config.aiEnabled}
                 className="w-full px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
               >
-                Run AI Analysis Now
+                Lancer l'analyse IA
               </button>
 
               <button
                 onClick={() => loadTraders()}
                 className="w-full px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
               >
-                Reload Traders
+                Recharger les traders
               </button>
 
               <button className="w-full px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors">
-                Execute Jito Bundle
+                Exécuter le bundle Jito
               </button>
 
               <button
@@ -403,7 +403,7 @@ export default function OrchestrationPage() {
                 disabled={!isRunning}
                 className="w-full px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
               >
-                Emergency Stop All
+                Arrêt d'urgence global
               </button>
             </div>
           </div>

@@ -41,21 +41,21 @@ export default function TransactionsPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={ListOrdered}
-        title="Transactions"
-        subtitle="On-chain transaction history and action timeline"
+        title="Historique"
+        subtitle="Historique des transactions on-chain et des actions"
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <div className="card p-4">
-          <p className="text-xs text-surface-500 mb-1">Total Txs</p>
+          <p className="text-xs text-surface-500 mb-1">Total tx</p>
           <p className="text-2xl font-bold text-white">{transactions.length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs text-surface-500 mb-1">Successful</p>
+          <p className="text-xs text-surface-500 mb-1">Réussies</p>
           <p className="text-2xl font-bold text-brand-400">{transactions.filter(t => t.status === 'SUCCESS').length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs text-surface-500 mb-1">Confirmed Actions</p>
+          <p className="text-xs text-surface-500 mb-1">Actions confirmées</p>
           <p className="text-2xl font-bold text-white">{confirmedActions.length}</p>
         </div>
         <div className="card p-4">
@@ -65,12 +65,12 @@ export default function TransactionsPage() {
       </div>
 
       {transactions.length === 0 && actions.filter(a => a.status !== 'PREPARED').length === 0 ? (
-        <EmptyState icon={ListOrdered} title="No transactions yet" description="Confirm actions from the Console to see transactions here." />
+        <EmptyState icon={ListOrdered} title="Aucune transaction" description="Confirmez des actions dans la Console pour alimenter cet historique." />
       ) : (
         <>
           {transactions.length > 0 && (
             <>
-              <h2 className="text-lg font-semibold text-white mb-4">On-Chain Transactions</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Transactions on-chain</h2>
               <div className="space-y-3 mb-8">
                 {transactions.map(tx => (
                   <div key={tx.id} className="card p-4 flex items-center gap-4">
@@ -98,7 +98,7 @@ export default function TransactionsPage() {
             </>
           )}
 
-          <h2 className="text-lg font-semibold text-white mb-4">Action Timeline</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Chronologie des actions</h2>
           <div className="relative border-l-2 border-surface-800 ml-4 space-y-6">
             {actions.filter(a => a.status !== 'PREPARED').slice(0, 30).map(a => (
               <div key={a.id} className="relative pl-8">
