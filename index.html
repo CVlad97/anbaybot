@@ -30,10 +30,22 @@
     <script>
       (function () {
         var l = window.location;
+        var basePath = '/anbaybot/';
+        var hasHash = !!l.hash;
+
         if (l.search && l.search.startsWith('?/')) {
-          var path = l.search.slice(2);
-          var newUrl = l.pathname.replace(/\/$/, '') + '/' + path + l.hash;
-          window.history.replaceState(null, '', newUrl);
+          var routeFromQuery = l.search.slice(2);
+          var queryRoute = routeFromQuery.startsWith('/') ? routeFromQuery : '/' + routeFromQuery;
+          var targetFromQuery = basePath + '#' + queryRoute + l.hash;
+          window.location.replace(targetFromQuery);
+          return;
+        }
+
+        if (!hasHash && l.pathname.startsWith(basePath) && l.pathname !== basePath) {
+          var routeFromPath = l.pathname.slice(basePath.length - 1);
+          var normalizedRoute = routeFromPath.startsWith('/') ? routeFromPath : '/' + routeFromPath;
+          var targetFromPath = basePath + '#' + normalizedRoute + l.search;
+          window.location.replace(targetFromPath);
         }
       })();
     </script>
