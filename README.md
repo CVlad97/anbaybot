@@ -1,360 +1,235 @@
-# IKB CopyBot Stable Pro
+# AnbayBot — Semi-Auto Crypto Trading Assistant
 
-A production-ready semi-automatic crypto trading assistant built with Next.js 14 App Router, TypeScript, Prisma, and Tailwind CSS.
+**AnbayBot** is a production-ready semi-automatic cryptocurrency trading interface built with **React 18, TypeScript, and Vite**. It supports **Solana** (Phantom, Solflare) and **EVM** (MetaMask, Trust Wallet, Coinbase Wallet) wallets and provides a full cockpit for monitoring market data, managing trading actions, and controlling risk.
 
-## Key Features
+> ⚠️ **Security-first design:** The server never stores or accesses private keys. All transactions require explicit user confirmation with wallet signature. Live trading is disabled by default.
 
-### Core Functionality
-- ✅ **Semi-Auto Trading:** Server prepares actions, user confirms with wallet signature
-- ✅ **Multi-Wallet Support:** Phantom, Solflare (Solana) + MetaMask (EVM)
-- ✅ **Mobile Compatible:** Deeplink support for mobile wallet browsers
-- ✅ **Strategy Engine:** Pluggable strategies (momentum, defensive exit, payout)
-- ✅ **Jupiter Integration:** V6 swap transactions with automatic routing
-- ✅ **Kill Switch:** Emergency stop for all trading operations
-- ✅ **Audit Logging:** Complete trail of all critical events
-- ✅ **Market Data:** Live trending tokens and DEX movers
-
-### Safety & Security
-- ❌ **No Private Keys:** Server never stores or accesses private keys
-- ✅ **User Confirmation Required:** Every trade needs explicit approval
-- ✅ **Risk Parameters:** Configurable limits and safety checks
-- ✅ **Graceful Degradation:** All external APIs fail safely
-- ✅ **RLS Policies:** Row-level security on all database tables
+---
 
 ## Tech Stack
 
-- **Framework:** Next.js 14 (App Router) + React 18 + TypeScript
-- **Styling:** Tailwind CSS
-- **Database:** PostgreSQL via Prisma ORM
-- **Blockchain:** @solana/web3.js, ethers.js
-- **APIs:** Jupiter V6, CoinGecko, DexScreener, Helius (optional)
-- **Validation:** Zod
+| Layer | Technology |
+|---|---|
+| **Framework** | [React 18](https://react.dev) + [TypeScript 5](https://www.typescriptlang.org) |
+| **Bundler** | [Vite 8](https://vitejs.dev) |
+| **Styling** | [Tailwind CSS 3](https://tailwindcss.com) + custom components |
+| **State** | [Zustand](https://github.com/pmndrs/zustand) |
+| **Validation** | [Zod 4](https://zod.dev) |
+| **Icons** | [Lucide React](https://lucide.dev) |
+| **Backend** | [Supabase](https://supabase.com) Edge Functions |
+| **Blockchain** | [`@solana/web3.js`](https://solana-labs.github.io/solana-web3.js), [`ethers`](https://docs.ethers.org) |
+| **Mobile** | Wallet deep-links (Phantom, Solflare, MetaMask, Trust Wallet) |
 
-## Prerequisites
+---
 
-- Node.js 18+
-- PostgreSQL database
-- Phantom or Solflare wallet (for Solana trading)
-- MetaMask (for Ethereum/Base - display only in v1)
+## Key Features
 
-## Environment Variables
+### Core
+- ✅ **Semi-Auto Trading** — Server prepares actions, you confirm with wallet signature
+- ✅ **Multi-Wallet** — Phantom, Solflare (Solana) + MetaMask, Trust Wallet, Coinbase Wallet (EVM)
+- ✅ **Mobile Compatible** — Deeplink support for in-wallet browsing
+- ✅ **Strategy Engine** — Pluggable strategies (momentum, defensive exit, payout, copy trading, etc.)
+- ✅ **Jupiter Integration** — V6 swap transactions with automatic routing (via backend)
+- ✅ **Kill Switch** — Emergency stop for all trading operations
+- ✅ **Audit Logging** — Complete trail of all critical events
+- ✅ **Market Data** — Live trending tokens (CoinGecko) and DEX movers (DexScreener)
+- ✅ **Demo Mode** — Full local demo without any backend (ready to use on GitHub Pages)
+- ✅ **Runtime Fallback** — Auto-fallback to local demo when the backend is unreachable
 
-Create a `.env` file in the project root (see `.env.example`):
+### Safety
+- ❌ **No Private Keys** — Server never stores or accesses private keys
+- ✅ **User Confirmation** — Every trade needs explicit human approval
+- ✅ **Risk Parameters** — Configurable limits (max trade size, daily loss, slippage, etc.)
+- ✅ **Graceful Degradation** — All external APIs fail safely
 
-```env
-# Database (Required)
-DATABASE_URL="postgresql://user:password@localhost:5432/ikb_copybot"
-
-# Application (Required)
-NEXT_PUBLIC_APP_BASE_URL="http://localhost:3000"
-
-# Security (Required for cron)
-CRON_SECRET="your-secure-random-string-here"
-
-# Optional: Helius (for webhooks)
-\1\"\"
-\1\"\"
-```
+---
 
 ## Getting Started
 
-### 1. Install Dependencies
+### Prerequisites
+
+- **Node.js 18+** with npm
+- **A wallet** (Phantom, Solflare, MetaMask, etc.) — browser extension or mobile app
+
+### 1. Install
 
 ```bash
 npm install
 ```
 
-### 2. Setup Database
+### 2. Configure Environment
+
+Copy `.env.example` to `.env` and fill in the values:
 
 ```bash
-# Generate Prisma client
-npx prisma generate
-
-# Run migrations
-npx prisma migrate dev
-
-# Optional: Open Prisma Studio to view database
-npx prisma studio
+cp .env.example .env
 ```
 
-### 3. Start Development Server
+Required for backend features:
+- `VITE_SUPABASE_URL` — Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` — Your Supabase anon/public key
+
+Optional but recommended:
+- `VITE_SOLANA_RPC_URL` — Custom Solana RPC (default: `https://api.mainnet-beta.solana.com`)
+- `VITE_ETHEREUM_RPC_URL` — Custom Ethereum RPC (default: `https://mainnet.base.org`)
+
+### 3. Start Development
 
 ```bash
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000`
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### 4. Connect a Wallet
 
 - Install Phantom, Solflare, or MetaMask browser extension
-- Open the app at `http://localhost:3000`
-- Click "Phantom", "Solflare", or "MetaMask" in the top navigation
+- Open the app and click the wallet button in the header
 - Approve the connection
-- Your wallet is now registered and ready to use
+
+---
 
 ## Available Scripts
 
 ```bash
-# Development
-npm run dev              # Start Next.js dev server
-npm run build            # Build for production
-npm run start            # Start production server
-
-# Code Quality
-npm run typecheck        # TypeScript validation
-npm run lint             # Lint code (currently skipped due to ESLint 9 compatibility)
-
-# Database
-npx prisma generate      # Generate Prisma client
-npx prisma migrate dev   # Create and apply migrations
-npx prisma studio        # Open Prisma Studio (database GUI)
+npm run dev         # Start Vite dev server (hot reload)
+npm run build       # Build for production + copy 404.html for GitHub Pages
+npm run preview     # Preview production build locally
+npm run lint        # ESLint check
+npm run typecheck   # TypeScript type checking (tsc --noEmit)
 ```
+
+---
+
+## GitHub Pages Deployment
+
+The project is ready for GitHub Pages:
+
+1. Set `VITE_BASE_PATH` to your repo name (e.g., `/anbaybot`) in GitHub repo variables
+2. The build script automatically copies `index.html` → `404.html` for SPA deep-link support
+3. Enable GitHub Pages in repo settings → Source: GitHub Actions or deploy from `dist/` folder
+
+```yaml
+# Example deploy step
+- run: npm run build
+- name: Deploy to GitHub Pages
+  uses: peaceiris/actions-gh-pages@v4
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    publish_dir: ./dist
+```
+
+**Demo mode** works out of the box on GitHub Pages — no backend required. All market data is fetched client-side from public APIs (CoinGecko, DexScreener).
+
+---
 
 ## Project Structure
 
 ```
-├── src/
-│   ├── components/          # Reusable UI components
-│   │   ├── ActionCard.tsx   # Action confirmation UI
-│   │   ├── WalletConnect.tsx # Wallet connection component
-│   │   └── ui/              # Generic UI components
-│   ├── pages/               # Route pages
-│   │   ├── ActionsPage.tsx  # Action pipeline management
-│   │   ├── DashboardPage.tsx
-│   │   ├── WalletsPage.tsx
-│   │   ├── SafetyPage.tsx   # Risk params & audit logs
-│   │   └── ...
-│   ├── lib/
-│   │   ├── engines/         # Trading strategies
-│   │   │   └── strategies/  # Individual strategy implementations
-│   │   ├── modules/         # Core modules (orchestrator, etc.)
-│   │   ├── wallets/         # Wallet connection logic
-│   │   ├── supabase.ts      # Supabase client
-│   │   ├── validation.ts    # Zod schemas
-│   │   └── types.ts         # TypeScript types
-│   ├── store/               # Zustand state management
-│   └── App.tsx              # Main app router
-├── supabase/
-│   ├── functions/           # Edge Functions
-│   │   ├── actions/         # Action pipeline API
-│   │   ├── market-data/     # Market data API
-│   │   ├── settings/        # Settings API
-│   │   ├── helius-webhook/  # Webhook handler
-│   │   └── signals-run/     # Strategy execution
-│   └── migrations/          # Database schema
-├── docs/
-│   ├── SELF_HEAL_CHECKLIST.md  # Failure mode handling
-│   ├── MODULES_DOCUMENTATION.md
-│   └── ORCHESTRATION_GUIDE.md
-└── .github/
-    └── workflows/
-        └── ci.yml           # GitHub Actions CI
+src/
+├── components/           # Reusable UI components
+│   ├── ui/               # Generic UI primitives
+│   ├── WalletConnect.tsx  # Wallet connection (Solana + EVM)
+│   └── ...
+├── pages/                # Route pages (Dashboard, Console, Wallets, etc.)
+├── lib/
+│   ├── engines/          # Trading strategies and scoring
+│   │   └── strategies/   # Individual strategy implementations
+│   ├── modules/          # Core modules (orchestrator, AI sentiment, etc.)
+│   ├── wallets/          # Wallet connection logic (Solana, EVM)
+│   ├── supabase.ts       # Supabase client
+│   ├── api.ts            # API layer (Edge Functions + local demo fallback)
+│   ├── localDb.ts        # Local in-memory database (demo mode)
+│   └── types.ts          # TypeScript type definitions
+├── store/                # Zustand state management
+├── App.tsx               # Main app with routing
+└── main.tsx              # Entry point
 ```
 
-## Edge Functions
+---
 
-The application uses Supabase Edge Functions for serverless API endpoints:
+## Configuration
 
-### Deployed Functions
+### Environment Variables
 
-1. **actions** - Action pipeline (prepare, build, confirm, refuse)
-2. **market-data** - Trending tokens, DEX movers, token search
-3. **settings** - Kill switch and risk parameter management
-4. **helius-webhook** - Webhook receiver for Solana transaction events
-5. **signals-run** - Strategy execution endpoint (cron-trigger)
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_SUPABASE_URL` | For backend | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | For backend | Supabase anon key |
+| `VITE_SOLANA_RPC_URL` | Optional | Solana RPC endpoint |
+| `VITE_ETHEREUM_RPC_URL` | Optional | Ethereum/EVM RPC endpoint |
+| `VITE_BACKEND_API_URL` | Optional | Custom Edge Function URL |
+| `VITE_APP_BASE_URL` | Optional | App URL for wallet deeplinks |
+| `VITE_BASE_PATH` | Optional | Base path for GitHub Pages |
+| `VITE_ENABLE_TX_SIGNING` | Optional | Enable wallet-side signing |
+| `VITE_ANBAYBOT_DEMO_ENABLED` | Optional | Force demo/local mode |
 
-### Calling Edge Functions
+---
 
-```typescript
-const response = await fetch(
-  `${VITE_SUPABASE_URL}/functions/v1/market-data?endpoint=trending`,
-  {
-    headers: {
-      'Authorization': `Bearer ${VITE_SUPABASE_ANON_KEY}`,
-    },
-  }
-);
-```
+## Architecture
 
-## Database Schema
+### Action Pipeline
 
-Key tables:
+1. **PREPARED** — Strategy creates action in database
+2. **TX_BUILT** — Jupiter transaction built with user's public key
+3. **AWAITING_SIGNATURE** — UI prompts user to sign
+4. **SUBMITTED** — Transaction sent to blockchain
+5. **CONFIRMED** — Transaction confirmed on-chain
 
-- **managed_wallets** - User's connected wallets
-- **followed_wallets** - Wallets being tracked for copy trading
-- **signals** - Market signals from various sources
-- **actions** - Trading actions pending user confirmation
-- **transactions** - Executed blockchain transactions
-- **settings** - App configuration (kill switch, risk params)
-- **audit_logs** - Security and event audit trail
+Users can refuse actions at any stage.
 
-All tables have Row-Level Security (RLS) enabled with anon access policies for single-user setup.
+### Strategy System
 
-## Action Pipeline Flow
+Pluggable strategies in `src/lib/engines/strategies/`:
 
-1. **PREPARED** - Strategy creates action in database
-2. **TX_BUILT** - Jupiter transaction built with user's public key
-3. **AWAITING_SIGNATURE** - UI prompts user to sign
-4. **SUBMITTED** - Transaction sent to blockchain
-5. **CONFIRMED** - Transaction confirmed on-chain
+- **momentum_dex** — Buys tokens with high 24h price change
+- **defensive_exit** — Protects against losses
+- **payout_150_eur** — Triggers payout when threshold reached
+- **copy_swap_filtered** — Copies trades from top traders
+- **ultra_aggressive** — High-risk, high-reward plays
+- **all_tokens_scanner** — Scans all tokens for opportunities
+- **trend_momentum_safe** — Safer trend-following
+- **breakout_retest_safe** — Breakout retest strategy
+- **volume_spike_safe** — Volume spike detection
+- **mean_reversion_safe** — Mean reversion trading
 
-Users can refuse actions at any stage with a reason.
+### Runtime Fallback
 
-## Strategy System
+When the backend is unreachable (or in demo mode), the app falls back to a **local in-memory database** (`localDb.ts`). All market data is fetched directly from public APIs:
 
-Strategies are pluggable modules in `src/lib/engines/strategies/`:
+- 📊 **CoinGecko** — Trending coins, prices
+- 📈 **DexScreener** — DEX movers, token search
+- 💱 **Binance** — Spot prices (public API, no key required)
 
-- **momentum_dex** - Buys tokens with high 24h price change
-- **defensive_exit** - Protects against losses
-- **payout_150_eur** - Triggers payout when threshold reached
-- **copy_swap_filtered** - Copies trades from top traders
-- **ultra_aggressive** - High-risk, high-reward plays
-- **all_tokens_scanner** - Scans all tokens for opportunities
-
-Enable/disable strategies in the Auto-Trade page.
-
-## Safety Features
-
-### Kill Switch
-
-Located in Console and Safety pages. When activated:
-- All `prepare`, `build`, `confirm` operations return 403
-- Existing actions remain in database
-- Read operations continue working
-- Can be toggled on/off instantly
-
-### Risk Parameters
-
-Configurable in Safety page:
-- Max trade size (EUR)
-- Max trades per day
-- Max slippage (basis points)
-- Min liquidity (USD)
-- Payout threshold (EUR)
-- Token blacklist
-
-### Audit Logs
-
-Every critical event is logged:
-- Wallet connections
-- Action creation, build, confirm, refuse
-- Kill switch toggles
-- Risk parameter changes
-- Strategy execution
-
-## Deployment
-
-### Vercel Deployment
-
-1. Push code to GitHub
-2. Import project in Vercel
-3. Add environment variables:
-   ```
-   VITE_SUPABASE_URL
-   VITE_SUPABASE_ANON_KEY
-   VITE_APP_BASE_URL (your Vercel URL)
-   ```
-4. Deploy
-
-### Cron Setup (Optional)
-
-For automated strategy execution:
-
-1. Use Vercel Cron Jobs or external service (cron-job.org)
-2. Configure to POST to:
-   ```
-   ${VITE_SUPABASE_URL}/functions/v1/signals-run
-   ```
-3. Add header:
-   ```
-   X-Cron-Secret: your-cron-secret
-   ```
-4. Recommended schedule: Every 15 minutes
-
-### Webhook Setup (Optional)
-
-For Helius transaction monitoring:
-
-1. Create Helius account and get API key
-2. Configure webhook in Helius dashboard:
-   - URL: `${VITE_SUPABASE_URL}/functions/v1/helius-webhook`
-   - Headers: `X-Webhook-Secret: your-webhook-secret`
-   - Transaction types: Token transfers
-3. Add followed wallet addresses to monitor
+---
 
 ## Troubleshooting
 
-### Wallet won't connect
-- Ensure wallet extension is installed and unlocked
-- On mobile, open app in wallet's browser using deeplinks
-- Check browser console for errors
+| Issue | Solution |
+|---|---|
+| Wallet won't connect | Ensure extension is installed/unlocked; on mobile, use the wallet's browser via deep-links |
+| Actions not appearing | Check kill switch (should be OFF); run manual signal scan |
+| Build fails | `npm install` first; check `.env` file is valid |
+| Backend unavailable | Demo mode auto-activates; all features work with local data |
 
-### Actions not appearing
-- Verify database connection in Safety page
-- Check kill switch status (should be OFF)
-- Run manual signal scan in Console page
+---
 
-### Transaction build fails
-- Ensure wallet is connected
-- Check if you have sufficient SOL balance
-- Verify Jupiter API is accessible (check browser network tab)
+## Security
 
-### Build errors
-- Run `npm install` to ensure all dependencies are installed
-- Check that `.env` file has valid Supabase credentials
-- Run `npm run typecheck` to find TypeScript errors
-
-## Testing
-
-### Manual Testing Checklist
-
-1. ✅ Connect wallet (Phantom/Solflare)
-2. ✅ Create test action (Actions page → Create Test Action)
-3. ✅ Build transaction
-4. ✅ Sign transaction in wallet
-5. ✅ Verify transaction on Solscan
-6. ✅ Toggle kill switch (Console page)
-7. ✅ Verify kill switch blocks new actions
-
-### API Health Checks
-
-Visit Safety page → Click "Refresh" next to API Status to verify:
-- CoinGecko API
-- DexScreener API
-
-## Security Considerations
-
-1. **Never commit private keys** - Use wallet extensions only
-2. **Review all transactions** - Check amounts before signing
-3. **Start small** - Test with minimal amounts first
-4. **Monitor audit logs** - Review Safety page regularly
-5. **Use kill switch** - In case of suspicious activity
+1. **Never commit private keys** — The `.env` file is in `.gitignore`
+2. **Review all transactions** — Check amounts before signing in your wallet
+3. **Start small** — Test with minimal amounts first
+4. **Monitor audit logs** — Review in the Safety page regularly
+5. **Use kill switch** — Emergency stop available at all times
 
 ## CI/CD
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push:
-- Installs dependencies
-- Runs linting
-- Type checks TypeScript
-- Builds production bundle
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Ensure `npm run build` succeeds
-5. Submit a pull request
+GitHub Pages deployment is ready. The build is statically served — no server-side runtime required.
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues, questions, or feature requests, please open a GitHub issue.
+MIT
 
 ## Disclaimer
 
-This software is for educational purposes only. Cryptocurrency trading carries significant risk. Always do your own research and never invest more than you can afford to lose. The authors are not responsible for any financial losses.
+This software is for **educational purposes only**. Cryptocurrency trading carries significant risk. Always do your own research and never invest more than you can afford to lose. The authors are not responsible for any financial losses.
