@@ -21,7 +21,7 @@ const BASE_CHAIN = {
   chainId: '0x2105',
   chainName: 'Base',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: ['https://mainnet.base.org'],
+  rpcUrls: [import.meta.env.VITE_ETHEREUM_RPC_URL || 'https://mainnet.base.org'],
   blockExplorerUrls: ['https://basescan.org'],
 };
 
