@@ -1,7 +1,7 @@
 import type {
   WalletBalanceData, PortfolioSnapshot, AutoTradeConfig, AIConfig, AIRecommendation,
   BinanceAccountSnapshot, BinanceTicker, TradeExecutionResult, TradingRecommendation,
-  TradingValidation, TradingPnL, TradingCockpitSnapshot,
+  TradingValidation, TradingPnL, TradingCockpitSnapshot, ManagedWallet,
 } from './types';
 import {
   clearRuntimeBackendFallback,
@@ -14,14 +14,17 @@ import {
 import {
   addAudit,
   createLocalAction,
+  deleteRows,
   getLocalSettings,
   insertRows,
   readTable,
   setLocalKillSwitch,
   updateRows,
   upsertRow,
+  writeTable,
 } from './localDb';
 import { getAdminToken } from './auth';
+import { fetchWalletBalances } from './walletBalances';
 
 const RAW_BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || (supabaseUrl ? `${supabaseUrl}/functions/v1/ikb-api` : '');
 const ANON = supabaseAnonKey;
@@ -126,6 +129,15 @@ async function fetchBinancePrices(): Promise<BinanceTicker[]> {
     .map((result) => result.value);
 
   return prices.length > 0 ? prices : fallback;
+}
+
+function priceLookup(prices: BinanceTicker[]) {
+  const map = new Map<string, number>();
+  for (const item of prices) map.set(item.symbol, item.lastPrice);
+  return {
+    sol: map.get('SOLUSDT') || 0,
+    eth: map.get('ETHUSDT') || 0,
+  };
 }
 
 function buildRecommendation(prices: BinanceTicker[], capital = 0): TradingRecommendation {
@@ -330,7 +342,21 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
   if (route === 'portfolio/history') return { data: readTable('portfolio_snapshots') as unknown as PortfolioSnapshot[] } as T;
   if (route === 'portfolio/summary') return { data: readTable('portfolio_snapshots')[0] ?? null } as T;
   if (route === 'portfolio/balances') {
-    return { balances: [], totalValueUsd: 0, pnlUsd: 0, pnlPct: 0, prices: { sol: 0, eth: 0 } } as T;
+    const wallets = readTable('managed_wallets');
+    const priceRows = await fetchBinancePrices();
+    const prices = priceLookup(priceRows);
+    const balances = await fetchWalletBalances(wallets as ManagedWallet[], prices);
+    const totalValueUsd = balances.reduce((sum, wallet) => sum + wallet.totalValueUsd, 0);
+    writeTable('wallet_balances', balances);
+    if (balances.length > 0) {
+      insertRows('portfolio_snapshots', {
+        total_value_usd: totalValueUsd,
+        total_pnl_usd: 0,
+        pnl_pct: 0,
+        wallet_breakdown: balances,
+      });
+    }
+    return { balances, totalValueUsd, pnlUsd: 0, pnlPct: 0, prices } as T;
   }
   if (route === 'autotrade/config') {
     if (opts.method === 'PUT') {
@@ -339,6 +365,29 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
       return { success: true } as T;
     }
     return { data: readTable('auto_trade_config') as unknown as AutoTradeConfig[] } as T;
+  }
+  if (route === 'wallets/list') return { data: readTable('managed_wallets') } as T;
+  if (route === 'wallets' && opts.method === 'POST') {
+    const data = insertRows('managed_wallets', {
+      ...body,
+      enabled: body.enabled ?? true,
+    })[0];
+    addAudit('wallet_added', { id: data.id, chain: data.chain, platform: data.platform });
+    return { data } as T;
+  }
+  const walletMatch = route.match(/^wallets\/([^/]+)$/);
+  if (walletMatch) {
+    const [, id] = walletMatch;
+    if (opts.method === 'PATCH') {
+      const data = updateRows('managed_wallets', body, [(row) => row.id === id])[0] || null;
+      if (data) addAudit('wallet_updated', { id });
+      return { data } as T;
+    }
+    if (opts.method === 'DELETE') {
+      const data = deleteRows('managed_wallets', [(row) => row.id === id]);
+      if (data.length > 0) addAudit('wallet_deleted', { id });
+      return { data: true } as T;
+    }
   }
   if (route === 'ai/config') {
     if (opts.method === 'PUT') {
