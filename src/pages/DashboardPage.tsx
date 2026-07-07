@@ -7,6 +7,7 @@ import {
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import StatusBadge from '../components/ui/StatusBadge';
+import QuickActions from '../components/QuickActions';
 import { useAppStore } from '../store/appStore';
 import { api } from '../lib/api';
 import type { WalletBalanceData, PortfolioSnapshot, BinanceTicker, TradingCockpitSnapshot } from '../lib/types';
@@ -319,6 +320,8 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+
+          <QuickActions />
 
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">

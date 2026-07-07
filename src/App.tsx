@@ -11,6 +11,9 @@ import ConsolePage from './pages/ConsolePage';
 import TransactionsPage from './pages/TransactionsPage';
 import SafetyPage from './pages/SafetyPage';
 import OrchestrationPage from './pages/OrchestrationPage';
+import EarningsPage from './pages/EarningsPage';
+import SubscriptionsPage from './pages/SubscriptionsPage';
+import MonitoringPage from './pages/MonitoringPage';
 
 export default function App() {
   return (
@@ -33,6 +36,9 @@ export default function App() {
           <Route path="/console" element={<ConsolePage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/safety" element={<SafetyPage />} />
+          <Route path="/earnings" element={<EarningsPage />} />
+          <Route path="/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/monitoring" element={<MonitoringPage />} />
         </Routes>
       </Layout>
     </HashRouter>

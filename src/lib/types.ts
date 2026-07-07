@@ -277,3 +277,55 @@ export interface TradingCockpitSnapshot {
   pnl: TradingPnL;
   liveTradingReady: boolean;
 }
+
+// --- New types for Revenue, Subscriptions & Monitoring ---
+
+export interface EarningsRecord {
+  id: string;
+  date: string;
+  type: 'trade' | 'signal' | 'subscription' | 'referral';
+  symbol?: string;
+  amountUsd: number;
+  feeUsd: number;
+  netPnlUsd: number;
+  pnlPct: number;
+  status: 'WIN' | 'LOSS' | 'PENDING';
+  note?: string;
+}
+
+export interface EarningsSummary {
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnlUsd: number;
+  bestTradeUsd: number;
+  worstTradeUsd: number;
+  avgWinUsd: number;
+  avgLossUsd: number;
+  profitFactor: number;
+  totalFeesUsd: number;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  priceEur: number;
+  priceUsd: number;
+  interval: 'monthly' | 'yearly';
+  features: string[];
+  highlighted: boolean;
+  stripeLink?: string;
+}
+
+export interface MonitoringStats {
+  uptimePct: number;
+  totalChecks: number;
+  passedChecks: number;
+  failedChecks: number;
+  lastCheckAt: string;
+  tradesExecuted: number;
+  signalsGenerated: number;
+  avgResponseTimeMs: number;
+  pagesLoaded: string[];
+}

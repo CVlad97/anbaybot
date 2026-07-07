@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Wallet, TrendingUp, Users, Cpu, Terminal, ListOrdered,
   Shield, Menu, X, Zap, ChevronRight, LayoutDashboard,
-  Repeat, Brain, Activity,
+  Repeat, Brain, Activity, DollarSign, CreditCard, HeartPulse,
 } from 'lucide-react';
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
@@ -18,6 +18,9 @@ import { useWalletAutoReconnect } from '../hooks/useWalletAutoReconnect';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Tableau de bord', icon: LayoutDashboard },
+  { path: '/earnings', label: 'Revenus & P&L', icon: DollarSign },
+  { path: '/subscriptions', label: 'Souscriptions', icon: CreditCard },
+  { path: '/monitoring', label: 'Monitoring 24/7', icon: HeartPulse },
   { path: '/wallets', label: 'Portefeuilles', icon: Wallet },
   { path: '/signals', label: 'Signaux live', icon: TrendingUp },
   { path: '/traders', label: 'Traders suivis', icon: Users },
