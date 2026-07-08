@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Zap, ArrowRight, DollarSign, TrendingUp, Repeat, Loader2 } from 'lucide-react';
+import { Zap, Repeat, Loader2 } from 'lucide-react';
 import StatusBadge from './ui/StatusBadge';
 
 type OrderMode = 'TEST' | 'LIVE';

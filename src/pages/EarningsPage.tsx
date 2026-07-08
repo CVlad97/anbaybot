@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
-  DollarSign, TrendingUp, TrendingDown, BarChart3, Receipt,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Filter, Calendar,
+  DollarSign, BarChart3, Receipt,
+  ArrowUpRight, ArrowDownRight, RefreshCw, Calendar,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';

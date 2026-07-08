@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Activity, CheckCircle2, XCircle, Clock, Signal,
-  BarChart3, Server, AlertTriangle, RefreshCw,
+  BarChart3, Server, RefreshCw,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -48,7 +48,7 @@ export default function MonitoringPage() {
     PAGES_TO_CHECK.map(p => ({ label: p.label, url: `${BASE_URL}${p.path}`, status: 'checking' }))
   );
   const [running, setRunning] = useState(false);
-  const [overallStatus, setOverallStatus] = useState<'ok' | 'degraded' | 'down'>('checking');
+  const [overallStatus, setOverallStatus] = useState<'ok' | 'degraded' | 'down'>('ok');
 
   const runHealthCheck = async () => {
     setRunning(true);

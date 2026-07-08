@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
-  CreditCard, CheckCircle2, Zap, Shield, TrendingUp, Users,
-  Cpu, Headphones, Infinity, Lock, Sparkles,
+  CreditCard, CheckCircle2, Zap, Shield, Lock, Sparkles,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import type { SubscriptionPlan } from '../lib/types';

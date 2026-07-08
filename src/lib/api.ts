@@ -342,19 +342,19 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
   if (route === 'portfolio/history') return { data: readTable('portfolio_snapshots') as unknown as PortfolioSnapshot[] } as T;
   if (route === 'portfolio/summary') return { data: readTable('portfolio_snapshots')[0] ?? null } as T;
   if (route === 'portfolio/balances') {
-    const wallets = readTable('managed_wallets');
+    const wallets = readTable('managed_wallets') as unknown as ManagedWallet[];
     const priceRows = await fetchBinancePrices();
     const prices = priceLookup(priceRows);
     const balances = await fetchWalletBalances(wallets as ManagedWallet[], prices);
     const totalValueUsd = balances.reduce((sum, wallet) => sum + wallet.totalValueUsd, 0);
-    writeTable('wallet_balances', balances);
+    writeTable('wallet_balances', balances as unknown as Record<string, unknown>[]);
     if (balances.length > 0) {
       insertRows('portfolio_snapshots', {
         total_value_usd: totalValueUsd,
         total_pnl_usd: 0,
         pnl_pct: 0,
         wallet_breakdown: balances,
-      });
+      } as Record<string, unknown>);
     }
     return { balances, totalValueUsd, pnlUsd: 0, pnlPct: 0, prices } as T;
   }
@@ -368,18 +368,19 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
   }
   if (route === 'wallets/list') return { data: readTable('managed_wallets') } as T;
   if (route === 'wallets' && opts.method === 'POST') {
+    const wallet = body as Record<string, unknown>;
     const data = insertRows('managed_wallets', {
       ...body,
       enabled: body.enabled ?? true,
-    })[0];
-    addAudit('wallet_added', { id: data.id, chain: data.chain, platform: data.platform });
+    })[0] as unknown as ManagedWallet;
+    addAudit('wallet_added', { id: data.id, chain: wallet.chain, platform: wallet.platform });
     return { data } as T;
   }
   const walletMatch = route.match(/^wallets\/([^/]+)$/);
   if (walletMatch) {
     const [, id] = walletMatch;
     if (opts.method === 'PATCH') {
-      const data = updateRows('managed_wallets', body, [(row) => row.id === id])[0] || null;
+      const data = updateRows('managed_wallets', body as Record<string, unknown>, [(row) => row.id === id])[0] as unknown as ManagedWallet | undefined;
       if (data) addAudit('wallet_updated', { id });
       return { data } as T;
     }
