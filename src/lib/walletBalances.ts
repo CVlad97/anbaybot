@@ -193,11 +193,38 @@ export async function fetchWalletBalances(
   wallets: ManagedWallet[],
   prices: { sol: number; eth: number },
 ): Promise<WalletBalanceData[]> {
-  const results = await Promise.allSettled(wallets.filter((wallet) => isHttpUrl(wallet.address) || wallet.address.length > 20).map(async (wallet) => {
-    if (wallet.chain === 'solana') return fetchSolanaWalletBalances(wallet, prices.sol);
-    return fetchEvmWalletBalances(wallet);
+  const eligible = wallets.filter((wallet) => isHttpUrl(wallet.address) || wallet.address.length > 20);
+  const results = await Promise.allSettled(eligible.map(async (wallet) => {
+    try {
+      if (wallet.chain === 'solana') return await fetchSolanaWalletBalances(wallet, prices.sol);
+      return await fetchEvmWalletBalances(wallet);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Balance fetch failed';
+      return {
+        walletId: wallet.id,
+        walletLabel: wallet.label,
+        chain: wallet.chain,
+        platform: wallet.platform,
+        address: wallet.address,
+        tokens: [],
+        totalValueUsd: 0,
+        error: message,
+      } satisfies WalletBalanceData;
+    }
   }));
 
-  return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+  return results.map((result, index) => {
+    if (result.status === 'fulfilled') return result.value;
+    const wallet = eligible[index];
+    return {
+      walletId: wallet.id,
+      walletLabel: wallet.label,
+      chain: wallet.chain,
+      platform: wallet.platform,
+      address: wallet.address,
+      tokens: [],
+      totalValueUsd: 0,
+      error: result.reason instanceof Error ? result.reason.message : 'Balance fetch failed',
+    };
+  });
 }
-

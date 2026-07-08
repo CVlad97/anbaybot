@@ -278,6 +278,11 @@ export default function WalletsPage() {
                     </div>
                   </div>
                 )}
+                {bal?.error && (
+                  <div className="hidden md:block max-w-56 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                    {bal.error}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <button onClick={() => toggleWallet(w.id, w.enabled)} className="btn-ghost p-2">
                     {w.enabled ? <ToggleRight size={20} className="text-brand-400" /> : <ToggleLeft size={20} />}
