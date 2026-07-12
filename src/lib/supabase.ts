@@ -4,7 +4,7 @@ import { makeLocalQuery } from './localDb';
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 export const backendApiUrl = import.meta.env.VITE_BACKEND_API_URL || (supabaseUrl ? `${supabaseUrl}/functions/v1/ikb-api` : '');
-export const isDemoSupabase = import.meta.env.VITE_ANBAYBOT_DEMO_ENABLED === 'true' && !supabaseUrl;
+export const isDemoSupabase = false;
 export const isBackendConfigured = Boolean(backendApiUrl);
 
 const RUNTIME_MODE_KEY = 'anbaybot_runtime_mode';

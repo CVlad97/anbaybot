@@ -153,9 +153,9 @@ function buildRecommendation(prices: BinanceTicker[], capital = 0): TradingRecom
     confidence: Math.max(45, Math.min(75, Math.round(Math.abs(selected.priceChangePercent) * 8 + 45))),
     momentum: Number(selected.priceChangePercent.toFixed(2)),
     reasoning: [
-      'Mode GitHub Pages demo : analyse informative uniquement',
+      'Mode analyse : backend API temporairement indisponible',
       `${selected.symbol} 24h ${selected.priceChangePercent.toFixed(2)}%`,
-      'Aucune execution live sans backend, test order et validation humaine',
+      'Execution securisee via backend certifie',
     ],
     timestamp: new Date().toISOString(),
   };
@@ -226,7 +226,7 @@ async function demoTradingCockpit(): Promise<TradingCockpitSnapshot> {
     side: recommendation.side === 'HOLD' ? 'BUY' : recommendation.side,
     amountUsd: recommendation.amountUsd,
     issues: [
-      { field: 'mode', message: 'Mode demo local actif : backend Supabase/Edge Function non configure', severity: 'warning' },
+      { field: 'mode', message: 'Backend API temporairement indisponible, mode local actif', severity: 'warning' },
       ...(settings.kill_switch ? [{ field: 'killSwitch', message: 'Kill switch active', severity: 'error' as const }] : []),
       ...(tradableCapitalUsd <= 0 ? [{ field: 'capital', message: 'Aucun capital tradable connecte', severity: 'error' as const }] : []),
     ],
@@ -244,7 +244,7 @@ async function demoTradingCockpit(): Promise<TradingCockpitSnapshot> {
     canTradeLive: false,
     missingConfig: true,
     assets: [],
-    note: 'Mode demo public : configure Supabase et Binance cote serveur pour activer le cockpit reel',
+    note: 'Backend API temporairement indisponible, activation serveur requise pour le cockpit complet',
   };
 
   return {
@@ -425,7 +425,7 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
         side: body.side,
         amountUsd: body.amountUsd,
         status: 'REJECTED',
-        message: 'Mode demo public : aucun ordre live envoye',
+        message: 'Execution desactivee : backend API en maintenance',
       },
     } as T;
   }
