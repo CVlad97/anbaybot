@@ -1,0 +1,4 @@
+company,full_name,email,phone,sector,need,city,website,has_google_profile,has_social_networks,source,consent_status
+Entreprise Démo Nuisibles,Contact Démo,contact@example.com,+596696000000,Lutte contre les nuisibles,"Développer Google Business, générer plus de demandes d'intervention",Fort-de-France,non,unknown,unknown,demo,legitimate_interest_b2b
+Traiteur Démo,Responsable Démo,traiteur@example.com,+596696111111,Restauration & traiteur,"Créer un mini-site, bouton WhatsApp et offres événementielles",Le Lamentin,unknown,yes,unknown,demo,opt_in
+Artisan Démo BTP,Chef d'entreprise Démo,btp@example.com,+596696222222,BTP charpente couverture,"Obtenir plus de devis chantier avec portfolio et formulaire photo",Ducos,non,unknown,no,demo,legitimate_interest_b2b
