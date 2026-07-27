@@ -5,9 +5,10 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
+import { getAppBaseUrl } from '../lib/siteUrl';
 import type { MonitoringStats } from '../lib/types';
 
-const BASE_URL = 'https://cvlad97.github.io/anbaybot/';
+const BASE_URL = getAppBaseUrl();
 
 const PAGES_TO_CHECK = [
   { path: '/', label: 'Dashboard' },

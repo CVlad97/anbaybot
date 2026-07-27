@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Wallet, ExternalLink, Smartphone } from 'lucide-react';
+import { getAppBaseUrl } from '../lib/siteUrl';
 
 interface WalletConnectProps {
   onConnect: (publicKey: string, provider: 'phantom' | 'solflare') => void;
@@ -112,13 +113,13 @@ export default function WalletConnect({ onConnect, onDisconnect, connectedWallet
   };
 
   const openPhantomDeeplink = () => {
-    const baseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+    const baseUrl = getAppBaseUrl();
     const dappUrl = encodeURIComponent(baseUrl);
     window.location.href = `https://phantom.app/ul/browse/${dappUrl}?ref=${dappUrl}`;
   };
 
   const openSolflareDeeplink = () => {
-    const baseUrl = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+    const baseUrl = getAppBaseUrl();
     const dappUrl = encodeURIComponent(baseUrl);
     window.location.href = `https://solflare.com/ul/v1/browse/${dappUrl}?ref=${dappUrl}`;
   };
