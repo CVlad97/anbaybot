@@ -96,6 +96,10 @@ export default function EarningsPage() {
         }
       />
 
+      <div className="mb-6 rounded-2xl border border-brand-500/20 bg-brand-500/5 px-4 py-3 text-sm text-brand-100">
+        Donnée de démonstration: les lignes ci-dessous simulent une activité pour l’interface tant que les données réelles ne sont pas branchées.
+      </div>
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="card p-5">
@@ -219,7 +223,7 @@ export default function EarningsPage() {
           Les abonnements Pro et Enterprise sont disponibles via Stripe.
           {proLink || enterpriseLink
             ? ' Les liens sont configurés et ouvrent Stripe dans un nouvel onglet.'
-            : ' Configure les variables VITE_STRIPE_PRO_PAYMENT_LINK et VITE_STRIPE_ENTERPRISE_PAYMENT_LINK pour activer les paiements.'}
+            : ' Offre indisponible temporairement tant que les liens Stripe ne sont pas renseignés.'}
         </p>
         <div className="flex flex-wrap gap-3">
           <a
@@ -231,7 +235,7 @@ export default function EarningsPage() {
             className={`btn-primary flex items-center gap-2 text-sm ${!proLink ? 'pointer-events-none opacity-60' : ''}`}
           >
             <DollarSign size={14} />
-            {proLink ? 'Payer Pro - 49€/mois' : 'Configurer Stripe Pro'}
+            {proLink ? 'Payer Pro - 49€/mois' : 'Offre indisponible temporairement'}
           </a>
           <a
             href={enterpriseLink || undefined}
@@ -242,7 +246,7 @@ export default function EarningsPage() {
             className={`btn-secondary flex items-center gap-2 text-sm ${!enterpriseLink ? 'pointer-events-none opacity-60' : ''}`}
           >
             <DollarSign size={14} />
-            {enterpriseLink ? 'Payer Enterprise - 149€/mois' : 'Configurer Stripe Enterprise'}
+            {enterpriseLink ? 'Payer Enterprise - 149€/mois' : 'Offre indisponible temporairement'}
           </a>
         </div>
       </div>

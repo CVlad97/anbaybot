@@ -35,6 +35,7 @@
 - ✅ **Market Data** — Live trending tokens (CoinGecko) and DEX movers (DexScreener)
 - ✅ **Demo Mode** — Full local demo without any backend (ready to use on GitHub Pages)
 - ✅ **Runtime Fallback** — Auto-fallback to local demo when the backend is unreachable
+- ✅ **Safe Mode by Default** — Live trading stays disabled until the backend explicitly allows it
 
 ### Safety
 - ❌ **No Private Keys** — Server never stores or accesses private keys
@@ -72,6 +73,8 @@ Required for backend features:
 Optional but recommended:
 - `VITE_SOLANA_RPC_URL` — Custom Solana RPC (default: `https://api.mainnet-beta.solana.com`)
 - `VITE_ETHEREUM_RPC_URL` — Custom Ethereum RPC (default: `https://mainnet.base.org`)
+- `VITE_BASE_BLOCKSCOUT_API_URL` — Base Blockscout API endpoint
+- `VITE_ETH_BLOCKSCOUT_API_URL` — Ethereum Blockscout API endpoint
 - `VITE_STRIPE_PRO_PAYMENT_LINK` — Stripe Payment Link for Pro
 - `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK` — Stripe Payment Link for Enterprise
 
@@ -109,7 +112,8 @@ The project is ready for GitHub Pages:
 
 1. Set `VITE_BASE_PATH` to your repo name (e.g., `/anbaybot`) in GitHub repo variables
 2. The build script automatically copies `index.html` → `404.html` for SPA deep-link support
-3. Enable GitHub Pages in repo settings → Source: GitHub Actions or deploy from `dist/` folder
+3. Use the GitHub Actions workflow in `.github/workflows/pages-deploy.yml`
+4. Keep the public build secret-free and in safe mode
 
 ```yaml
 # Example deploy step
@@ -164,7 +168,6 @@ src/
 | `VITE_APP_BASE_URL` | Optional | App URL for wallet deeplinks |
 | `VITE_BASE_PATH` | Optional | Base path for GitHub Pages |
 | `VITE_ENABLE_TX_SIGNING` | Optional | Enable wallet-side signing |
-| `VITE_ANBAYBOT_DEMO_ENABLED` | Optional | Force demo/local mode |
 | `VITE_STRIPE_PRO_PAYMENT_LINK` | Optional | Stripe Payment Link for Pro |
 | `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK` | Optional | Stripe Payment Link for Enterprise |
 

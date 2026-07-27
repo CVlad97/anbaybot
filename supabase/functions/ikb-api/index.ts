@@ -40,6 +40,10 @@ function json(req: Request, data: unknown, status = 200) {
   });
 }
 
+function methodNotAllowed(req: Request) {
+  return json(req, { error: "Method not allowed" }, 405);
+}
+
 function routeFromUrl(req: Request) {
   const url = new URL(req.url);
   return url.searchParams.get("path") || "";
@@ -223,18 +227,20 @@ async function binanceSignedRequest(method: "GET" | "POST", path: string, params
     method,
     headers: { "X-MBX-APIKEY": apiKey },
   });
-  const text = await response.text();
-  let payload: unknown = text;
-  try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {
-    payload = { raw: text };
-  }
   if (!response.ok) {
-    const message = typeof payload === "object" && payload && "msg" in payload ? String((payload as { msg: unknown }).msg) : text;
+    const text = await response.text();
+    const message = (() => {
+      try {
+        if (!text) return text;
+        const parsed = JSON.parse(text) as { msg?: unknown };
+        return parsed && parsed.msg ? String(parsed.msg) : text;
+      } catch {
+        return text;
+      }
+    })();
     throw new Error(`Binance ${response.status}: ${message}`);
   }
-  return payload;
+  return await response.json();
 }
 
 async function getBinancePrices() {
@@ -447,6 +453,9 @@ async function listTable(supabase: SupabaseClient, table: string, orderColumn = 
 Deno.serve(async (req: Request) => {
   const path = routeFromUrl(req);
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders(req) });
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"].includes(req.method)) {
+    return methodNotAllowed(req);
+  }
 
   const authError = requireAdmin(req, path);
   if (authError) return authError;
@@ -815,6 +824,11 @@ Deno.serve(async (req: Request) => {
 
     return json(req, { error: "Not found", path }, 404);
   } catch (err) {
-    return json(req, { error: err instanceof Error ? err.message : String(err) }, 500);
+    console.error("[ikb-api]", {
+      path,
+      method: req.method,
+      error: err instanceof Error ? err.name : "UnknownError",
+    });
+    return json(req, { error: "Internal server error" }, 500);
   }
 });

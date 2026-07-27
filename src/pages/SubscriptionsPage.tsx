@@ -93,7 +93,11 @@ export default function SubscriptionsPage() {
       setShowSuccess(true);
       window.open(link, '_blank', 'noopener,noreferrer');
       setTimeout(() => setShowSuccess(false), 3000);
+      return;
     }
+
+    setSelectedPlan(null);
+    setShowSuccess(false);
   };
 
   return (
@@ -175,7 +179,7 @@ export default function SubscriptionsPage() {
                   ? 'Commencer gratuitement'
                   : (plan.id === 'pro' ? proLink : enterpriseLink)
                     ? `Souscrire au ${plan.name}`
-                    : `Configurer Stripe pour ${plan.name}`}
+                    : 'Offre indisponible temporairement'}
             </button>
           </div>
         ))}
@@ -231,7 +235,7 @@ export default function SubscriptionsPage() {
             Paiements sécurisés via <strong className="text-surface-200">Stripe</strong>.
             {proLink || enterpriseLink
               ? ' Les liens configurés ouvrent Stripe dans un nouvel onglet.'
-              : ' Configure VITE_STRIPE_PRO_PAYMENT_LINK et VITE_STRIPE_ENTERPRISE_PAYMENT_LINK pour activer les paiements.'}
+              : ' Offre indisponible temporairement tant que les liens Stripe ne sont pas renseignés.'}
           </p>
         </div>
       </div>

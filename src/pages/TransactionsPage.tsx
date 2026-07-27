@@ -14,10 +14,6 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TxWithAction[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   async function loadData() {
     const { transactions: txRows, actions: actionRows } = await api.getTransactionsTimeline();
     const txList = (txRows || []) as Transaction[];
@@ -27,6 +23,10 @@ export default function TransactionsPage() {
       txList.map(tx => ({ ...tx, action: actList.find(a => a.id === tx.action_id) }))
     );
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const statusIcon = (status: string) => {
     if (status === 'SUCCESS') return <CheckCircle size={16} className="text-brand-400" />;

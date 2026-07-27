@@ -271,7 +271,7 @@ export default function DashboardPage() {
             <h3 className="text-base font-semibold text-white mb-4">Exécution</h3>
             <div className="space-y-3">
               <select value={orderMode} onChange={e => setOrderMode(e.target.value as 'TEST' | 'LIVE')} className="input">
-                <option value="TEST">Mode test Binance</option>
+                <option value="TEST">Simulation — aucun ordre réel exécuté</option>
                 <option value="LIVE">Mode réel sécurisé</option>
               </select>
               <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbole" />
@@ -305,7 +305,7 @@ export default function DashboardPage() {
                 <span>Je confirme que je valide cet ordre et que le risque financier est sous ma responsabilité.</span>
               </label>
               <button onClick={handleSubmitOrder} disabled={orderBlockedByConfirmation} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">
-                {orderMode === 'TEST' ? 'Envoyer en mode test' : 'Envoyer en mode réel sécurisé'}
+                {orderMode === 'TEST' ? 'Lancer la simulation' : 'Envoyer en mode réel sécurisé'}
               </button>
               {orderBlockedByConfirmation && (
                 <p className="text-xs text-warn-400">
