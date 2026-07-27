@@ -43,6 +43,7 @@ jobs:
           VITE_ETH_BLOCKSCOUT_API_URL: ${{ vars.VITE_ETH_BLOCKSCOUT_API_URL }}
           VITE_STRIPE_PRO_PAYMENT_LINK: ${{ vars.VITE_STRIPE_PRO_PAYMENT_LINK }}
           VITE_STRIPE_ENTERPRISE_PAYMENT_LINK: ${{ vars.VITE_STRIPE_ENTERPRISE_PAYMENT_LINK }}
+          VITE_ENABLE_TX_SIGNING: ${{ vars.VITE_ENABLE_TX_SIGNING }}
         run: npm run build
 
       - name: Add SPA fallback
