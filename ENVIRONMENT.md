@@ -15,6 +15,7 @@
 | `VITE_ETH_BLOCKSCOUT_API_URL` | Yes | Frontend runtime | No | No | GitHub Actions variables or `.env` | Ethereum balances fall back to public Blockscout |
 | `VITE_STRIPE_PRO_PAYMENT_LINK` | Yes | Frontend runtime | No | No | GitHub Actions variables or `.env` | Pro button is disabled |
 | `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK` | Yes | Frontend runtime | No | No | GitHub Actions variables or `.env` | Enterprise button is disabled |
+| `VITE_ENABLE_TX_SIGNING` | Yes | Frontend runtime | No | No | GitHub Actions variables or `.env` | Wallet-side signing stays disabled |
 
 ## Backend Secrets
 
@@ -42,4 +43,3 @@
 - `BINANCE_TESTNET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
-

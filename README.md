@@ -77,6 +77,7 @@ Optional but recommended:
 - `VITE_ETH_BLOCKSCOUT_API_URL` — Ethereum Blockscout API endpoint
 - `VITE_STRIPE_PRO_PAYMENT_LINK` — Stripe Payment Link for Pro
 - `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK` — Stripe Payment Link for Enterprise
+- `VITE_ENABLE_TX_SIGNING` — Enable wallet-side signing flow
 
 ### 3. Start Development
 
