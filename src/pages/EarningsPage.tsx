@@ -6,6 +6,7 @@ import {
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
 import type { EarningsRecord, EarningsSummary } from '../lib/types';
+import { getStripePaymentLink } from '../lib/stripe';
 
 const DEMO_EARNINGS: EarningsRecord[] = [
   { id: '1', date: '2026-07-07T10:30:00Z', type: 'trade', symbol: 'BTC/USDT', amountUsd: 500, feeUsd: 1.25, netPnlUsd: 45.20, pnlPct: 9.04, status: 'WIN' },
@@ -60,6 +61,8 @@ const TYPE_LABELS: Record<string, string> = {
 export default function EarningsPage() {
   const [records] = useState<EarningsRecord[]>(DEMO_EARNINGS);
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const proLink = getStripePaymentLink('pro');
+  const enterpriseLink = getStripePaymentLink('enterprise');
   const summary = useMemo(() => computeSummary(records), [records]);
 
   const filtered = typeFilter === 'all'
@@ -213,24 +216,33 @@ export default function EarningsPage() {
           <h3 className="font-semibold text-white">Liens de paiement Stripe</h3>
         </div>
         <p className="text-sm text-surface-400 mb-4">
-          Les abonnements Pro et Enterprise sont disponibles via Stripe. Cliquez sur un plan pour y souscrire.
+          Les abonnements Pro et Enterprise sont disponibles via Stripe.
+          {proLink || enterpriseLink
+            ? ' Les liens sont configurés et ouvrent Stripe dans un nouvel onglet.'
+            : ' Configure les variables VITE_STRIPE_PRO_PAYMENT_LINK et VITE_STRIPE_ENTERPRISE_PAYMENT_LINK pour activer les paiements.'}
         </p>
         <div className="flex flex-wrap gap-3">
           <a
-            href="#"
-            onClick={e => { e.preventDefault(); alert('🔗 Stripe Payment Link Pro: https://buy.stripe.com/test_pro_123 (simulé)'); }}
-            className="btn-primary flex items-center gap-2 text-sm"
+            href={proLink || undefined}
+            target={proLink ? '_blank' : undefined}
+            rel={proLink ? 'noopener noreferrer' : undefined}
+            aria-disabled={!proLink}
+            onClick={e => { if (!proLink) e.preventDefault(); }}
+            className={`btn-primary flex items-center gap-2 text-sm ${!proLink ? 'pointer-events-none opacity-60' : ''}`}
           >
             <DollarSign size={14} />
-            Payer Pro - 49€/mois
+            {proLink ? 'Payer Pro - 49€/mois' : 'Configurer Stripe Pro'}
           </a>
           <a
-            href="#"
-            onClick={e => { e.preventDefault(); alert('🔗 Stripe Payment Link Enterprise: https://buy.stripe.com/test_enterprise_456 (simulé)'); }}
-            className="btn-secondary flex items-center gap-2 text-sm"
+            href={enterpriseLink || undefined}
+            target={enterpriseLink ? '_blank' : undefined}
+            rel={enterpriseLink ? 'noopener noreferrer' : undefined}
+            aria-disabled={!enterpriseLink}
+            onClick={e => { if (!enterpriseLink) e.preventDefault(); }}
+            className={`btn-secondary flex items-center gap-2 text-sm ${!enterpriseLink ? 'pointer-events-none opacity-60' : ''}`}
           >
             <DollarSign size={14} />
-            Payer Enterprise - 149€/mois
+            {enterpriseLink ? 'Payer Enterprise - 149€/mois' : 'Configurer Stripe Enterprise'}
           </a>
         </div>
       </div>

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import type { SubscriptionPlan } from '../lib/types';
+import { getStripePaymentLink } from '../lib/stripe';
 
 const PLANS: SubscriptionPlan[] = [
   {
@@ -38,7 +39,6 @@ const PLANS: SubscriptionPlan[] = [
       'Export CSV des données',
     ],
     highlighted: true,
-    stripeLink: 'https://buy.stripe.com/test_pro_123',
   },
   {
     id: 'enterprise',
@@ -58,7 +58,6 @@ const PLANS: SubscriptionPlan[] = [
       'Formation équipe (2h)',
     ],
     highlighted: false,
-    stripeLink: 'https://buy.stripe.com/test_enterprise_456',
   },
 ];
 
@@ -77,6 +76,8 @@ function formatPrice(usd: number, eur: number) {
 export default function SubscriptionsPage() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const proLink = getStripePaymentLink('pro');
+  const enterpriseLink = getStripePaymentLink('enterprise');
 
   const handleSubscribe = (plan: SubscriptionPlan) => {
     if (plan.id === 'free') {
@@ -86,11 +87,11 @@ export default function SubscriptionsPage() {
       return;
     }
 
-    if (plan.stripeLink) {
-      // Simulated: would normally redirect to Stripe
+    const link = plan.id === 'pro' ? proLink : plan.id === 'enterprise' ? enterpriseLink : null;
+    if (link) {
       setSelectedPlan(plan.id);
       setShowSuccess(true);
-      alert(`🔗 Redirection vers Stripe: ${plan.stripeLink}\n\nMode démo: abonnement ${plan.name} activé !`);
+      window.open(link, '_blank', 'noopener,noreferrer');
       setTimeout(() => setShowSuccess(false), 3000);
     }
   };
@@ -159,7 +160,7 @@ export default function SubscriptionsPage() {
 
             <button
               onClick={() => handleSubscribe(plan)}
-              disabled={selectedPlan === plan.id && showSuccess}
+              disabled={(selectedPlan === plan.id && showSuccess) || (plan.id !== 'free' && !(plan.id === 'pro' ? proLink : enterpriseLink))}
               className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
                 plan.id === 'free'
                   ? 'bg-surface-800 text-surface-300 hover:bg-surface-700 border border-surface-700'
@@ -168,7 +169,13 @@ export default function SubscriptionsPage() {
                     : 'bg-surface-800 text-white hover:bg-surface-700 border border-surface-700'
               } disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              {selectedPlan === plan.id && showSuccess ? '✅ Activé' : plan.id === 'free' ? 'Commencer gratuitement' : `Souscrire au ${plan.name}`}
+              {selectedPlan === plan.id && showSuccess
+                ? '✅ Activé'
+                : plan.id === 'free'
+                  ? 'Commencer gratuitement'
+                  : (plan.id === 'pro' ? proLink : enterpriseLink)
+                    ? `Souscrire au ${plan.name}`
+                    : `Configurer Stripe pour ${plan.name}`}
             </button>
           </div>
         ))}
@@ -221,9 +228,10 @@ export default function SubscriptionsPage() {
         <div className="flex items-center gap-3">
           <CreditCard size={16} className="text-brand-400 shrink-0" />
           <p className="text-xs text-surface-400">
-            Paiements sécurisés via <strong className="text-surface-200">Stripe</strong>. 
-            Abonnement mensuel, annulable à tout moment. 
-            Tous les prix sont TTC. Pas de frais cachés.
+            Paiements sécurisés via <strong className="text-surface-200">Stripe</strong>.
+            {proLink || enterpriseLink
+              ? ' Les liens configurés ouvrent Stripe dans un nouvel onglet.'
+              : ' Configure VITE_STRIPE_PRO_PAYMENT_LINK et VITE_STRIPE_ENTERPRISE_PAYMENT_LINK pour activer les paiements.'}
           </p>
         </div>
       </div>
