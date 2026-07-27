@@ -72,6 +72,8 @@ Required for backend features:
 Optional but recommended:
 - `VITE_SOLANA_RPC_URL` — Custom Solana RPC (default: `https://api.mainnet-beta.solana.com`)
 - `VITE_ETHEREUM_RPC_URL` — Custom Ethereum RPC (default: `https://mainnet.base.org`)
+- `VITE_STRIPE_PRO_PAYMENT_LINK` — Stripe Payment Link for Pro
+- `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK` — Stripe Payment Link for Enterprise
 
 ### 3. Start Development
 
@@ -163,6 +165,8 @@ src/
 | `VITE_BASE_PATH` | Optional | Base path for GitHub Pages |
 | `VITE_ENABLE_TX_SIGNING` | Optional | Enable wallet-side signing |
 | `VITE_ANBAYBOT_DEMO_ENABLED` | Optional | Force demo/local mode |
+| `VITE_STRIPE_PRO_PAYMENT_LINK` | Optional | Stripe Payment Link for Pro |
+| `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK` | Optional | Stripe Payment Link for Enterprise |
 
 ---
 
@@ -225,6 +229,8 @@ When the backend is unreachable (or in demo mode), the app falls back to a **loc
 ## CI/CD
 
 GitHub Pages deployment is ready. The build is statically served — no server-side runtime required.
+
+For paid plans, configure Stripe Payment Links or Checkout Sessions and expose the resulting URLs via `VITE_STRIPE_PRO_PAYMENT_LINK` and `VITE_STRIPE_ENTERPRISE_PAYMENT_LINK`.
 
 ## License
 
