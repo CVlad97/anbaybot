@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, RefreshCw, TrendingUp, TrendingDown,
   Wallet, DollarSign, Activity, ArrowUpRight, ArrowDownRight,
-  Cpu, AlertTriangle, Zap, BadgeDollarSign, CheckCircle2,
+  Cpu, AlertTriangle, Zap, BadgeDollarSign, CheckCircle2, Play,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -10,7 +10,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import QuickActions from '../components/QuickActions';
 import { useAppStore } from '../store/appStore';
 import { api } from '../lib/api';
-import type { WalletBalanceData, PortfolioSnapshot, BinanceTicker, TradingCockpitSnapshot } from '../lib/types';
+import type { WalletBalanceData, PortfolioSnapshot, BinanceTicker, TradingCockpitSnapshot, TradingValidation } from '../lib/types';
 
 function formatUsd(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
@@ -36,7 +36,15 @@ export default function DashboardPage() {
   const [orderSymbol, setOrderSymbol] = useState('BTC');
   const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderAmountUsd, setOrderAmountUsd] = useState('25');
-  const [userOrderConfirmed, setUserOrderConfirmed] = useState(false);
+  const [preparedTrade, setPreparedTrade] = useState<{
+    symbol: string;
+    side: 'BUY' | 'SELL';
+    amountUsd: number;
+    validation: TradingValidation;
+    preparedAt: string;
+  } | null>(null);
+  const [preparingTrade, setPreparingTrade] = useState(false);
+  const [executingTrade, setExecutingTrade] = useState(false);
   const [cockpitLoading, setCockpitLoading] = useState(false);
 
   const refreshBalances = useCallback(async () => {
@@ -94,19 +102,19 @@ export default function DashboardPage() {
   const pnlPositive = pnlUsd >= 0;
   const validationReady = !!tradingValidation?.canSubmit;
   const tradableCapital = tradingAccount?.tradableCapitalUsd || 0;
-  const orderBlockedByConfirmation = !userOrderConfirmed;
-
-  const handleSubmitOrder = async () => {
+  const prepareOrder = async () => {
     const amount = Number(orderAmountUsd);
     if (!Number.isFinite(amount) || amount <= 0) return;
-    setExecutionResult(null);
+    setPreparingTrade(true);
     try {
       const validation = await api.validateTradingOrder({
         symbol: orderSymbol,
         side: orderSide,
         amountUsd: amount,
       });
+      const preparedAt = new Date().toISOString();
       if (!validation.data.canSubmit) {
+        setPreparedTrade(null);
         setExecutionResult({
           mode: 'TEST',
           symbol: orderSymbol,
@@ -117,22 +125,60 @@ export default function DashboardPage() {
         });
         return;
       }
-      const result = await api.submitTradingOrder({
+      setPreparedTrade({
         symbol: orderSymbol,
         side: orderSide,
         amountUsd: amount,
-        mode: 'TEST',
+        validation: validation.data,
+        preparedAt,
       });
-      setExecutionResult(result.data);
+      setExecutionResult({
+        mode: 'TEST',
+        symbol: orderSymbol,
+        side: orderSide,
+        amountUsd: amount,
+        status: 'PREPARED',
+        message: 'Action préparée. Aucune exécution réelle ne sera faite; la prochaine étape ne lance qu’une simulation.',
+      });
     } catch (error) {
+      setPreparedTrade(null);
       setExecutionResult({
         mode: 'TEST',
         symbol: orderSymbol,
         side: orderSide,
         amountUsd: amount,
         status: 'ERROR',
+        message: error instanceof Error ? error.message : 'Échec de la préparation',
+      });
+    } finally {
+      setPreparingTrade(false);
+    }
+  };
+
+  const confirmSimulation = async () => {
+    if (!preparedTrade) return;
+    setExecutingTrade(true);
+    setExecutionResult(null);
+    try {
+      const result = await api.submitTradingOrder({
+        symbol: preparedTrade.symbol,
+        side: preparedTrade.side,
+        amountUsd: preparedTrade.amountUsd,
+        mode: 'TEST',
+      });
+      setExecutionResult(result.data);
+      setPreparedTrade(null);
+    } catch (error) {
+      setExecutionResult({
+        mode: 'TEST',
+        symbol: preparedTrade.symbol,
+        side: preparedTrade.side,
+        amountUsd: preparedTrade.amountUsd,
+        status: 'ERROR',
         message: error instanceof Error ? error.message : 'Échec de l’ordre',
       });
+    } finally {
+      setExecutingTrade(false);
     }
   };
 
@@ -266,9 +312,15 @@ export default function DashboardPage() {
           <div className="card p-5">
             <h3 className="text-base font-semibold text-white mb-4">Exécution</h3>
             <div className="space-y-3">
-              <div className="rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
-                <p className="text-xs text-warn-200 font-medium">Simulation permanente</p>
-                <p className="text-xs text-warn-100 mt-1">Aucun ordre réel n’est possible depuis le frontend.</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
+                  <p className="text-xs text-warn-200 font-medium">Bouton 1 - Préparer</p>
+                  <p className="text-xs text-warn-100 mt-1">Valide le risque, les limites et la taille. Aucune exécution n’est lancée.</p>
+                </div>
+                <div className="rounded-lg border border-brand-500/30 bg-brand-500/10 p-3">
+                  <p className="text-xs text-brand-200 font-medium">Bouton 2 - Valider et simuler</p>
+                  <p className="text-xs text-brand-100 mt-1">Lance uniquement une simulation sur la proposition préparée.</p>
+                </div>
               </div>
               <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbole" />
               <div className="grid grid-cols-2 gap-3">
@@ -278,19 +330,32 @@ export default function DashboardPage() {
                 </select>
                 <input value={orderAmountUsd} onChange={e => setOrderAmountUsd(e.target.value)} className="input" placeholder="Montant USD" inputMode="decimal" />
               </div>
-              <label className="flex items-start gap-2 rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-xs text-surface-300">
-                <input
-                  type="checkbox"
-                  checked={userOrderConfirmed}
-                  onChange={(e) => setUserOrderConfirmed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-brand-500"
-                />
-                <span>Je confirme que je valide cet ordre et que le risque financier est sous ma responsabilité.</span>
-              </label>
-              <button onClick={handleSubmitOrder} disabled={orderBlockedByConfirmation} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">
-                Lancer la simulation
-              </button>
-              {orderBlockedByConfirmation && <p className="text-xs text-warn-400">Cochez la confirmation utilisateur pour lancer la simulation.</p>}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button onClick={prepareOrder} disabled={preparingTrade} className="btn-secondary w-full flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+                  {preparingTrade ? <LoadingSpinner size={14} /> : <CheckCircle2 size={14} />}
+                  Préparer
+                </button>
+                <button onClick={confirmSimulation} disabled={!preparedTrade || executingTrade} className="btn-primary w-full flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+                  {executingTrade ? <LoadingSpinner size={14} /> : <Play size={14} />}
+                  Valider et simuler
+                </button>
+              </div>
+              {!preparedTrade && (
+                <p className="text-xs text-warn-400">
+                  Préparez d’abord une action pour activer le bouton de validation.
+                </p>
+              )}
+              {preparedTrade && (
+                <div className="rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-xs text-surface-300">
+                  <p className="font-medium text-white">Action préparée</p>
+                  <p className="mt-1">
+                    {preparedTrade.side} {preparedTrade.symbol} pour {formatUsd(preparedTrade.amountUsd)}.
+                  </p>
+                  <p className="mt-1 text-surface-500">
+                    Préparée le {new Date(preparedTrade.preparedAt).toLocaleString()}.
+                  </p>
+                </div>
+              )}
               {executionResult && (
                 <div className="rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-sm">
                   <p className="font-semibold text-white flex items-center gap-2"><CheckCircle2 size={14} className="text-brand-400" />{executionResult.status}</p>
