@@ -33,11 +33,9 @@ export default function DashboardPage() {
   } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
-  const [orderMode, setOrderMode] = useState<'TEST' | 'LIVE'>('TEST');
   const [orderSymbol, setOrderSymbol] = useState('BTC');
   const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
   const [orderAmountUsd, setOrderAmountUsd] = useState('25');
-  const [confirmationPhrase, setConfirmationPhrase] = useState('');
   const [userOrderConfirmed, setUserOrderConfirmed] = useState(false);
   const [cockpitLoading, setCockpitLoading] = useState(false);
 
@@ -96,8 +94,7 @@ export default function DashboardPage() {
   const pnlPositive = pnlUsd >= 0;
   const validationReady = !!tradingValidation?.canSubmit;
   const tradableCapital = tradingAccount?.tradableCapitalUsd || 0;
-  const liveNeedsPhrase = orderMode === 'LIVE' && confirmationPhrase.trim().length === 0;
-  const orderBlockedByConfirmation = !userOrderConfirmed || liveNeedsPhrase;
+  const orderBlockedByConfirmation = !userOrderConfirmed;
 
   const handleSubmitOrder = async () => {
     const amount = Number(orderAmountUsd);
@@ -111,7 +108,7 @@ export default function DashboardPage() {
       });
       if (!validation.data.canSubmit) {
         setExecutionResult({
-          mode: orderMode,
+          mode: 'TEST',
           symbol: orderSymbol,
           side: orderSide,
           amountUsd: amount,
@@ -124,13 +121,12 @@ export default function DashboardPage() {
         symbol: orderSymbol,
         side: orderSide,
         amountUsd: amount,
-        mode: orderMode,
-        confirmationPhrase: orderMode === 'LIVE' ? confirmationPhrase : undefined,
+        mode: 'TEST',
       });
       setExecutionResult(result.data);
     } catch (error) {
       setExecutionResult({
-        mode: orderMode,
+        mode: 'TEST',
         symbol: orderSymbol,
         side: orderSide,
         amountUsd: amount,
@@ -164,7 +160,7 @@ export default function DashboardPage() {
       <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
         <p className="text-xs text-surface-300">
           Les performances passées ne garantissent aucun gain futur.
-          Ce site prépare des actions, mais chaque ordre réel doit être validé par vous.
+          Cette version fonctionne en simulation permanente. Aucun ordre réel n’est envoyé.
         </p>
       </div>
 
@@ -179,7 +175,7 @@ export default function DashboardPage() {
         <SummaryCard icon={DollarSign} label="Portefeuille total" value={formatUsd(totalValueUsd)} sub={lastRefresh ? `Mis à jour ${lastRefresh}` : 'Chargement...'} color="text-brand-400" bgColor="bg-brand-600/10" />
         <SummaryCard icon={pnlPositive ? TrendingUp : TrendingDown} label="P&L" value={`${pnlPositive ? '+' : ''}${formatUsd(pnlUsd)}`} sub={`${pnlPositive ? '+' : ''}${pnlPct.toFixed(2)}%`} color={pnlPositive ? 'text-brand-400' : 'text-danger-400'} bgColor={pnlPositive ? 'bg-brand-600/10' : 'bg-danger-600/10'} />
         <SummaryCard icon={Wallet} label="Portefeuilles connectés" value={String(connectedCount)} sub={`${managedWallets.length} total`} color="text-blue-400" bgColor="bg-blue-500/10" />
-        <SummaryCard icon={Cpu} label="Stratégies actives" value={String(enabledStrategies.length)} sub={settings?.kill_switch ? 'Bloqué par kill switch' : 'Prêt à trader'} color="text-warn-400" bgColor="bg-warn-500/10" />
+        <SummaryCard icon={Cpu} label="Stratégies actives" value={String(enabledStrategies.length)} sub={settings?.kill_switch ? 'Bloqué par kill switch' : 'Prêt en simulation'} color="text-warn-400" bgColor="bg-warn-500/10" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -217,7 +213,7 @@ export default function DashboardPage() {
               <div className="mt-4 space-y-2 text-sm">
                 <Row label="Valeur compte" value={formatUsd(tradingAccount?.totalAccountValueUsd || 0)} />
                 <Row label="Stable libre" value={formatUsd(tradingAccount?.freeStableUsd || 0)} />
-                <Row label="Live autorisé" value={tradingAccount?.canTradeLive ? 'Oui' : 'Non'} />
+                <Row label="Trading réel" value={tradingAccount?.canTradeLive ? 'Oui' : 'Non'} />
               </div>
             </div>
           </section>
@@ -254,7 +250,7 @@ export default function DashboardPage() {
               <div className="space-y-2 text-sm">
                 <Row label="Validation" value={tradingValidation.passed ? 'Oui' : 'Non'} />
                 <Row label="Kill switch" value={tradingValidation.killSwitchActive ? 'Actif' : 'Inactif'} />
-                <Row label="Live autorisé" value={tradingValidation.liveTradingEnabled ? 'Oui' : 'Non'} />
+                <Row label="Trading réel" value={tradingValidation.liveTradingEnabled ? 'Oui' : 'Non'} />
                 <Row label="Ordre max" value={formatUsd(tradingValidation.maxOrderUsd)} />
                 {tradingValidation.issues.map(issue => (
                   <div key={issue.field} className={`text-xs rounded-lg px-3 py-2 ${issue.severity === 'error' ? 'bg-danger-600/10 text-danger-300' : 'bg-warn-600/10 text-warn-300'}`}>
@@ -270,10 +266,10 @@ export default function DashboardPage() {
           <div className="card p-5">
             <h3 className="text-base font-semibold text-white mb-4">Exécution</h3>
             <div className="space-y-3">
-              <select value={orderMode} onChange={e => setOrderMode(e.target.value as 'TEST' | 'LIVE')} className="input">
-                <option value="TEST">Simulation — aucun ordre réel exécuté</option>
-                <option value="LIVE">Mode réel sécurisé</option>
-              </select>
+              <div className="rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
+                <p className="text-xs text-warn-200 font-medium">Simulation permanente</p>
+                <p className="text-xs text-warn-100 mt-1">Aucun ordre réel n’est possible depuis le frontend.</p>
+              </div>
               <input value={orderSymbol} onChange={e => setOrderSymbol(e.target.value.toUpperCase())} className="input" placeholder="Symbole" />
               <div className="grid grid-cols-2 gap-3">
                 <select value={orderSide} onChange={e => setOrderSide(e.target.value as 'BUY' | 'SELL')} className="input">
@@ -282,19 +278,6 @@ export default function DashboardPage() {
                 </select>
                 <input value={orderAmountUsd} onChange={e => setOrderAmountUsd(e.target.value)} className="input" placeholder="Montant USD" inputMode="decimal" />
               </div>
-              {orderMode === 'LIVE' && (
-                <div className="rounded-lg border border-danger-500/30 bg-danger-500/10 p-3">
-                  <p className="text-xs text-danger-200 mb-2">
-                    Le live nécessite ALLOW_LIVE_TRADING=true côté serveur et la phrase exacte de confirmation.
-                  </p>
-                  <input
-                    value={confirmationPhrase}
-                    onChange={e => setConfirmationPhrase(e.target.value)}
-                    className="input"
-                    placeholder="Phrase de confirmation"
-                  />
-                </div>
-              )}
               <label className="flex items-start gap-2 rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-xs text-surface-300">
                 <input
                   type="checkbox"
@@ -305,13 +288,9 @@ export default function DashboardPage() {
                 <span>Je confirme que je valide cet ordre et que le risque financier est sous ma responsabilité.</span>
               </label>
               <button onClick={handleSubmitOrder} disabled={orderBlockedByConfirmation} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">
-                {orderMode === 'TEST' ? 'Lancer la simulation' : 'Envoyer en mode réel sécurisé'}
+                Lancer la simulation
               </button>
-              {orderBlockedByConfirmation && (
-                <p className="text-xs text-warn-400">
-                  Cochez la confirmation utilisateur{liveNeedsPhrase ? ' et renseignez la phrase de confirmation live' : ''}.
-                </p>
-              )}
+              {orderBlockedByConfirmation && <p className="text-xs text-warn-400">Cochez la confirmation utilisateur pour lancer la simulation.</p>}
               {executionResult && (
                 <div className="rounded-lg border border-surface-700 bg-surface-900/60 p-3 text-sm">
                   <p className="font-semibold text-white flex items-center gap-2"><CheckCircle2 size={14} className="text-brand-400" />{executionResult.status}</p>

@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { Zap, Repeat, Loader2 } from 'lucide-react';
 import StatusBadge from './ui/StatusBadge';
 
-type OrderMode = 'TEST' | 'LIVE';
 type OrderSide = 'BUY' | 'SELL';
 
 interface QuickTradeResult {
-  mode: OrderMode;
+  mode: 'TEST';
   symbol: string;
   side: OrderSide;
   amountUsd: number;
@@ -17,7 +16,6 @@ interface QuickTradeResult {
 const SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'ADA/USDT', 'DOT/USDT', 'LINK/USDT', 'AVAX/USDT', 'MATIC/USDT'];
 
 export default function QuickActions() {
-  const [mode, setMode] = useState<OrderMode>('TEST');
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [side, setSide] = useState<OrderSide>('BUY');
   const [amount, setAmount] = useState('25');
@@ -39,7 +37,7 @@ export default function QuickActions() {
     const pnlUsd = amt * (pnlPct / 100);
 
     setResult({
-      mode,
+      mode: 'TEST',
       symbol,
       side,
       amountUsd: amt,
@@ -59,28 +57,9 @@ export default function QuickActions() {
       </div>
 
       <div className="space-y-3">
-        {/* Mode */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMode('TEST')}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'TEST'
-                ? 'bg-warn-600/20 text-warn-400 border border-warn-600/30'
-                : 'bg-surface-800 text-surface-400 border border-surface-700 hover:bg-surface-700'
-            }`}
-          >
-            Mode Test
-          </button>
-          <button
-            onClick={() => setMode('LIVE')}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'LIVE'
-                ? 'bg-danger-600/20 text-danger-400 border border-danger-600/30'
-                : 'bg-surface-800 text-surface-400 border border-surface-700 hover:bg-surface-700'
-            }`}
-          >
-            Mode Live
-          </button>
+        <div className="rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
+          <p className="text-xs font-medium text-warn-200">Simulation permanente</p>
+          <p className="text-[10px] text-warn-100 mt-1">Aucun ordre réel n’est possible depuis cet écran.</p>
         </div>
 
         {/* Symbol */}
@@ -147,8 +126,8 @@ export default function QuickActions() {
       {/* Quick trade tips */}
       <div className="mt-4 pt-4 border-t border-surface-800">
         <p className="text-[10px] text-surface-600 leading-relaxed">
-          ⚡ Paper trading instantané — aucun ordre réel n'est envoyé. 
-          Activez le mode Live uniquement après validation de votre configuration Binance.
+          ⚡ Paper trading instantané — aucun ordre réel n'est envoyé.
+          La version de production conserve volontairement ce comportement.
         </p>
       </div>
     </div>

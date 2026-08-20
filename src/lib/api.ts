@@ -520,8 +520,7 @@ export const api = {
     symbol: string;
     side: 'BUY' | 'SELL';
     amountUsd: number;
-    mode: 'TEST' | 'LIVE';
-    confirmationPhrase?: string;
+    mode: 'TEST';
   }) => request<{ data: TradeExecutionResult }>('/ikb-api?path=trading/order', { method: 'POST', body: JSON.stringify(body) }),
   getTradingPnL: () => request<{ data: TradingPnL }>('/ikb-api?path=trading/pnl'),
   getEarnFlexibleProducts: () => request<{ data: unknown }>('/ikb-api?path=earn/flexible/list'),
