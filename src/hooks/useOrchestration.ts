@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface TraderAddress {
@@ -55,6 +55,7 @@ export interface OrchestratorEvent {
 }
 
 export function useOrchestration() {
+  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [traders, setTraders] = useState<TraderAddress[]>([]);
   const [metrics, setMetrics] = useState<OrchestrationMetrics>({
@@ -219,49 +220,21 @@ export function useOrchestration() {
     let correctionCount = 0;
 
     for (const trader of addresses) {
-      let correctedAddress = trader.address;
-      let needsUpdate = false;
+      const isSolanaAddress = trader.chain === 'solana'
+        && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trader.address);
+      const isEvmAddress = ['ethereum', 'base', 'arbitrum'].includes(trader.chain)
+        && /^0x[a-fA-F0-9]{40}$/.test(trader.address);
 
-      if (trader.chain === 'solana' && !correctedAddress.match(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/)) {
-        if (correctedAddress.length < 32) {
-          correctedAddress = correctedAddress.padEnd(44, 'x');
-          needsUpdate = true;
-          correctionCount++;
-        }
+      if (!isSolanaAddress && !isEvmAddress) {
+        // An address cannot be repaired safely without knowing the intended
+        // public key. Keep it unchanged and mark it inactive instead of
+        // inventing a value that could receive or lose funds.
+        correctionCount++;
+        corrected.push({ ...trader, isActive: false });
+        continue;
       }
 
-      if (trader.chain === 'ethereum' || trader.chain === 'base' || trader.chain === 'arbitrum') {
-        if (!correctedAddress.startsWith('0x')) {
-          correctedAddress = '0x' + correctedAddress;
-          needsUpdate = true;
-          correctionCount++;
-        }
-        if (correctedAddress.length !== 42) {
-          correctedAddress = correctedAddress.slice(0, 42).padEnd(42, '0');
-          needsUpdate = true;
-          correctionCount++;
-        }
-      }
-
-      if (needsUpdate && trader.id !== 'demo-1') {
-        try {
-          const tableName = trader.label?.includes('Trader') ? 'copy_traders' : 'wallets';
-          await supabase
-            .from(tableName)
-            .update({
-              wallet_address: correctedAddress,
-              address: correctedAddress
-            })
-            .eq('id', trader.id);
-        } catch (error) {
-          console.error('Failed to update address:', error);
-        }
-      }
-
-      corrected.push({
-        ...trader,
-        address: correctedAddress,
-      });
+      corrected.push(trader);
     }
 
     if (correctionCount > 0) {
@@ -272,6 +245,9 @@ export function useOrchestration() {
   }, [addEvent]);
 
   const startOrchestrator = useCallback(async () => {
+    // Starting twice must never create duplicate background loops.
+    intervalsRef.current.forEach(clearInterval);
+    intervalsRef.current = [];
     setIsRunning(true);
     addEvent('info', 'Orchestrateur démarré');
 
@@ -291,13 +267,12 @@ export function useOrchestration() {
       await calculateMetrics(currentTraders);
     }, 30 * 1000);
 
-    return () => {
-      clearInterval(analysisInterval);
-      clearInterval(metricsInterval);
-    };
+    intervalsRef.current = [analysisInterval, metricsInterval];
   }, [loadTraders, autoCorrectAddresses, calculateMetrics, runAIAnalysis, addEvent]);
 
   const stopOrchestrator = useCallback(() => {
+    intervalsRef.current.forEach(clearInterval);
+    intervalsRef.current = [];
     setIsRunning(false);
     addEvent('warning', 'Orchestrateur arrêté');
   }, [addEvent]);
@@ -312,6 +287,10 @@ export function useOrchestration() {
 
   useEffect(() => {
     loadTraders();
+    return () => {
+      intervalsRef.current.forEach(clearInterval);
+      intervalsRef.current = [];
+    };
   }, [loadTraders]);
 
   return {

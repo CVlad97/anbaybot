@@ -160,9 +160,9 @@ export default function OrchestrationPage() {
                 <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${
-                      sentiment.score > 0.5 ? 'bg-green-500' : sentiment.score < -0.3 ? 'bg-red-500' : 'bg-yellow-500'
+                      sentiment.score > 0.6 ? 'bg-green-500' : sentiment.score < 0.4 ? 'bg-red-500' : 'bg-yellow-500'
                     }`}
-                    style={{ width: `${((sentiment.score + 1) / 2) * 100}%` }}
+                    style={{ width: `${Math.max(0, Math.min(100, sentiment.score * 100))}%` }}
                   />
                 </div>
               </div>
