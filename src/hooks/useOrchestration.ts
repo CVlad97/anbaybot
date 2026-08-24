@@ -56,6 +56,8 @@ export interface OrchestratorEvent {
 
 export function useOrchestration() {
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const runIdRef = useRef(0);
   const [isRunning, setIsRunning] = useState(false);
   const [traders, setTraders] = useState<TraderAddress[]>([]);
   const [metrics, setMetrics] = useState<OrchestrationMetrics>({
@@ -88,6 +90,13 @@ export function useOrchestration() {
       minute: '2-digit'
     });
     setEvents(prev => [{ time, type, message }, ...prev].slice(0, 50));
+  }, []);
+
+  const clearBackgroundTasks = useCallback(() => {
+    intervalsRef.current.forEach(clearInterval);
+    timeoutsRef.current.forEach(clearTimeout);
+    intervalsRef.current = [];
+    timeoutsRef.current = [];
   }, []);
 
   const loadTraders = useCallback(async () => {
@@ -198,7 +207,8 @@ export function useOrchestration() {
 
     addEvent('analysis', 'Running AI sentiment analysis...');
 
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
+      timeoutsRef.current = timeoutsRef.current.filter(item => item !== timeout);
       const scores = [0.65, 0.72, 0.58, 0.48, 0.81];
       const randomScore = scores[Math.floor(Math.random() * scores.length)];
 
@@ -213,6 +223,7 @@ export function useOrchestration() {
       setSentiment(newSentiment);
       addEvent('analysis', `AI analysis complete: ${newSentiment.label} (${(newSentiment.score * 100).toFixed(0)}/100)`);
     }, 2000);
+    timeoutsRef.current.push(timeout);
   }, [config.aiEnabled, addEvent]);
 
   const autoCorrectAddresses = useCallback(async (addresses: TraderAddress[]) => {
@@ -245,14 +256,16 @@ export function useOrchestration() {
   }, [addEvent]);
 
   const startOrchestrator = useCallback(async () => {
-    // Starting twice must never create duplicate background loops.
-    intervalsRef.current.forEach(clearInterval);
-    intervalsRef.current = [];
+    // Starting twice must never create duplicate or stale background tasks.
+    const runId = ++runIdRef.current;
+    clearBackgroundTasks();
     setIsRunning(true);
     addEvent('info', 'Orchestrateur démarré');
 
     const traderList = await loadTraders();
+    if (runId !== runIdRef.current) return;
     const correctedTraders = await autoCorrectAddresses(traderList);
+    if (runId !== runIdRef.current) return;
     setTraders(correctedTraders);
 
     await calculateMetrics(correctedTraders);
@@ -267,15 +280,20 @@ export function useOrchestration() {
       await calculateMetrics(currentTraders);
     }, 30 * 1000);
 
-    intervalsRef.current = [analysisInterval, metricsInterval];
-  }, [loadTraders, autoCorrectAddresses, calculateMetrics, runAIAnalysis, addEvent]);
+    if (runId === runIdRef.current) {
+      intervalsRef.current = [analysisInterval, metricsInterval];
+    } else {
+      clearInterval(analysisInterval);
+      clearInterval(metricsInterval);
+    }
+  }, [loadTraders, autoCorrectAddresses, calculateMetrics, runAIAnalysis, addEvent, clearBackgroundTasks]);
 
   const stopOrchestrator = useCallback(() => {
-    intervalsRef.current.forEach(clearInterval);
-    intervalsRef.current = [];
+    runIdRef.current++;
+    clearBackgroundTasks();
     setIsRunning(false);
     addEvent('warning', 'Orchestrateur arrêté');
-  }, [addEvent]);
+  }, [addEvent, clearBackgroundTasks]);
 
   const toggleFeature = useCallback((feature: keyof typeof config) => {
     setConfig(prev => {
@@ -288,10 +306,10 @@ export function useOrchestration() {
   useEffect(() => {
     loadTraders();
     return () => {
-      intervalsRef.current.forEach(clearInterval);
-      intervalsRef.current = [];
+      runIdRef.current++;
+      clearBackgroundTasks();
     };
-  }, [loadTraders]);
+  }, [loadTraders, clearBackgroundTasks]);
 
   return {
     isRunning,
