@@ -192,8 +192,8 @@ async function getSettings(supabase: SupabaseClient) {
   return inserted;
 }
 
-function binanceBaseUrl() {
-  return Deno.env.get("BINANCE_BASE_URL") || "https://api.binance.com";
+function mexcBaseUrl() {
+  return Deno.env.get("MEXC_BASE_URL") || "https://api.mexc.com";
 }
 
 async function hmacSha256(secret: string, payload: string) {
@@ -208,24 +208,24 @@ async function hmacSha256(secret: string, payload: string) {
   return Array.from(new Uint8Array(signature)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function binanceSignedRequest(method: "GET" | "POST", path: string, params: Record<string, string | number | boolean> = {}) {
-  const apiKey = Deno.env.get("BINANCE_API_KEY");
-  const apiSecret = Deno.env.get("BINANCE_API_SECRET");
+async function mexcSignedRequest(method: "GET" | "POST", path: string, params: Record<string, string | number | boolean> = {}) {
+  const apiKey = Deno.env.get("MEXC_API_KEY");
+  const apiSecret = Deno.env.get("MEXC_API_SECRET");
   if (!apiKey || !apiSecret) {
-    throw new Error("BINANCE_API_KEY or BINANCE_API_SECRET missing");
+    throw new Error("MEXC_API_KEY or MEXC_API_SECRET missing");
   }
 
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) search.set(key, String(value));
   search.set("timestamp", String(Date.now()));
-  search.set("recvWindow", Deno.env.get("BINANCE_RECV_WINDOW") || "5000");
+  search.set("recvWindow", Deno.env.get("MEXC_RECV_WINDOW") || "5000");
   const query = search.toString();
   const signature = await hmacSha256(apiSecret, query);
-  const url = `${binanceBaseUrl()}${path}?${query}&signature=${signature}`;
+  const url = `${mexcBaseUrl()}${path}?${query}&signature=${signature}`;
 
   const response = await fetch(url, {
     method,
-    headers: { "X-MBX-APIKEY": apiKey },
+    headers: { "X-MEXC-APIKEY": apiKey },
   });
   if (!response.ok) {
     const text = await response.text();
@@ -238,13 +238,13 @@ async function binanceSignedRequest(method: "GET" | "POST", path: string, params
         return text;
       }
     })();
-    throw new Error(`Binance ${response.status}: ${message}`);
+    throw new Error(`MEXC ${response.status}: ${message}`);
   }
   return await response.json();
 }
 
-async function getBinancePrices() {
-  const symbols = (Deno.env.get("BINANCE_ALLOWED_SYMBOLS") || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT")
+async function getMexcPrices() {
+  const symbols = (Deno.env.get("MEXC_ALLOWED_SYMBOLS") || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT")
     .split(",")
     .map((symbol) => symbol.trim().toUpperCase())
     .filter(Boolean);
@@ -252,7 +252,7 @@ async function getBinancePrices() {
   const prices = [] as Array<{ symbol: string; lastPrice: number; priceChangePercent: number; quoteVolume: number }>;
   for (const symbol of symbols) {
     try {
-      const res = await fetch(`${binanceBaseUrl()}/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol)}`);
+      const res = await fetch(`${mexcBaseUrl()}/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol)}`);
       const data = await res.json();
       prices.push({
         symbol,
@@ -268,7 +268,7 @@ async function getBinancePrices() {
 }
 
 async function getAllPriceMap() {
-  const res = await fetch(`${binanceBaseUrl()}/api/v3/ticker/price`);
+  const res = await fetch(`${mexcBaseUrl()}/api/v3/ticker/price`);
   const rows = await res.json() as Array<{ symbol: string; price: string }>;
   const map = new Map<string, number>();
   for (const row of rows) map.set(row.symbol, Number(row.price || 0));
@@ -279,9 +279,9 @@ function stableUsdValue(asset: string, amount: number) {
   return ["USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI"].includes(asset) ? amount : null;
 }
 
-async function getBinanceAccountSnapshot() {
-  const apiKey = Deno.env.get("BINANCE_API_KEY");
-  const apiSecret = Deno.env.get("BINANCE_API_SECRET");
+async function getMexcAccountSnapshot() {
+  const apiKey = Deno.env.get("MEXC_API_KEY");
+  const apiSecret = Deno.env.get("MEXC_API_SECRET");
   if (!apiKey || !apiSecret) {
     return {
       totalAccountValueUsd: 0,
@@ -290,12 +290,12 @@ async function getBinanceAccountSnapshot() {
       canTradeLive: false,
       missingConfig: true,
       assets: [],
-      note: "Binance server credentials missing. Configure Edge Function secrets; never put keys in GitHub Pages.",
+      note: "MEXC server credentials missing. Configure Edge Function secrets; never put keys in GitHub Pages.",
     };
   }
 
   const [account, priceMap] = await Promise.all([
-    binanceSignedRequest("GET", "/api/v3/account"),
+    mexcSignedRequest("GET", "/api/v3/account"),
     getAllPriceMap(),
   ]);
   const balances = ((account as { balances?: Array<{ asset: string; free: string; locked: string }> }).balances || [])
@@ -333,7 +333,7 @@ async function getBinanceAccountSnapshot() {
     assets: assets.sort((a, b) => b.usdValue - a.usdValue).slice(0, 30),
     note: Deno.env.get("ALLOW_LIVE_TRADING") === "true"
       ? "Live trading switch enabled server-side; each live order still requires explicit confirmation."
-      : "Real Binance account connected in server mode. Live trading remains disabled unless ALLOW_LIVE_TRADING=true.",
+      : "Real MEXC Spot account connected in server mode. Live trading remains disabled unless ALLOW_LIVE_TRADING=true.",
   };
 }
 
@@ -370,8 +370,8 @@ function computeRecommendation(
 
 async function getTradingSnapshot(supabase: SupabaseClient) {
   const settings = await getSettings(supabase);
-  const prices = await getBinancePrices();
-  const account = await getBinanceAccountSnapshot();
+  const prices = await getMexcPrices();
+  const account = await getMexcAccountSnapshot();
   const risk = getRiskParams(settings);
   const maxOrderUsd = Math.max(0, Math.min(account.tradableCapitalUsd, Number(risk.maxTradeSizeEur)));
   const recommendation = computeRecommendation(prices, account.tradableCapitalUsd);
@@ -379,7 +379,7 @@ async function getTradingSnapshot(supabase: SupabaseClient) {
   const liveTradingEnabled = liveCredentialsPresent && Deno.env.get("ALLOW_LIVE_TRADING") === "true";
   const issues: ValidationIssue[] = [
     ...(settings.kill_switch ? [{ field: "killSwitch", message: "Kill switch active", severity: "error" as const }] : []),
-    ...(liveCredentialsPresent ? [] : [{ field: "binance", message: "Binance server credentials missing", severity: "error" as const }]),
+    ...(liveCredentialsPresent ? [] : [{ field: "mexc", message: "MEXC server credentials missing", severity: "error" as const }]),
     ...(account.tradableCapitalUsd <= 0 ? [{ field: "capital", message: "No free stable capital available", severity: "warning" as const }] : []),
   ];
 
@@ -423,7 +423,7 @@ function validateOrderBody(
   const symbol = normalizeOrderSymbol(String(body.symbol || ""));
   const side = String(body.side || "BUY").toUpperCase();
   const amountUsd = Number(body.amountUsd || 0);
-  const allowedSymbols = (Deno.env.get("BINANCE_ALLOWED_SYMBOLS") || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT")
+  const allowedSymbols = (Deno.env.get("MEXC_ALLOWED_SYMBOLS") || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT")
     .split(",")
     .map((item) => item.trim().toUpperCase());
   const issues: ValidationIssue[] = [...snapshot.validation.issues];
@@ -467,13 +467,13 @@ Deno.serve(async (req: Request) => {
         mode: "real_edge",
         supabaseConfigured: Boolean(Deno.env.get("SUPABASE_URL") && Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")),
         adminAuthConfigured: Boolean(Deno.env.get("ANBAYBOT_ADMIN_TOKEN")),
-        binanceConfigured: Boolean(Deno.env.get("BINANCE_API_KEY") && Deno.env.get("BINANCE_API_SECRET")),
+        mexcConfigured: Boolean(Deno.env.get("MEXC_API_KEY") && Deno.env.get("MEXC_API_SECRET")),
         liveTradingEnabled: Deno.env.get("ALLOW_LIVE_TRADING") === "true",
         timestamp: new Date().toISOString(),
       });
     }
 
-    if (path === "trading/prices") return json(req, { data: await getBinancePrices() });
+    if (path === "trading/prices") return json(req, { data: await getMexcPrices() });
 
     const supabase = supabaseClient();
 
@@ -652,12 +652,7 @@ Deno.serve(async (req: Request) => {
     if (path === "trading/cockpit") return json(req, await getTradingSnapshot(supabase));
 
     if (path === "earn/flexible/list") {
-      const data = await binanceSignedRequest("GET", "/sapi/v1/simple-earn/flexible/list", {
-        size: 100,
-        current: 1,
-      });
-      await audit(supabase, "earn_products_listed");
-      return json(req, { data });
+      return json(req, { data: [], message: "MEXC flexible earn is not implemented in AnbayBot." }, 501);
     }
 
     if (path === "trading/validate" && req.method === "POST") {
@@ -697,14 +692,14 @@ Deno.serve(async (req: Request) => {
       }
 
       if (mode === "TEST") {
-        const raw = await binanceSignedRequest("POST", "/api/v3/order/test", {
+        const raw = await mexcSignedRequest("POST", "/api/v3/order/test", {
           symbol: validation.symbol,
           side: validation.side,
           type: "MARKET",
           quoteOrderQty: validation.amountUsd.toFixed(2),
           newClientOrderId: `anbaybot_test_${Date.now()}`,
         });
-        await audit(supabase, "binance_test_order_ok", { symbol: validation.symbol, side: validation.side, amountUsd: validation.amountUsd });
+        await audit(supabase, "mexc_test_order_ok", { symbol: validation.symbol, side: validation.side, amountUsd: validation.amountUsd });
         return json(req, {
           data: {
             mode: "TEST",
@@ -712,7 +707,7 @@ Deno.serve(async (req: Request) => {
             side: validation.side,
             amountUsd: validation.amountUsd,
             status: "ACCEPTED",
-            message: "Real Binance /api/v3/order/test accepted. No asset was bought or sold.",
+            message: "Real MEXC /api/v3/order/test accepted. No asset was bought or sold.",
             clientOrderId: `anbaybot_test_${Date.now()}`,
             raw: raw as Record<string, unknown>,
           },
@@ -735,14 +730,14 @@ Deno.serve(async (req: Request) => {
           }, 403);
         }
 
-        const raw = await binanceSignedRequest("POST", "/api/v3/order", {
+        const raw = await mexcSignedRequest("POST", "/api/v3/order", {
           symbol: validation.symbol,
           side: validation.side,
           type: "MARKET",
           quoteOrderQty: validation.amountUsd.toFixed(2),
           newClientOrderId: `anbaybot_live_${Date.now()}`,
         });
-        await audit(supabase, "binance_live_order_submitted", { symbol: validation.symbol, side: validation.side, amountUsd: validation.amountUsd });
+        await audit(supabase, "mexc_live_order_submitted", { symbol: validation.symbol, side: validation.side, amountUsd: validation.amountUsd });
         return json(req, {
           data: {
             mode: "LIVE",
@@ -750,7 +745,7 @@ Deno.serve(async (req: Request) => {
             side: validation.side,
             amountUsd: validation.amountUsd,
             status: "SUBMITTED",
-            message: "Live Binance market order submitted.",
+            message: "Live MEXC market order submitted.",
             raw: raw as Record<string, unknown>,
           },
         });
