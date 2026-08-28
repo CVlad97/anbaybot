@@ -113,8 +113,8 @@ async function fetchBinancePrices(): Promise<BinanceTicker[]> {
   ] as BinanceTicker[];
 
   const results = await Promise.allSettled(symbols.map(async (symbol) => {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
-    if (!res.ok) throw new Error(`Binance ${symbol} ${res.status}`);
+    const res = await fetch(`https://api.mexc.com/api/v3/ticker/24hr?symbol=${symbol}`);
+    if (!res.ok) throw new Error(`MEXC ${symbol} ${res.status}`);
     const data = await res.json();
     return {
       symbol,
