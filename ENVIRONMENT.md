@@ -26,11 +26,11 @@
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase Edge Function | Yes | Yes for `ikb-api` | Supabase project secrets | Server writes and admin reads fail |
 | `ANBAYBOT_ADMIN_TOKEN` | Yes | Supabase Edge Function | Yes | Yes for protected routes | Supabase project secrets | Protected routes return 401/503 |
 | `ANBAYBOT_ALLOWED_ORIGINS` | Yes | Supabase Edge Function | No | No | Supabase project secrets | CORS falls back to built-in defaults |
-| `BINANCE_BASE_URL` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Binance defaults to mainnet public API |
-| `BINANCE_API_KEY` | Yes | Supabase Edge Function | Yes | Required for account/order endpoints | Supabase project secrets | Signed Binance routes fail |
-| `BINANCE_API_SECRET` | Yes | Supabase Edge Function | Yes | Required for account/order endpoints | Supabase project secrets | Signed Binance routes fail |
-| `BINANCE_RECV_WINDOW` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Defaults to `5000` |
-| `BINANCE_ALLOWED_SYMBOLS` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Order validation falls back to default symbols |
+| `MEXC_BASE_URL` | Yes | Supabase Edge Function | No | No | Supabase project secrets | MEXC defaults to `https://api.mexc.com` |
+| `MEXC_API_KEY` | Yes | Supabase Edge Function | Yes | Required for account/order endpoints | Supabase project secrets | Signed MEXC routes fail |
+| `MEXC_API_SECRET` | Yes | Supabase Edge Function | Yes | Required for account/order endpoints | Supabase project secrets | Signed MEXC routes fail |
+| `MEXC_RECV_WINDOW` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Defaults to `5000` |
+| `MEXC_ALLOWED_SYMBOLS` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Order validation falls back to default symbols |
 | `ALLOW_LIVE_TRADING` | Yes | Supabase Edge Function | No | Must stay `false` | Supabase project secrets | Live orders stay blocked |
 | `MAX_TRADE_USDT` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Defaults to `10` |
 | `ANBAYBOT_MAX_STABLE_CAPITAL_PCT` | Yes | Supabase Edge Function | No | No | Supabase project secrets | Defaults to `0.9` |
@@ -40,6 +40,6 @@
 ## Not Used In Current Code
 
 - `VITE_WALLETCONNECT_PROJECT_ID`
-- `BINANCE_TESTNET`
+- MEXC does not provide a testnet setting in this integration; use order-test/paper mode first.
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
