@@ -4,7 +4,7 @@
 
 - Keep `ALLOW_LIVE_TRADING=false` until explicit human approval.
 - Never expose secrets in the frontend.
-- Never execute a real Binance order from the frontend.
+- Never execute a real MEXC order from the frontend.
 - Never copy production data without understanding the impact.
 
 ## Secret Handling
@@ -26,4 +26,3 @@
 - The Supabase advisor output shows unrelated legacy issues in the project database.
 - `ikb-api` must be deployed with `verify_jwt` disabled only because it uses custom admin-token auth.
 - Public routes must stay read-only and free of secrets.
-
