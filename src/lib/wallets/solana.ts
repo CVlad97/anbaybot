@@ -19,16 +19,25 @@ interface SolanaProvider {
   removeListener?: (event: string, cb: (...args: unknown[]) => void) => void;
 }
 
+function injectedSolana(): SolanaProvider | null {
+  if (typeof window === 'undefined') return null;
+  return window.solana || null;
+}
+
 export function getPhantomProvider(): SolanaProvider | null {
   if (typeof window === 'undefined') return null;
-  const p = window.phantom?.solana;
-  return p?.isPhantom ? p : null;
+  const direct = window.phantom?.solana;
+  if (direct?.isPhantom) return direct;
+  const injected = injectedSolana();
+  return injected?.isPhantom ? injected : null;
 }
 
 export function getSolflareProvider(): SolanaProvider | null {
   if (typeof window === 'undefined') return null;
-  const p = window.solflare;
-  return p?.isSolflare ? p : null;
+  const direct = window.solflare;
+  if (direct?.isSolflare) return direct;
+  const injected = injectedSolana();
+  return injected?.isSolflare ? injected : null;
 }
 
 function readPublicKey(provider: SolanaProvider): string {
@@ -39,17 +48,15 @@ function readPublicKey(provider: SolanaProvider): string {
 
 export async function connectPhantom(): Promise<string> {
   const provider = getPhantomProvider();
-  if (!provider) throw new Error('Phantom non détecté. Installez l’extension Phantom.');
+  if (!provider) throw new Error('Phantom non détecté dans ce navigateur. Utilisez le lien mobile ou ajoutez l’adresse publique manuellement.');
   const resp = await provider.connect();
-  if (resp && resp.publicKey) {
-    return resp.publicKey.toString();
-  }
+  if (resp && resp.publicKey) return resp.publicKey.toString();
   return readPublicKey(provider);
 }
 
 export async function connectSolflare(): Promise<string> {
   const provider = getSolflareProvider();
-  if (!provider) throw new Error('Solflare non détecté. Installez l’extension Solflare.');
+  if (!provider) throw new Error('Solflare non détecté dans ce navigateur. Utilisez le lien mobile ou ajoutez l’adresse publique manuellement.');
   await provider.connect();
   await new Promise(r => setTimeout(r, 300));
   return readPublicKey(provider);
@@ -58,16 +65,13 @@ export async function connectSolflare(): Promise<string> {
 export async function getConnectedSolanaAddress(which: 'phantom' | 'solflare'): Promise<string | null> {
   const provider = which === 'phantom' ? getPhantomProvider() : getSolflareProvider();
   if (!provider) return null;
-  if (provider.publicKey) {
-    return readPublicKey(provider);
-  }
+  if (provider.publicKey) return readPublicKey(provider);
   try {
     await provider.connect({ onlyIfTrusted: true });
   } catch {
     return null;
   }
-  if (!provider.publicKey) return null;
-  return readPublicKey(provider);
+  return provider.publicKey ? readPublicKey(provider) : null;
 }
 
 export async function disconnectSolana(which: 'phantom' | 'solflare'): Promise<void> {
@@ -80,8 +84,7 @@ export function isPhantomInstalled(): boolean {
 }
 
 export function isSolflareInstalled(): boolean {
-  if (typeof window === 'undefined') return false;
-  return !!window.solflare?.isSolflare;
+  return !!getSolflareProvider();
 }
 
 export function getPhantomDeeplink(url: string): string {
@@ -97,18 +100,10 @@ export async function signAndSendWithProvider(
   txBase64: string
 ): Promise<string> {
   const bytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
-
   const p = provider === 'phantom' ? getPhantomProvider() : getSolflareProvider();
   if (!p) throw new Error(`${provider} non détecté`);
-
-  if (!p.isConnected && !p.publicKey) {
-    await p.connect();
-  }
-
-  if (!p.signAndSendTransaction) {
-    throw new Error(`${provider} ne supporte pas signAndSendTransaction`);
-  }
-
+  if (!p.isConnected && !p.publicKey) await p.connect();
+  if (!p.signAndSendTransaction) throw new Error(`${provider} ne supporte pas signAndSendTransaction`);
   const result = await p.signAndSendTransaction(bytes);
   return result.signature;
 }
