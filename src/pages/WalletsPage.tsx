@@ -14,7 +14,6 @@ import {
 } from '../lib/wallets/solana';
 import {
   connectEvmWallet,
-  formatEvmAddress,
   getEvmWalletDeeplink,
   isEvmWalletInstalled,
   type EvmWalletId,
