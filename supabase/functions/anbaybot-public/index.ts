@@ -20,7 +20,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v1" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v2" } } });
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -136,6 +136,23 @@ async function portfolio(s: ReturnType<typeof db>) {
   return { wallets: output, totalValueUsd: output.reduce((s,w)=>s+w.totalValueUsd,0), updatedAt: new Date().toISOString() };
 }
 
+async function exchanges(s: ReturnType<typeof db>) {
+  const {data, error} = await s.from("exchange_accounts")
+    .select("exchange,label,enabled,connection_status,balance_usd,live_trading_enabled,last_checked_at,note")
+    .order("exchange");
+  if (error) throw error;
+  const rows = data || [];
+  return { exchanges: rows, totalExchangeUsd: rows.reduce((sum,row)=>sum+Number(row.balance_usd||0),0), updatedAt:new Date().toISOString() };
+}
+
+async function strategies(s: ReturnType<typeof db>) {
+  const {data, error} = await s.from("strategy_catalog")
+    .select("strategy_key,name,category,venue,scan_enabled,execution_mode,status,connection_required,last_verified_at,note")
+    .order("category").order("name");
+  if (error) throw error;
+  return { strategies: data || [], updatedAt:new Date().toISOString() };
+}
+
 async function pnl(s: ReturnType<typeof db>) {
   const {data, error} = await s.from("pnl_ledger").select("id,occurred_at,venue,market,pnl_type,gross_pnl_usd,fees_usd,funding_usd,net_pnl_usd,source").eq("environment","LIVE").order("occurred_at",{ascending:false}).limit(100);
   if (error) throw error;
@@ -152,6 +169,8 @@ Deno.serve(async req => {
     const path = new URL(req.url).searchParams.get("path") || "health";
     if (path === "health") return json({ status:"ok", mode:"public_read_only", timestamp:new Date().toISOString() });
     if (path === "portfolio") return json(await portfolio(s));
+    if (path === "exchanges") return json(await exchanges(s));
+    if (path === "strategies") return json(await strategies(s));
     if (path === "pnl") return json(await pnl(s));
     return json({ error:"not_found" }, 404);
   } catch (e) {
