@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw, Smartphone, Wallet } from 'luci
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ManualSolanaWalletAdd from '../components/ManualSolanaWalletAdd';
+import TransferPlanner from '../components/TransferPlanner';
 import { useWalletStore } from '../store/walletStore';
 import {
   connectPhantom,
@@ -136,6 +137,7 @@ export default function WalletsPage() {
       </div>
 
       <ManualSolanaWalletAdd onAdded={refresh} />
+      <TransferPlanner portfolio={portfolio} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Stat label="On-chain serveur" value={formatUsd(portfolio?.totalValueUsd || 0)} />
