@@ -8,13 +8,18 @@ import {
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
 import {
+  backendApiUrl,
+  clearRuntimeBackendFallback,
   getRuntimeFallbackInfo,
   isBackendConfigured,
   isDemoSupabase,
   isRuntimeFallbackEnabled,
+  setRuntimeBackendMode,
 } from '../lib/supabase';
 import { clearAdminToken, getAdminToken, setAdminToken } from '../lib/auth';
 import { useWalletAutoReconnect } from '../hooks/useWalletAutoReconnect';
+
+const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'dev').slice(0, 7);
 
 const NAV_ITEMS = [
   { path: '/', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -46,6 +51,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { solanaAddress, evmAddress } = useWalletStore();
 
   const activeAddress = solanaAddress || evmAddress;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function verifyBackend() {
+      if (!backendApiUrl) {
+        setRuntimeBackendMode('fallback', 'backend_not_configured');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${backendApiUrl}?path=health`, { cache: 'no-store' });
+        if (cancelled) return;
+        if (res.ok) clearRuntimeBackendFallback();
+        else setRuntimeBackendMode('fallback', `health_${res.status}`);
+      } catch (error) {
+        if (!cancelled) {
+          setRuntimeBackendMode(
+            'fallback',
+            error instanceof Error ? error.message : 'health_network_error',
+          );
+        }
+      }
+    }
+
+    verifyBackend();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const syncRuntimeMode = () => {
@@ -87,7 +122,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight">IKB CopyBot</h1>
-              <p className="text-xs text-surface-500 font-medium">PRO v2.0</p>
+              <p className="text-xs text-surface-500 font-medium">ANBAYBOT LIVE · {BUILD_SHA}</p>
             </div>
           </div>
           {activeAddress && (
@@ -123,7 +158,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="p-4 border-t border-surface-800">
           <p className="text-[10px] text-surface-600 text-center">
-            Aucune garantie de profit. Confirmation utilisateur requise.
+            Build {BUILD_SHA} · Aucune garantie de profit. Confirmation utilisateur requise.
           </p>
         </div>
       </aside>
@@ -145,9 +180,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     {runtimeFallback ? 'Serveur indisponible, mode simulation actif.' : 'Mode reel serveur.'}
                   </strong>{' '}
                   {runtimeFallback
-                    ? `Le backend ne repond pas. Le site bascule automatiquement en mode local pour rester utilisable.${runtimeReason ? ` (${runtimeReason})` : ''}`
+                    ? `Le health-check du backend a echoue.${runtimeReason ? ` (${runtimeReason})` : ''}`
                     : isBackendConfigured
-                      ? 'Les operations passent par la fonction Edge securisee. Renseigne le token cockpit localement pour utiliser les routes privees.'
+                      ? `Backend Edge confirme en ligne. Build ${BUILD_SHA}. Renseigne le token cockpit localement pour utiliser les routes privees.`
                       : 'Backend non configure: ajoute VITE_BACKEND_API_URL dans GitHub Pages.'}
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
