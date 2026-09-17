@@ -6,6 +6,7 @@ import {
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
 import GoalSimulator from '../components/GoalSimulator';
+import RevenueLab from '../components/RevenueLab';
 import type { EarningsRecord, EarningsSummary } from '../lib/types';
 import { getStripePaymentLink } from '../lib/stripe';
 
@@ -102,6 +103,7 @@ export default function EarningsPage() {
       </div>
 
       <GoalSimulator />
+      <RevenueLab />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="card p-5">
