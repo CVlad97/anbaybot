@@ -35,10 +35,19 @@ const SOLANA_RPC = Deno.env.get("SOLANA_RPC_URL") || "https://api.mainnet-beta.s
 const TRON_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const SOLANA_USDC = "EPjFWdd5AufqSSqeM2q1xzybapC8G4wEGGkZwyTDt1v";
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
-  if (!res.ok) throw new Error(`http_${res.status}`);
-  return await res.json() as T;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, init);
+    if (res.ok) return await res.json() as T;
+    if (res.status === 429 && attempt < 2) {
+      await sleep(500 * (attempt + 1));
+      continue;
+    }
+    throw new Error(`http_${res.status}`);
+  }
+  throw new Error("http_retry_exhausted");
 }
 
 function priceMap(rows: PriceRow[]) {
@@ -79,7 +88,10 @@ async function fetchBlockscout(wallet: TrackedWallet): Promise<WalletBalance> {
 }
 
 async function fetchTron(wallet: TrackedWallet, prices: Map<string,number>): Promise<WalletBalance> {
-  const payload = await fetchJson<{ data?: Array<{ balance?: number; trc20?: Array<Record<string,string>> }> }>(`${TRONGRID}/v1/accounts/${wallet.address}`);
+  const headers: Record<string,string> = {};
+  const tronKey = Deno.env.get("TRONGRID_API_KEY") || "";
+  if (tronKey) headers["TRON-PRO-API-KEY"] = tronKey;
+  const payload = await fetchJson<{ data?: Array<{ balance?: number; trc20?: Array<Record<string,string>> }> }>(`${TRONGRID}/v1/accounts/${wallet.address}`, { headers });
   const account = payload.data?.[0] || {};
   const tokens: TokenBalance[] = [];
   const trxBalance = Number(account.balance || 0) / 1e6;
@@ -122,15 +134,29 @@ async function fetchSolana(wallet: TrackedWallet, prices: Map<string,number>): P
 export async function fetchTrackedWalletBalances(wallets: TrackedWallet[], rows: PriceRow[]): Promise<WalletBalance[]> {
   const prices = priceMap(rows);
   const enabled = wallets.filter(w=>w.enabled);
-  return await Promise.all(enabled.map(async wallet=>{
+  const results: WalletBalance[] = [];
+
+  for (const wallet of enabled) {
     try {
       const chain = wallet.chain.toLowerCase();
-      if (chain === "tron") return await fetchTron(wallet,prices);
-      if (chain === "solana") return await fetchSolana(wallet,prices);
-      if (chain === "base" || chain === "eth" || chain === "ethereum") return await fetchBlockscout(wallet);
-      return { walletId:wallet.id,walletLabel:wallet.label,chain:wallet.chain,platform:wallet.platform,address:wallet.address,tokens:[],totalValueUsd:0,error:"unsupported_chain" };
+      if (chain === "tron") {
+        results.push(await fetchTron(wallet,prices));
+        await sleep(350);
+        continue;
+      }
+      if (chain === "solana") {
+        results.push(await fetchSolana(wallet,prices));
+        continue;
+      }
+      if (chain === "base" || chain === "eth" || chain === "ethereum") {
+        results.push(await fetchBlockscout(wallet));
+        continue;
+      }
+      results.push({ walletId:wallet.id,walletLabel:wallet.label,chain:wallet.chain,platform:wallet.platform,address:wallet.address,tokens:[],totalValueUsd:0,error:"unsupported_chain" });
     } catch (e) {
-      return { walletId:wallet.id,walletLabel:wallet.label,chain:wallet.chain,platform:wallet.platform,address:wallet.address,tokens:[],totalValueUsd:0,error:e instanceof Error?e.message:"balance_fetch_failed" };
+      results.push({ walletId:wallet.id,walletLabel:wallet.label,chain:wallet.chain,platform:wallet.platform,address:wallet.address,tokens:[],totalValueUsd:0,error:e instanceof Error?e.message:"balance_fetch_failed" });
     }
-  }));
+  }
+
+  return results;
 }
