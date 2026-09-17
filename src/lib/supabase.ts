@@ -11,7 +11,7 @@ const RUNTIME_MODE_KEY = 'anbaybot_runtime_mode';
 const RUNTIME_REASON_KEY = 'anbaybot_runtime_reason';
 const RUNTIME_DOWN_AT_KEY = 'anbaybot_runtime_down_at';
 const RUNTIME_EVENT = 'anbaybot-runtime-mode-changed';
-export const RUNTIME_FALLBACK_COOLDOWN_MS = 60_000;
+export const RUNTIME_FALLBACK_COOLDOWN_MS = 0;
 
 export type RuntimeBackendMode = 'server' | 'fallback';
 
