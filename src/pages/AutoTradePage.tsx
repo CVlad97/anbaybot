@@ -6,6 +6,7 @@ import {
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import QuickStartBanner from '../components/QuickStartBanner';
+import PaperScanPanel from '../components/PaperScanPanel';
 import { useAppStore } from '../store/appStore';
 import { api } from '../lib/api';
 import { getStrategies } from '../lib/engines/strategies/index';
@@ -30,14 +31,16 @@ export default function AutoTradePage() {
   const { autoTradeConfigs, setAutoTradeConfigs, followedWallets, totalValueUsd, settings } = useAppStore();
   const [saving, setSaving] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState('');
   const strategies = getStrategies();
 
   const loadConfigs = useCallback(async () => {
     try {
       const { data } = await api.getAutoTradeConfig();
       setAutoTradeConfigs(data);
-    } catch {
-      // silent
+      setSaveError('');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Configuration serveur indisponible');
     }
     setLoading(false);
   }, [setAutoTradeConfigs]);
@@ -46,6 +49,7 @@ export default function AutoTradePage() {
 
   async function updateConfig(strategyId: string, updates: Partial<AutoTradeConfig>) {
     setSaving(strategyId);
+    setSaveError('');
     const existing = autoTradeConfigs.find(c => c.strategy_id === strategyId);
     const safeUpdates = {
       ...updates,
@@ -66,8 +70,8 @@ export default function AutoTradePage() {
     try {
       await api.updateAutoTradeConfig(payload);
       await loadConfigs();
-    } catch {
-      // silent
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Sauvegarde impossible');
     }
     setSaving(null);
   }
@@ -87,18 +91,22 @@ export default function AutoTradePage() {
       />
 
       <QuickStartBanner />
+      <PaperScanPanel />
 
       <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
         <p className="text-xs text-surface-300">
-          Mode débutant: aucun ordre ne doit partir sans confirmation utilisateur.
-          L’option auto complet est volontairement bloquée côté interface.
+          Mode débutant: les scans PAPER peuvent tourner automatiquement. Aucun ordre LIVE ne part sans connexion exchange, contrôles de risque et confirmation utilisateur.
         </p>
       </div>
+
+      {saveError && (
+        <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{saveError}</div>
+      )}
 
       {killActive && (
         <div className="card p-4 mb-6 border-l-4 border-l-danger-500 bg-danger-600/5 flex items-center gap-3">
           <AlertTriangle size={18} className="text-danger-400 shrink-0" />
-          <p className="text-sm text-danger-400">Kill switch actif: le pilotage automatique est en pause.</p>
+          <p className="text-sm text-danger-400">Kill switch LIVE actif. Les scans PAPER restent disponibles, mais aucune exécution financière n’est autorisée.</p>
         </div>
       )}
 
@@ -180,55 +188,21 @@ export default function AutoTradePage() {
                     <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">
                       Allocation ({alloc}% = ${allocUsd.toFixed(0)})
                     </label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={50}
-                      step={1}
-                      value={alloc}
-                      onChange={e => updateConfig(strategy.id, { allocation_pct: Number(e.target.value) })}
-                      className="w-full accent-brand-500"
-                    />
-                    <div className="flex justify-between text-[10px] text-surface-600 mt-0.5">
-                      <span>0%</span>
-                      <span>50%</span>
-                    </div>
+                    <input type="range" min={0} max={50} step={1} value={alloc} onChange={e => updateConfig(strategy.id, { allocation_pct: Number(e.target.value) })} className="w-full accent-brand-500" />
+                    <div className="flex justify-between text-[10px] text-surface-600 mt-0.5"><span>0%</span><span>50%</span></div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">
-                      Max Loss ({maxLoss}%)
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={25}
-                      step={1}
-                      value={maxLoss}
-                      onChange={e => updateConfig(strategy.id, { max_loss_pct: Number(e.target.value) })}
-                      className="w-full accent-danger-500"
-                    />
-                    <div className="flex justify-between text-[10px] text-surface-600 mt-0.5">
-                      <span>1%</span>
-                      <span>25%</span>
-                    </div>
+                    <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">Max Loss ({maxLoss}%)</label>
+                    <input type="range" min={0} max={25} step={1} value={maxLoss} onChange={e => updateConfig(strategy.id, { max_loss_pct: Number(e.target.value) })} className="w-full accent-danger-500" />
+                    <div className="flex justify-between text-[10px] text-surface-600 mt-0.5"><span>0%</span><span>25%</span></div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">
-                      Mode d’exécution
-                    </label>
+                    <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">Mode d’exécution</label>
                     <div className="flex gap-1">
                       {(['semi', 'manual'] as const).map(m => (
-                        <button
-                          key={m}
-                          onClick={() => updateConfig(strategy.id, { trader_mode: m })}
-                          className={`flex-1 px-2 py-2 rounded-lg text-[10px] font-semibold transition-all ${
-                            mode === m
-                              ? 'bg-surface-700 ' + MODE_LABELS[m].color
-                              : 'bg-surface-800/50 text-surface-500 hover:bg-surface-800'
-                          }`}
-                        >
+                        <button key={m} onClick={() => updateConfig(strategy.id, { trader_mode: m })} className={`flex-1 px-2 py-2 rounded-lg text-[10px] font-semibold transition-all ${mode === m ? 'bg-surface-700 ' + MODE_LABELS[m].color : 'bg-surface-800/50 text-surface-500 hover:bg-surface-800'}`}>
                           {MODE_LABELS[m].label}
                         </button>
                       ))}
@@ -236,29 +210,15 @@ export default function AutoTradePage() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">
-                      Stop-loss auto
-                    </label>
-                    <button
-                      onClick={() => updateConfig(strategy.id, { auto_stop_loss: !autoStop })}
-                      className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all ${
-                        autoStop
-                          ? 'bg-brand-600/10 text-brand-400 border border-brand-600/20'
-                          : 'bg-surface-800 text-surface-500 border border-surface-700'
-                      }`}
-                    >
-                      <Shield size={14} />
-                      {autoStop ? 'Activé' : 'Désactivé'}
+                    <label className="text-[10px] text-surface-500 uppercase tracking-wider block mb-1.5">Stop-loss auto</label>
+                    <button onClick={() => updateConfig(strategy.id, { auto_stop_loss: !autoStop })} className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all ${autoStop ? 'bg-brand-600/10 text-brand-400 border border-brand-600/20' : 'bg-surface-800 text-surface-500 border border-surface-700'}`}>
+                      <Shield size={14} /> {autoStop ? 'Activé' : 'Désactivé'}
                     </button>
                   </div>
                 </div>
 
                 {strategy.id === 'copy_swap_filtered' && (
-                  <TraderSelector
-                    traders={followedWallets.filter(w => !w.blacklisted)}
-                    selected={selectedTraders}
-                    onSelect={(ids) => updateConfig(strategy.id, { selected_traders: ids })}
-                  />
+                  <TraderSelector traders={followedWallets.filter(w => !w.blacklisted)} selected={selectedTraders} onSelect={(ids) => updateConfig(strategy.id, { selected_traders: ids })} />
                 )}
               </div>
             );
@@ -281,10 +241,7 @@ function TraderSelector({ traders, selected, onSelect }: {
       <div className="flex items-center gap-2 mb-3">
         <Users size={14} className="text-surface-400" />
         <span className="text-xs text-surface-400 font-medium">Sélection des traders à suivre</span>
-        <button
-          onClick={() => onSelect(selected.length === traders.length ? [] : traders.map(t => t.id))}
-          className="text-[10px] text-brand-400 hover:text-brand-300 ml-auto"
-        >
+        <button onClick={() => onSelect(selected.length === traders.length ? [] : traders.map(t => t.id))} className="text-[10px] text-brand-400 hover:text-brand-300 ml-auto">
           {selected.length === traders.length ? 'Tout désélectionner' : 'Tout sélectionner'}
         </button>
       </div>
@@ -292,22 +249,8 @@ function TraderSelector({ traders, selected, onSelect }: {
         {traders.map(t => {
           const isSelected = selected.includes(t.id);
           return (
-            <button
-              key={t.id}
-              onClick={() => {
-                const next = isSelected
-                  ? selected.filter(id => id !== t.id)
-                  : [...selected, t.id];
-                onSelect(next);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                isSelected
-                  ? 'bg-brand-600/15 text-brand-400 border border-brand-600/20'
-                  : 'bg-surface-800 text-surface-400 border border-surface-700 hover:border-surface-600'
-              }`}
-            >
-              {t.label}
-              <span className="ml-1.5 text-[10px] opacity-70">({t.score})</span>
+            <button key={t.id} onClick={() => onSelect(isSelected ? selected.filter(id => id !== t.id) : [...selected, t.id])} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isSelected ? 'bg-brand-600/15 text-brand-400 border border-brand-600/20' : 'bg-surface-800 text-surface-400 border border-surface-700 hover:border-surface-600'}`}>
+              {t.label}<span className="ml-1.5 text-[10px] opacity-70">({t.score})</span>
             </button>
           );
         })}
