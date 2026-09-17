@@ -1,17 +1,10 @@
 import { useEffect } from 'react';
-import { getConnectedEvmAddress } from '../lib/wallets/evm';
+import { getConnectedEvmAddress, type EvmWalletId } from '../lib/wallets/evm';
 import { getConnectedSolanaAddress } from '../lib/wallets/solana';
 import { useWalletStore } from '../store/walletStore';
-import { api } from '../lib/api';
 
-async function syncWallet(body: Record<string, unknown>) {
-  try {
-    await api.createManagedWallet(body);
-  } catch {
-    // Private backend requires the cockpit token. Wallet remains connected locally
-    // and will sync automatically on the next reconnect after token activation.
-  }
-}
+const SOLANA_PROVIDERS = ['phantom', 'solflare'] as const;
+const EVM_PROVIDERS: EvmWalletId[] = ['trust', 'metamask', 'base'];
 
 export function useWalletAutoReconnect() {
   const { solanaProvider, evmProvider, setSolana, setEvm } = useWalletStore();
@@ -20,40 +13,46 @@ export function useWalletAutoReconnect() {
     let cancelled = false;
 
     async function reconnect() {
-      if (solanaProvider) {
-        const solanaAddress = await getConnectedSolanaAddress(solanaProvider);
-        if (!cancelled) {
-          if (solanaAddress) {
-            setSolana(solanaAddress, solanaProvider);
-            await syncWallet({
-              chain: 'solana',
-              label: `${solanaProvider === 'phantom' ? 'Phantom' : 'Solflare'} / Solana`,
-              address: solanaAddress,
-              platform: solanaProvider.toUpperCase(),
-              enabled: true,
-            });
-          } else setSolana(null, null);
+      const solanaCandidates = solanaProvider
+        ? [solanaProvider, ...SOLANA_PROVIDERS.filter(p => p !== solanaProvider)]
+        : [...SOLANA_PROVIDERS];
+
+      for (const provider of solanaCandidates) {
+        const address = await getConnectedSolanaAddress(provider);
+        if (cancelled) return;
+        if (address) {
+          setSolana(address, provider);
+          break;
         }
       }
 
-      if (evmProvider) {
-        const evmAddress = await getConnectedEvmAddress(evmProvider);
-        if (!cancelled) {
-          if (evmAddress) {
-            setEvm(evmAddress, evmProvider);
-            const platform = evmProvider === 'trust' ? 'TRUST_WALLET' : evmProvider.toUpperCase();
-            await Promise.all([
-              syncWallet({ chain: 'base', label: `${evmProvider} / Base`, address: evmAddress, platform, enabled: true }),
-              syncWallet({ chain: 'eth', label: `${evmProvider} / Ethereum`, address: evmAddress, platform, enabled: true }),
-            ]);
-          } else setEvm(null, null);
+      const evmCandidates = evmProvider
+        ? [evmProvider, ...EVM_PROVIDERS.filter(p => p !== evmProvider)]
+        : [...EVM_PROVIDERS];
+
+      for (const provider of evmCandidates) {
+        const address = await getConnectedEvmAddress(provider);
+        if (cancelled) return;
+        if (address) {
+          setEvm(address, provider);
+          break;
         }
       }
     }
 
+    const retry = () => void reconnect();
     reconnect();
+    const t1 = window.setTimeout(retry, 700);
+    const t2 = window.setTimeout(retry, 1800);
+    window.addEventListener('focus', retry);
+    document.addEventListener('visibilitychange', retry);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener('focus', retry);
+      document.removeEventListener('visibilitychange', retry);
     };
   }, [evmProvider, setEvm, setSolana, solanaProvider]);
 }
