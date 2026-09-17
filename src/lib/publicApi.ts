@@ -24,6 +24,30 @@ export type PublicPortfolio = {
   updatedAt: string;
 };
 
+export type PublicExchangeAccount = {
+  exchange: 'BINANCE' | 'MEXC';
+  label: string;
+  enabled: boolean;
+  connection_status: 'NOT_CONFIGURED' | 'READ_ONLY' | 'TEST_READY' | 'LIVE_READY' | 'ERROR';
+  balance_usd: number;
+  live_trading_enabled: boolean;
+  last_checked_at: string | null;
+  note: string;
+};
+
+export type PublicStrategy = {
+  strategy_key: string;
+  name: string;
+  category: string;
+  venue: string | null;
+  scan_enabled: boolean;
+  execution_mode: 'RESEARCH' | 'PAPER_AUTO' | 'TEST_AUTO' | 'USER_CONFIRM_LIVE' | 'DISABLED';
+  status: 'UNVERIFIED' | 'DATA_READY' | 'PAPER_READY' | 'TEST_READY' | 'LIVE_READY' | 'BLOCKED';
+  connection_required: string[];
+  last_verified_at: string | null;
+  note: string;
+};
+
 export type LivePnlRow = {
   id: string;
   occurred_at: string;
@@ -61,5 +85,7 @@ async function get<T>(path: string): Promise<T> {
 export const publicApi = {
   health: () => get<{ status: string; mode: string; timestamp: string }>('health'),
   portfolio: () => get<PublicPortfolio>('portfolio'),
+  exchanges: () => get<{ exchanges: PublicExchangeAccount[]; totalExchangeUsd: number; updatedAt: string }>('exchanges'),
+  strategies: () => get<{ strategies: PublicStrategy[]; updatedAt: string }>('strategies'),
   pnl: () => get<LivePnl>('pnl'),
 };
