@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
+import GoalSimulator from '../components/GoalSimulator';
 import type { EarningsRecord, EarningsSummary } from '../lib/types';
 import { getStripePaymentLink } from '../lib/stripe';
 
@@ -100,7 +101,8 @@ export default function EarningsPage() {
         Donnée de démonstration: les lignes ci-dessous simulent une activité pour l’interface tant que les données réelles ne sont pas branchées.
       </div>
 
-      {/* Summary cards */}
+      <GoalSimulator />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-3">
@@ -149,7 +151,6 @@ export default function EarningsPage() {
         </div>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card p-4">
           <p className="text-xs text-surface-500 uppercase tracking-wider mb-1">Profit Factor</p>
@@ -167,7 +168,6 @@ export default function EarningsPage() {
         </div>
       </div>
 
-      {/* Earnings table */}
       <div className="card overflow-hidden">
         <div className="p-4 border-b border-surface-800 flex items-center gap-2">
           <Receipt size={16} className="text-brand-400" />
@@ -213,7 +213,6 @@ export default function EarningsPage() {
         </div>
       </div>
 
-      {/* Stripe payment links */}
       <div className="card p-5 mt-6 border-l-4 border-l-brand-500/50">
         <div className="flex items-center gap-2 mb-3">
           <Calendar size={16} className="text-brand-400" />
