@@ -34,16 +34,16 @@ jobs:
         env:
           VITE_BASE_PATH: "/${{ github.event.repository.name }}/"
           VITE_APP_BASE_URL: "https://cvlad97.github.io/${{ github.event.repository.name }}/"
-          VITE_BACKEND_API_URL: ${{ vars.VITE_BACKEND_API_URL }}
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_BACKEND_API_URL: "https://lmfwtiytqwedrazxjnwu.supabase.co/functions/v1/ikb-api"
+          VITE_SUPABASE_URL: "https://lmfwtiytqwedrazxjnwu.supabase.co"
+          VITE_SUPABASE_ANON_KEY: "sb_publishable_RuFzgUsOe_SdJ4YXbPfLYA_aeLTGrq6"
           VITE_SOLANA_RPC_URL: ${{ vars.VITE_SOLANA_RPC_URL }}
           VITE_ETHEREUM_RPC_URL: ${{ vars.VITE_ETHEREUM_RPC_URL }}
           VITE_BASE_BLOCKSCOUT_API_URL: ${{ vars.VITE_BASE_BLOCKSCOUT_API_URL }}
           VITE_ETH_BLOCKSCOUT_API_URL: ${{ vars.VITE_ETH_BLOCKSCOUT_API_URL }}
           VITE_STRIPE_PRO_PAYMENT_LINK: ${{ vars.VITE_STRIPE_PRO_PAYMENT_LINK }}
           VITE_STRIPE_ENTERPRISE_PAYMENT_LINK: ${{ vars.VITE_STRIPE_ENTERPRISE_PAYMENT_LINK }}
-          VITE_ENABLE_TX_SIGNING: ${{ vars.VITE_ENABLE_TX_SIGNING }}
+          VITE_ENABLE_TX_SIGNING: "false"
         run: npm run build
 
       - name: Add SPA fallback
