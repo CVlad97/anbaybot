@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Zap, Repeat, Loader2 } from 'lucide-react';
+import { Repeat, Zap } from 'lucide-react';
 import StatusBadge from './ui/StatusBadge';
 
 type OrderSide = 'BUY' | 'SELL';
@@ -9,126 +9,59 @@ interface QuickTradeResult {
   symbol: string;
   side: OrderSide;
   amountUsd: number;
-  status: string;
+  status: 'PREPARED';
   message: string;
 }
 
-const SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'ADA/USDT', 'DOT/USDT', 'LINK/USDT', 'AVAX/USDT', 'MATIC/USDT'];
+const SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
 
 export default function QuickActions() {
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [side, setSide] = useState<OrderSide>('BUY');
   const [amount, setAmount] = useState('25');
-  const [running, setRunning] = useState(false);
   const [result, setResult] = useState<QuickTradeResult | null>(null);
 
-  const handleQuickTrade = async () => {
+  const handlePrepare = () => {
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt <= 0) return;
-
-    setRunning(true);
-    setResult(null);
-
-    // Simulate paper trading execution
-    await new Promise(r => setTimeout(r, 1200));
-
-    const isWin = Math.random() > 0.4;
-    const pnlPct = isWin ? (Math.random() * 8 + 1) : -(Math.random() * 6 + 1);
-    const pnlUsd = amt * (pnlPct / 100);
-
     setResult({
       mode: 'TEST',
       symbol,
       side,
       amountUsd: amt,
-      status: 'FILLED',
-      message: `${side === 'BUY' ? 'Achat' : 'Vente'} ${symbol} × $${amt} → ${isWin ? '+' : ''}${pnlUsd.toFixed(2)} USD (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`,
+      status: 'PREPARED',
+      message: `TEST préparé : ${side} ${symbol} pour ${amt.toFixed(2)} USD. Aucun ordre, aucun P&L et aucun mouvement de fonds n'ont été générés.`,
     });
-    setRunning(false);
   };
 
   return (
     <div className="card p-5">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-brand-600/15 flex items-center justify-center">
-          <Zap size={16} className="text-brand-400" />
-        </div>
-        <h3 className="font-semibold text-white">Quick Actions</h3>
+        <div className="w-8 h-8 rounded-lg bg-brand-600/15 flex items-center justify-center"><Zap size={16} className="text-brand-400" /></div>
+        <h3 className="font-semibold text-white">Ordre TEST</h3>
+      </div>
+
+      <div className="rounded-lg border border-brand-500/30 bg-brand-500/10 p-3 mb-3">
+        <p className="text-xs font-medium text-brand-200">Préparation uniquement</p>
+        <p className="text-[10px] text-brand-100 mt-1">Aucun résultat aléatoire : le P&L reste à 0 tant qu'une exécution réellement enregistrée n'existe pas.</p>
       </div>
 
       <div className="space-y-3">
-        <div className="rounded-lg border border-warn-500/30 bg-warn-500/10 p-3">
-          <p className="text-xs font-medium text-warn-200">Simulation permanente</p>
-          <p className="text-[10px] text-warn-100 mt-1">Aucun ordre réel n’est possible depuis cet écran.</p>
-        </div>
-
-        {/* Symbol */}
-        <select
-          value={symbol}
-          onChange={e => setSymbol(e.target.value)}
-          className="input"
-        >
-          {SYMBOLS.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
+        <select value={symbol} onChange={e => setSymbol(e.target.value)} className="input">
+          {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-
-        {/* Side + Amount */}
         <div className="grid grid-cols-2 gap-3">
-          <select
-            value={side}
-            onChange={e => setSide(e.target.value as OrderSide)}
-            className={`input font-semibold ${
-              side === 'BUY' ? 'text-brand-400' : 'text-danger-400'
-            }`}
-          >
-            <option value="BUY" className="text-brand-400">ACHAT</option>
-            <option value="SELL" className="text-danger-400">VENTE</option>
+          <select value={side} onChange={e => setSide(e.target.value as OrderSide)} className="input font-semibold">
+            <option value="BUY">ACHAT</option><option value="SELL">VENTE</option>
           </select>
-          <input
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            className="input"
-            placeholder="Montant USD"
-            inputMode="decimal"
-          />
+          <input value={amount} onChange={e => setAmount(e.target.value)} className="input" placeholder="Montant USD" inputMode="decimal" />
         </div>
+        <button onClick={handlePrepare} className="btn-primary w-full flex items-center justify-center gap-2"><Repeat size={14} />Préparer TEST</button>
 
-        {/* Submit */}
-        <button
-          onClick={handleQuickTrade}
-          disabled={running}
-          className="btn-primary w-full flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {running ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Repeat size={14} />
-          )}
-          <span>{running ? 'Exécution...' : `${side === 'BUY' ? 'Acheter' : 'Vendre'} ${symbol.split('/')[0]} (Paper Trade)`}</span>
-        </button>
-
-        {/* Result */}
-        {result && (
-          <div className="rounded-xl border border-surface-700 bg-surface-900/60 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <StatusBadge status="SUCCESS" size="sm" />
-                <span className="text-xs font-semibold text-surface-200">{result.symbol}</span>
-              </div>
-              <span className="text-[10px] text-surface-500">{result.mode}</span>
-            </div>
-            <p className="text-sm text-surface-300">{result.message}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Quick trade tips */}
-      <div className="mt-4 pt-4 border-t border-surface-800">
-        <p className="text-[10px] text-surface-600 leading-relaxed">
-          ⚡ Paper trading instantané — aucun ordre réel n'est envoyé.
-          La version de production conserve volontairement ce comportement.
-        </p>
+        {result && <div className="rounded-xl border border-surface-700 bg-surface-900/60 p-3">
+          <div className="flex items-center justify-between mb-2"><StatusBadge status="PREPARED" size="sm" /><span className="text-[10px] text-surface-500">{result.mode}</span></div>
+          <p className="text-sm text-surface-300">{result.message}</p>
+        </div>}
       </div>
     </div>
   );
