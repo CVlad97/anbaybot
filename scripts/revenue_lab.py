@@ -76,6 +76,24 @@ def required_daily_return(capital: float, target_profit: float, days: float) -> 
         raise ValueError("capital>0, target>=0, days>0 required")
     return (pow((capital + target_profit) / capital, 1.0 / days) - 1.0) * 100.0
 
+def arbitrage_scenario(capital: float, buy_price: float, sell_price: float, fees: float, slippage: float = 0.0, transfer_cost: float = 0.0, evidence: str = "PAPER") -> Scenario:
+    if capital <= 0 or buy_price <= 0 or sell_price <= 0:
+        raise ValueError("positive capital/prices required")
+    gross = capital * ((sell_price - buy_price) / buy_price)
+    return _result("ARBITRAGE", capital, 0.0, gross, fees + slippage + transfer_cost, evidence, "Only executable cross-venue prices count; latency and withdrawal constraints remain.")
+
+
+def saas_scenario(subscribers: int, monthly_price: float, payment_fee_pct: float = 0.0, fixed_costs: float = 0.0, evidence: str = "HYPOTHETICAL") -> Scenario:
+    gross = max(0, subscribers) * max(0.0, monthly_price)
+    costs = gross * max(0.0, payment_fee_pct) / 100.0 + max(0.0, fixed_costs)
+    return _result("SAAS", gross if gross else 1.0, 30.0, gross, costs, evidence, "Revenue counts as LIVE only when payment is actually collected.")
+
+
+def referral_scenario(conversions: int, commission_per_conversion: float, clawbacks: float = 0.0, evidence: str = "HYPOTHETICAL") -> Scenario:
+    gross = max(0, conversions) * max(0.0, commission_per_conversion)
+    return _result("REFERRAL", gross if gross else 1.0, 30.0, gross, max(0.0, clawbacks), evidence, "Commission counts as LIVE only when paid by the partner.")
+
+
 def self_test() -> None:
     e = earn_scenario(1000, 10, 365, 0, "HYPOTHETICAL")
     assert abs(e.gross_pnl - 100.0) < 1e-9
