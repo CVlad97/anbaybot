@@ -90,6 +90,8 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
       setRuntimeBackendMode('fallback', `api_${res.status}`);
       return demoRequest<T>(path, opts);
     }
+    // A 4xx response proves the real backend is reachable; it is an auth/input error.
+    clearRuntimeBackendFallback();
     throw new Error(`API ${res.status}: ${text}`);
   }
 
