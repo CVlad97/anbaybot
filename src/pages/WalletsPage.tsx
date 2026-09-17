@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Smartphone, Wallet } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import ManualSolanaWalletAdd from '../components/ManualSolanaWalletAdd';
 import { useWalletStore } from '../store/walletStore';
 import {
   connectPhantom,
@@ -134,6 +135,8 @@ export default function WalletsPage() {
         <WalletConnector name="MetaMask / Coinbase" chain="Base / Ethereum" address={evmProvider === 'metamask' || evmProvider === 'base' ? evmAddress : null} installed={isEvmWalletInstalled('metamask') || isEvmWalletInstalled('base')} connecting={connecting === 'metamask' || connecting === 'base'} onConnect={() => connectEvm(isEvmWalletInstalled('base') ? 'base' : 'metamask')} deeplink={isMobile ? getEvmWalletDeeplink('metamask', appUrl) : null} />
       </div>
 
+      <ManualSolanaWalletAdd onAdded={refresh} />
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Stat label="On-chain serveur" value={formatUsd(portfolio?.totalValueUsd || 0)} />
         <Stat label="Solana navigateur" value={formatUsd(browserWalletTotal)} />
@@ -167,7 +170,7 @@ export default function WalletsPage() {
 }
 
 function WalletConnector({ name, chain, address, installed, connecting, onConnect, deeplink }: { name:string; chain:string; address:string|null; installed:boolean; connecting:boolean; onConnect:()=>void; deeplink:string|null }) {
-  return <div className="card p-5"><div className="flex items-center justify-between gap-3"><div><p className="font-semibold text-white">{name}</p><p className="text-xs text-surface-500">{chain}</p></div>{address && <CheckCircle2 size={18} className="text-brand-400" />}</div>{address ? <div className="mt-4"><p className="text-xs text-brand-400 font-mono">{shorten(address)}</p><p className="text-[11px] text-surface-500 mt-1">Reconnexion auto activée</p></div> : installed ? <button className="btn-primary w-full mt-4" disabled={connecting} onClick={onConnect}>{connecting ? 'Connexion…' : 'Connecter une fois'}</button> : deeplink ? <a className="btn-secondary w-full mt-4 flex items-center justify-center gap-2" href={deeplink} rel="noopener noreferrer"><Smartphone size={15}/> Ouvrir dans le wallet</a> : <p className="text-xs text-surface-500 mt-4">Wallet non détecté dans ce navigateur.</p>}</div>;
+  return <div className="card p-5"><div className="flex items-center justify-between gap-3"><div><p className="font-semibold text-white">{name}</p><p className="text-xs text-surface-500">{chain}</p></div>{address && <CheckCircle2 size={18} className="text-brand-400" />}</div>{address ? <div className="mt-4"><p className="text-xs text-brand-400 font-mono">{shorten(address)}</p><p className="text-[11px] text-surface-500 mt-1">Reconnexion auto activée</p></div> : installed ? <button className="btn-primary w-full mt-4" disabled={connecting} onClick={onConnect}>{connecting ? 'Connexion…' : 'Connecter une fois'}</button> : deeplink ? <a className="btn-secondary w-full mt-4 flex items-center justify-center gap-2" href={deeplink} rel="noopener noreferrer"><Smartphone size={15}/> Ouvrir dans le wallet</a> : <p className="text-xs text-surface-500 mt-4">Wallet non détecté. Vous pouvez ajouter l’adresse publique ci-dessous.</p>}</div>;
 }
 function BalanceRow({ title, subtitle, total, tokens, error }: { title:string; subtitle:string; total:number; tokens:string[]; error?:string }) {
   return <div className="card p-4"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div><p className="font-medium text-white">{title}</p><p className="text-xs text-surface-500">{subtitle}</p></div><p className="text-lg font-semibold text-brand-400">{formatUsd(total)}</p></div><div className="mt-3 flex flex-wrap gap-2">{tokens.length ? tokens.map((t,i)=><span key={`${t}-${i}`} className="badge-neutral">{t}</span>) : <span className="text-xs text-surface-500">Aucun actif valorisé détecté</span>}</div>{error && <p className="text-xs text-warn-300 mt-2">{error}</p>}</div>;
