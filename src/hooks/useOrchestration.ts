@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { publicApi } from '../lib/publicApi';
 
 export interface TraderAddress {
   id: string;
@@ -9,26 +9,6 @@ export interface TraderAddress {
   isActive: boolean;
   profitLoss?: number;
   winRate?: number;
-}
-
-interface CopyTraderRow {
-  id: string;
-  wallet_address: string;
-  chain: TraderAddress['chain'];
-  name?: string;
-  is_active: boolean;
-  total_pnl?: number;
-  win_rate?: number;
-}
-
-interface WalletRow {
-  id: string;
-  address: string;
-  chain: TraderAddress['chain'];
-  label?: string;
-  is_active?: boolean;
-  enabled?: boolean;
-  balance?: number;
 }
 
 export interface OrchestrationMetrics {
@@ -54,262 +34,110 @@ export interface OrchestratorEvent {
   message: string;
 }
 
+const EMPTY_METRICS: OrchestrationMetrics = {
+  portfolioValue: 0,
+  totalPnL: 0,
+  winRate: 0,
+  tradesExecuted: 0,
+  activeWallets: 0,
+  circuitBreakerStatus: 'active',
+};
+
+const UNAVAILABLE_SENTIMENT: SentimentData = {
+  score: 0.5,
+  label: 'neutral',
+  confidence: 0,
+  exposure: 0,
+  lastUpdated: 0,
+};
+
 export function useOrchestration() {
-  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
-  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const runIdRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [traders, setTraders] = useState<TraderAddress[]>([]);
-  const [metrics, setMetrics] = useState<OrchestrationMetrics>({
-    portfolioValue: 0,
-    totalPnL: 0,
-    winRate: 0,
-    tradesExecuted: 0,
-    activeWallets: 0,
-    circuitBreakerStatus: 'active',
-  });
-  const [sentiment, setSentiment] = useState<SentimentData>({
-    score: 0.5,
-    label: 'neutral',
-    confidence: 0.5,
-    exposure: 50,
-    lastUpdated: Date.now(),
-  });
+  const [metrics, setMetrics] = useState<OrchestrationMetrics>(EMPTY_METRICS);
+  const [sentiment, setSentiment] = useState<SentimentData>(UNAVAILABLE_SENTIMENT);
   const [events, setEvents] = useState<OrchestratorEvent[]>([]);
   const [config, setConfig] = useState({
-    aiEnabled: true,
+    aiEnabled: false,
     circuitBreakerEnabled: true,
     tradfiEnabled: false,
     autoRebalance: false,
   });
 
   const addEvent = useCallback((type: OrchestratorEvent['type'], message: string) => {
-    const time = new Date().toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const time = new Date().toLocaleTimeString('fr-FR', { hour12: false, hour: '2-digit', minute: '2-digit' });
     setEvents(prev => [{ time, type, message }, ...prev].slice(0, 50));
   }, []);
 
-  const clearBackgroundTasks = useCallback(() => {
-    intervalsRef.current.forEach(clearInterval);
-    timeoutsRef.current.forEach(clearTimeout);
-    intervalsRef.current = [];
-    timeoutsRef.current = [];
-  }, []);
-
-  const loadTraders = useCallback(async () => {
+  const refreshRealMetrics = useCallback(async () => {
     try {
-      const { data: copyTraders } = await supabase
-        .from('copy_traders')
-        .select('*')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      const { data: wallets } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('is_active', true)
-        .limit(20);
-
-      const traderAddresses: TraderAddress[] = [];
-      const copyTrader = copyTraders as CopyTraderRow | null;
-      const walletRows = (wallets || []) as WalletRow[];
-
-      if (copyTrader) {
-        traderAddresses.push({
-          id: copyTrader.id,
-          address: copyTrader.wallet_address,
-          chain: copyTrader.chain,
-          label: copyTrader.name || 'Trader',
-          isActive: copyTrader.is_active,
-          profitLoss: copyTrader.total_pnl || 0,
-          winRate: copyTrader.win_rate || 0,
-        });
-      }
-
-      if (walletRows.length > 0) {
-        walletRows.forEach((wallet) => {
-          traderAddresses.push({
-            id: wallet.id,
-            address: wallet.address,
-            chain: wallet.chain,
-            label: wallet.label || 'Wallet',
-            isActive: wallet.is_active ?? wallet.enabled ?? true,
-            profitLoss: wallet.balance || 0,
-            winRate: 0,
-          });
-        });
-      }
-
-      if (traderAddresses.length === 0) {
-        traderAddresses.push({
-          id: 'demo-1',
-          address: 'Demo7X8kR9Y2JvKGnPqNzMxLw5THvFxpQr3...',
-          chain: 'solana',
-          label: 'Demo Trader',
-          isActive: true,
-          profitLoss: 12.5,
-          winRate: 68.3,
-        });
-      }
-
-      setTraders(traderAddresses);
-      addEvent('info', `Loaded ${traderAddresses.length} trader addresses`);
-
-      return traderAddresses;
+      const [portfolio, pnl] = await Promise.all([publicApi.portfolio(), publicApi.pnl()]);
+      const total = Number(portfolio.totalValueUsd || 0);
+      const net = Number(pnl.totalNetPnlUsd || 0);
+      setMetrics({
+        portfolioValue: total,
+        totalPnL: total > 0 ? (net / total) * 100 : 0,
+        winRate: 0,
+        tradesExecuted: pnl.count,
+        activeWallets: portfolio.wallets.length,
+        circuitBreakerStatus: 'active',
+      });
+      addEvent('info', `Données LIVE actualisées : ${portfolio.wallets.length} wallets, P&L ${net.toFixed(2)} USD`);
     } catch (error) {
-      console.error('Failed to load traders:', error);
-      addEvent('warning', 'Failed to load traders from database');
-      return [];
+      addEvent('warning', error instanceof Error ? error.message : 'Données LIVE indisponibles');
     }
   }, [addEvent]);
 
-  const calculateMetrics = useCallback(async (traderList: TraderAddress[]) => {
-    try {
-      const { data: portfolioData } = await supabase
-        .from('portfolio')
-        .select('total_value, daily_pnl')
-        .maybeSingle();
-
-      const { count: txCount } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true });
-
-      const portfolio = portfolioData as { total_value?: number; daily_pnl?: number } | null;
-      const totalValue = portfolio?.total_value || 0;
-      const dailyPnl = portfolio?.daily_pnl || 0;
-      const activeWallets = traderList.filter(t => t.isActive).length;
-
-      const avgWinRate = traderList.reduce((sum, t) => sum + (t.winRate || 0), 0) /
-                        (traderList.length || 1);
-
-      setMetrics({
-        portfolioValue: totalValue,
-        totalPnL: dailyPnl,
-        winRate: avgWinRate,
-        tradesExecuted: txCount || 0,
-        activeWallets,
-        circuitBreakerStatus: 'active',
-      });
-
-      if (totalValue > 0) {
-        addEvent('info', `Portfolio updated: $${totalValue.toFixed(2)}`);
-      }
-    } catch (error) {
-      console.error('Failed to calculate metrics:', error);
-    }
+  const loadTraders = useCallback(async () => {
+    setTraders([]);
+    addEvent('info', 'Aucun trader source LIVE vérifié : aucun profil démo injecté.');
+    return [] as TraderAddress[];
   }, [addEvent]);
 
   const runAIAnalysis = useCallback(async () => {
-    if (!config.aiEnabled) return;
-
-    addEvent('analysis', 'Running AI sentiment analysis...');
-
-    const timeout = setTimeout(() => {
-      timeoutsRef.current = timeoutsRef.current.filter(item => item !== timeout);
-      const scores = [0.65, 0.72, 0.58, 0.48, 0.81];
-      const randomScore = scores[Math.floor(Math.random() * scores.length)];
-
-      const newSentiment: SentimentData = {
-        score: randomScore,
-        label: randomScore > 0.6 ? 'bullish' : randomScore < 0.4 ? 'bearish' : 'neutral',
-        confidence: 0.75 + Math.random() * 0.2,
-        exposure: Math.round(randomScore * 100),
-        lastUpdated: Date.now(),
-      };
-
-      setSentiment(newSentiment);
-      addEvent('analysis', `AI analysis complete: ${newSentiment.label} (${(newSentiment.score * 100).toFixed(0)}/100)`);
-    }, 2000);
-    timeoutsRef.current.push(timeout);
-  }, [config.aiEnabled, addEvent]);
-
-  const autoCorrectAddresses = useCallback(async (addresses: TraderAddress[]) => {
-    const corrected: TraderAddress[] = [];
-    let correctionCount = 0;
-
-    for (const trader of addresses) {
-      const isSolanaAddress = trader.chain === 'solana'
-        && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trader.address);
-      const isEvmAddress = ['ethereum', 'base', 'arbitrum'].includes(trader.chain)
-        && /^0x[a-fA-F0-9]{40}$/.test(trader.address);
-
-      if (!isSolanaAddress && !isEvmAddress) {
-        // An address cannot be repaired safely without knowing the intended
-        // public key. Keep it unchanged and mark it inactive instead of
-        // inventing a value that could receive or lose funds.
-        correctionCount++;
-        corrected.push({ ...trader, isActive: false });
-        continue;
-      }
-
-      corrected.push(trader);
-    }
-
-    if (correctionCount > 0) {
-      addEvent('info', `${correctionCount} adresses corrigées automatiquement`);
-    }
-
-    return corrected;
+    setSentiment({ ...UNAVAILABLE_SENTIMENT, lastUpdated: Date.now() });
+    addEvent('analysis', 'Analyse IA LIVE non connectée : aucun score aléatoire généré.');
   }, [addEvent]);
 
+  const autoCorrectAddresses = useCallback(async (addresses: TraderAddress[]) => {
+    return addresses.map(trader => {
+      const solanaOk = trader.chain === 'solana' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trader.address);
+      const evmOk = ['ethereum', 'base', 'arbitrum'].includes(trader.chain) && /^0x[a-fA-F0-9]{40}$/.test(trader.address);
+      return solanaOk || evmOk ? trader : { ...trader, isActive: false };
+    });
+  }, []);
+
   const startOrchestrator = useCallback(async () => {
-    // Starting twice must never create duplicate or stale background tasks.
-    const runId = ++runIdRef.current;
-    clearBackgroundTasks();
+    if (intervalRef.current) clearInterval(intervalRef.current);
     setIsRunning(true);
-    addEvent('info', 'Orchestrateur démarré');
-
-    const traderList = await loadTraders();
-    if (runId !== runIdRef.current) return;
-    const correctedTraders = await autoCorrectAddresses(traderList);
-    if (runId !== runIdRef.current) return;
-    setTraders(correctedTraders);
-
-    await calculateMetrics(correctedTraders);
-    await runAIAnalysis();
-
-    const analysisInterval = setInterval(() => {
-      runAIAnalysis();
-    }, 5 * 60 * 1000);
-
-    const metricsInterval = setInterval(async () => {
-      const currentTraders = await loadTraders();
-      await calculateMetrics(currentTraders);
-    }, 30 * 1000);
-
-    if (runId === runIdRef.current) {
-      intervalsRef.current = [analysisInterval, metricsInterval];
-    } else {
-      clearInterval(analysisInterval);
-      clearInterval(metricsInterval);
-    }
-  }, [loadTraders, autoCorrectAddresses, calculateMetrics, runAIAnalysis, addEvent, clearBackgroundTasks]);
+    addEvent('info', 'Monitoring LIVE démarré. Aucune transaction automatique.');
+    await refreshRealMetrics();
+    await loadTraders();
+    intervalRef.current = setInterval(() => { void refreshRealMetrics(); }, 60_000);
+  }, [addEvent, loadTraders, refreshRealMetrics]);
 
   const stopOrchestrator = useCallback(() => {
-    runIdRef.current++;
-    clearBackgroundTasks();
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
     setIsRunning(false);
-    addEvent('warning', 'Orchestrateur arrêté');
-  }, [addEvent, clearBackgroundTasks]);
+    addEvent('warning', 'Monitoring arrêté');
+  }, [addEvent]);
 
   const toggleFeature = useCallback((feature: keyof typeof config) => {
     setConfig(prev => {
-      const newConfig = { ...prev, [feature]: !prev[feature] };
-      addEvent('info', `${feature} ${newConfig[feature] ? 'activé' : 'désactivé'}`);
-      return newConfig;
+      const next = { ...prev, [feature]: !prev[feature] };
+      addEvent('info', `${feature}: ${next[feature] ? 'activé localement' : 'désactivé localement'} — aucune permission LIVE modifiée.`);
+      return next;
     });
   }, [addEvent]);
 
   useEffect(() => {
-    loadTraders();
+    void refreshRealMetrics();
     return () => {
-      runIdRef.current++;
-      clearBackgroundTasks();
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loadTraders, clearBackgroundTasks]);
+  }, [refreshRealMetrics]);
 
   return {
     isRunning,
