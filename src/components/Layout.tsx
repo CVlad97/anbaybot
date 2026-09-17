@@ -7,26 +7,18 @@ import {
 } from 'lucide-react';
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
-import {
-  backendApiUrl,
-  clearRuntimeBackendFallback,
-  getRuntimeFallbackInfo,
-  isBackendConfigured,
-  isDemoSupabase,
-  isRuntimeFallbackEnabled,
-  setRuntimeBackendMode,
-} from '../lib/supabase';
 import { clearAdminToken, getAdminToken, setAdminToken } from '../lib/auth';
 import { useWalletAutoReconnect } from '../hooks/useWalletAutoReconnect';
+import { publicApi } from '../lib/publicApi';
 
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'dev').slice(0, 7);
 
 const NAV_ITEMS = [
   { path: '/', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/earnings', label: 'Revenus & P&L', icon: DollarSign },
+  { path: '/wallets', label: 'Portefeuilles', icon: Wallet },
   { path: '/subscriptions', label: 'Souscriptions', icon: CreditCard },
   { path: '/monitoring', label: 'Monitoring 24/7', icon: HeartPulse },
-  { path: '/wallets', label: 'Portefeuilles', icon: Wallet },
   { path: '/signals', label: 'Signaux live', icon: TrendingUp },
   { path: '/traders', label: 'Traders suivis', icon: Users },
   { path: '/strategies', label: 'Stratégies', icon: Cpu },
@@ -38,62 +30,36 @@ const NAV_ITEMS = [
   { path: '/safety', label: 'Sécurité', icon: Shield },
 ];
 
+const ADMIN_PATHS = new Set(['/auto-trade', '/ai', '/console', '/safety']);
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   useWalletAutoReconnect();
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [tokenInput, setTokenInput] = useState(() => getAdminToken());
   const [hasToken, setHasToken] = useState(() => Boolean(getAdminToken()));
-  const [runtimeFallback, setRuntimeFallback] = useState(() => isRuntimeFallbackEnabled());
-  const [runtimeReason, setRuntimeReason] = useState(() => getRuntimeFallbackInfo().reason);
   const location = useLocation();
   const navigate = useNavigate();
   const { solanaAddress, evmAddress } = useWalletStore();
-
   const activeAddress = solanaAddress || evmAddress;
+  const showAdmin = ADMIN_PATHS.has(location.pathname);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function verifyBackend() {
-      if (!backendApiUrl) {
-        setRuntimeBackendMode('fallback', 'backend_not_configured');
-        return;
-      }
-
+    async function check() {
       try {
-        const res = await fetch(`${backendApiUrl}?path=health`, { cache: 'no-store' });
-        if (cancelled) return;
-        if (res.ok) clearRuntimeBackendFallback();
-        else setRuntimeBackendMode('fallback', `health_${res.status}`);
-      } catch (error) {
-        if (!cancelled) {
-          setRuntimeBackendMode(
-            'fallback',
-            error instanceof Error ? error.message : 'health_network_error',
-          );
-        }
+        await publicApi.health();
+        if (!cancelled) setServerOnline(true);
+      } catch {
+        if (!cancelled) setServerOnline(false);
       }
     }
-
-    verifyBackend();
+    check();
+    const timer = window.setInterval(check, 30_000);
     return () => {
       cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const syncRuntimeMode = () => {
-      const info = getRuntimeFallbackInfo();
-      setRuntimeFallback(info.mode === 'fallback');
-      setRuntimeReason(info.reason);
-    };
-    syncRuntimeMode();
-    window.addEventListener('anbaybot-runtime-mode-changed', syncRuntimeMode);
-    window.addEventListener('storage', syncRuntimeMode);
-    return () => {
-      window.removeEventListener('anbaybot-runtime-mode-changed', syncRuntimeMode);
-      window.removeEventListener('storage', syncRuntimeMode);
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -102,6 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-surface-900 border border-surface-700 rounded-xl"
+        aria-label="Menu"
       >
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
@@ -110,24 +77,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
       )}
 
-      <aside className={`
-        fixed lg:sticky top-0 left-0 z-40 h-screen w-72 bg-surface-950 border-r border-surface-800
-        flex flex-col transition-transform duration-300
-        ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-72 bg-surface-950 border-r border-surface-800 flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-6 border-b border-surface-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-brand-600/20 flex items-center justify-center">
               <Zap size={20} className="text-brand-400" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">IKB CopyBot</h1>
-              <p className="text-xs text-surface-500 font-medium">ANBAYBOT LIVE · {BUILD_SHA}</p>
+              <h1 className="text-lg font-bold text-white tracking-tight">ANBAYBOT</h1>
+              <p className="text-xs text-surface-500 font-medium">LIVE · {BUILD_SHA}</p>
             </div>
           </div>
           {activeAddress && (
             <div className="mt-4 px-3 py-2 bg-surface-900 rounded-lg border border-surface-800">
-              <p className="text-[10px] text-surface-500 uppercase tracking-wider font-medium">Connecté</p>
+              <p className="text-[10px] text-surface-500 uppercase tracking-wider font-medium">Wallet navigateur</p>
               <p className="text-xs text-brand-400 font-mono mt-0.5 truncate">{activeAddress}</p>
             </div>
           )}
@@ -140,13 +103,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <button
                 key={item.path}
                 onClick={() => { navigate(item.path); setMobileOpen(false); }}
-                className={`
-                  w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium
-                  transition-all duration-200 group
-                  ${active
-                    ? 'bg-brand-600/15 text-brand-400 border border-brand-600/20'
-                    : 'text-surface-400 hover:text-surface-200 hover:bg-surface-900'}
-                `}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${active ? 'bg-brand-600/15 text-brand-400 border border-brand-600/20' : 'text-surface-400 hover:text-surface-200 hover:bg-surface-900'}`}
               >
                 <item.icon size={18} className={active ? 'text-brand-400' : 'text-surface-500 group-hover:text-surface-300'} />
                 <span className="flex-1 text-left">{item.label}</span>
@@ -156,55 +113,45 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-surface-800">
-          <p className="text-[10px] text-surface-600 text-center">
-            Build {BUILD_SHA} · Aucune garantie de profit. Confirmation utilisateur requise.
-          </p>
+        <div className="p-4 border-t border-surface-800 text-center">
+          <p className="text-[10px] text-surface-600">Build {BUILD_SHA} · P&L LIVE uniquement vérifié</p>
         </div>
       </aside>
 
       <main className="flex-1 min-h-screen lg:ml-0">
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-16 lg:pt-8">
-          {isDemoSupabase && (
-            <div className="mb-6 rounded-2xl border border-warn-500/30 bg-warn-500/10 px-4 py-3 text-sm text-warn-100">
-              <strong className="text-warn-300">Mode public demo actif.</strong>{' '}
-              GitHub Pages fonctionne sans secret. Les donnees sont locales au navigateur et aucune execution live n'est envoyee.
-              Configure Supabase Edge Function + variables GitHub pour activer le cockpit reel.
-            </div>
-          )}
-          {!isDemoSupabase && (
-            <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${runtimeFallback ? 'border-warn-500/40 bg-warn-500/10 text-warn-100' : isBackendConfigured ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : 'border-danger-500/40 bg-danger-500/10 text-danger-100'}`}>
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${serverOnline === true ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : serverOnline === false ? 'border-danger-500/30 bg-danger-500/10 text-danger-100' : 'border-surface-700 bg-surface-900 text-surface-300'}`}>
+            <strong>{serverOnline === true ? 'Serveur réel connecté.' : serverOnline === false ? 'Serveur de lecture indisponible.' : 'Vérification du serveur…'}</strong>{' '}
+            {serverOnline === true && 'Portefeuille et P&L sont lus en direct sans token admin.'}
+          </div>
+
+          {showAdmin && (
+            <div className="mb-6 rounded-2xl border border-surface-700 bg-surface-900 px-4 py-3 text-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <strong className={runtimeFallback ? 'text-warn-300' : isBackendConfigured ? 'text-brand-300' : 'text-danger-300'}>
-                    {runtimeFallback ? 'Serveur indisponible, mode simulation actif.' : 'Mode reel serveur.'}
-                  </strong>{' '}
-                  {runtimeFallback
-                    ? `Le health-check du backend a echoue.${runtimeReason ? ` (${runtimeReason})` : ''}`
-                    : isBackendConfigured
-                      ? `Backend Edge confirme en ligne. Build ${BUILD_SHA}. Renseigne le token cockpit localement pour utiliser les routes privees.`
-                      : 'Backend non configure: ajoute VITE_BACKEND_API_URL dans GitHub Pages.'}
+                  <strong className="text-surface-200">Administration sensible</strong>
+                  <p className="text-xs text-surface-500 mt-1">Le token n’est requis que pour modifier la configuration ou préparer des opérations.</p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex gap-2">
                   <input
                     type="password"
-                    className="input min-w-0 sm:w-72"
-                    placeholder="Token cockpit local"
+                    className="input min-w-0 md:w-72"
+                    placeholder="Token admin"
                     value={tokenInput}
                     onChange={e => setTokenInput(e.target.value)}
                   />
                   <button
-                    className="btn-secondary whitespace-nowrap"
+                    className="btn-secondary"
                     onClick={() => {
                       setAdminToken(tokenInput);
                       setHasToken(Boolean(tokenInput.trim()));
                     }}
                   >
-                    {hasToken ? 'Mettre a jour' : 'Activer'}
+                    {hasToken ? 'Mettre à jour' : 'Activer'}
                   </button>
                   {hasToken && (
                     <button
-                      className="btn-ghost whitespace-nowrap"
+                      className="btn-ghost"
                       onClick={() => {
                         clearAdminToken();
                         setTokenInput('');
@@ -218,6 +165,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           )}
+
           {children}
         </div>
         <OpportunityNotifications />
