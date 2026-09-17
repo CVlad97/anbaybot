@@ -34,6 +34,7 @@ jobs:
         env:
           VITE_BASE_PATH: "/${{ github.event.repository.name }}/"
           VITE_APP_BASE_URL: "https://cvlad97.github.io/${{ github.event.repository.name }}/"
+          VITE_BUILD_SHA: "${{ github.sha }}"
           VITE_BACKEND_API_URL: "https://lmfwtiytqwedrazxjnwu.supabase.co/functions/v1/ikb-api"
           VITE_SUPABASE_URL: "https://lmfwtiytqwedrazxjnwu.supabase.co"
           VITE_SUPABASE_ANON_KEY: "sb_publishable_RuFzgUsOe_SdJ4YXbPfLYA_aeLTGrq6"
