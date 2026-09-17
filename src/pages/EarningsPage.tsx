@@ -1,256 +1,153 @@
-import { useState, useMemo } from 'react';
-import {
-  DollarSign, BarChart3, Receipt,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Calendar,
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DollarSign, RefreshCw, Receipt, Wallet, ShieldCheck, FlaskConical } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import StatusBadge from '../components/ui/StatusBadge';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import GoalSimulator from '../components/GoalSimulator';
 import RevenueLab from '../components/RevenueLab';
-import type { EarningsRecord, EarningsSummary } from '../lib/types';
-import { getStripePaymentLink } from '../lib/stripe';
-
-const DEMO_EARNINGS: EarningsRecord[] = [
-  { id: '1', date: '2026-07-07T10:30:00Z', type: 'trade', symbol: 'BTC/USDT', amountUsd: 500, feeUsd: 1.25, netPnlUsd: 45.20, pnlPct: 9.04, status: 'WIN' },
-  { id: '2', date: '2026-07-07T09:15:00Z', type: 'signal', symbol: 'ETH/USDT', amountUsd: 300, feeUsd: 0.75, netPnlUsd: -12.50, pnlPct: -4.17, status: 'LOSS' },
-  { id: '3', date: '2026-07-06T22:00:00Z', type: 'trade', symbol: 'SOL/USDT', amountUsd: 200, feeUsd: 0.50, netPnlUsd: 28.30, pnlPct: 14.15, status: 'WIN' },
-  { id: '4', date: '2026-07-06T18:45:00Z', type: 'trade', symbol: 'ADA/USDT', amountUsd: 150, feeUsd: 0.38, netPnlUsd: 8.75, pnlPct: 5.83, status: 'WIN' },
-  { id: '5', date: '2026-07-06T14:30:00Z', type: 'signal', symbol: 'DOT/USDT', amountUsd: 250, feeUsd: 0.63, netPnlUsd: -18.40, pnlPct: -7.36, status: 'LOSS' },
-  { id: '6', date: '2026-07-05T20:00:00Z', type: 'trade', symbol: 'LINK/USDT', amountUsd: 180, feeUsd: 0.45, netPnlUsd: 12.60, pnlPct: 7.00, status: 'WIN' },
-  { id: '7', date: '2026-07-05T12:00:00Z', type: 'referral', amountUsd: 0, feeUsd: 0, netPnlUsd: 25.00, pnlPct: 0, status: 'WIN', note: 'Commission parrainage' },
-  { id: '8', date: '2026-07-04T16:00:00Z', type: 'subscription', amountUsd: 0, feeUsd: 0, netPnlUsd: 49.00, pnlPct: 0, status: 'WIN', note: 'Abonnement Pro mensuel' },
-  { id: '9', date: '2026-07-04T08:00:00Z', type: 'trade', symbol: 'AVAX/USDT', amountUsd: 400, feeUsd: 1.00, netPnlUsd: -32.00, pnlPct: -8.00, status: 'LOSS' },
-  { id: '10', date: '2026-07-03T22:30:00Z', type: 'trade', symbol: 'MATIC/USDT', amountUsd: 120, feeUsd: 0.30, netPnlUsd: 6.00, pnlPct: 5.00, status: 'WIN' },
-];
-
-function computeSummary(records: EarningsRecord[]): EarningsSummary {
-  const trades = records.filter(r => r.type === 'trade');
-  const wins = trades.filter(t => t.status === 'WIN');
-  const losses = trades.filter(t => t.status === 'LOSS');
-  const totalPnl = records.reduce((s, r) => s + r.netPnlUsd, 0);
-  const winSum = wins.reduce((s, t) => s + t.netPnlUsd, 0);
-  const lossSum = Math.abs(losses.reduce((s, t) => s + t.netPnlUsd, 0));
-  return {
-    totalTrades: trades.length,
-    wins: wins.length,
-    losses: losses.length,
-    winRate: trades.length > 0 ? (wins.length / trades.length) * 100 : 0,
-    totalPnlUsd: totalPnl,
-    bestTradeUsd: wins.length > 0 ? Math.max(...wins.map(t => t.netPnlUsd)) : 0,
-    worstTradeUsd: losses.length > 0 ? Math.min(...losses.map(t => t.netPnlUsd)) : 0,
-    avgWinUsd: wins.length > 0 ? winSum / wins.length : 0,
-    avgLossUsd: losses.length > 0 ? lossSum / losses.length : 0,
-    profitFactor: lossSum > 0 ? winSum / lossSum : winSum > 0 ? Infinity : 0,
-    totalFeesUsd: records.reduce((s, r) => s + r.feeUsd, 0),
-  };
-}
+import { publicApi, type LivePnl, type PublicPortfolio } from '../lib/publicApi';
 
 function formatUsd(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 }
 
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  trade: 'Trade',
-  signal: 'Signal',
-  subscription: 'Abonnement',
-  referral: 'Parrainage',
-};
-
 export default function EarningsPage() {
-  const [records] = useState<EarningsRecord[]>(DEMO_EARNINGS);
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const proLink = getStripePaymentLink('pro');
-  const enterpriseLink = getStripePaymentLink('enterprise');
-  const summary = useMemo(() => computeSummary(records), [records]);
+  const [pnl, setPnl] = useState<LivePnl | null>(null);
+  const [portfolio, setPortfolio] = useState<PublicPortfolio | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const filtered = typeFilter === 'all'
-    ? records
-    : records.filter(r => r.type === typeFilter);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [livePnl, livePortfolio] = await Promise.all([publicApi.pnl(), publicApi.portfolio()]);
+      setPnl(livePnl);
+      setPortfolio(livePortfolio);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Lecture P&L impossible');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const totalFees = useMemo(
+    () => (pnl?.rows || []).reduce((sum, row) => sum + Number(row.fees_usd || 0), 0),
+    [pnl],
+  );
 
   return (
     <div className="animate-fade-in">
       <PageHeader
         icon={DollarSign}
         title="Revenus & P&L"
-        subtitle="Suivi des performances paper trading, gains, pertes et commissions"
+        subtitle="Uniquement les gains et pertes réellement enregistrés en environnement LIVE"
         action={
-          <div className="flex items-center gap-2">
-            <select
-              value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
-              className="input py-1.5 text-sm"
-            >
-              <option value="all">Tous</option>
-              <option value="trade">Trades</option>
-              <option value="signal">Signaux</option>
-              <option value="subscription">Abonnements</option>
-              <option value="referral">Parrainage</option>
-            </select>
-            <button className="btn-secondary flex items-center gap-2" onClick={() => window.location.reload()}>
-              <RefreshCw size={14} />
-              <span>Actualiser</span>
-            </button>
-          </div>
+          <button className="btn-secondary flex items-center gap-2" onClick={refresh} disabled={loading}>
+            {loading ? <LoadingSpinner size={14} /> : <RefreshCw size={14} />}
+            Actualiser
+          </button>
         }
       />
 
-      <div className="mb-6 rounded-2xl border border-brand-500/20 bg-brand-500/5 px-4 py-3 text-sm text-brand-100">
-        Donnée de démonstration: les lignes ci-dessous simulent une activité pour l’interface tant que les données réelles ne sont pas branchées.
-      </div>
-
-      <GoalSimulator />
-      <RevenueLab />
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-600/10 flex items-center justify-center">
-              <DollarSign size={18} className="text-brand-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">P&L Total</span>
+      <div className="card p-4 mb-6 border-l-4 border-l-brand-500/50">
+        <div className="flex gap-3">
+          <ShieldCheck size={18} className="text-brand-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-white">Plus aucun gain de démonstration n’est mélangé aux résultats.</p>
+            <p className="text-xs text-surface-400 mt-1">Le capital visible dans tes wallets n’est pas un gain. Le P&L LIVE ci-dessous provient uniquement du registre <code>pnl_ledger</code>.</p>
           </div>
-          <p className={`text-2xl font-bold ${summary.totalPnlUsd >= 0 ? 'text-brand-400' : 'text-danger-400'}`}>
-            {summary.totalPnlUsd >= 0 ? '+' : ''}{formatUsd(summary.totalPnlUsd)}
-          </p>
-          <p className="text-xs text-surface-500 mt-1">Depuis le début</p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-              <BarChart3 size={18} className="text-blue-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Win Rate</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{summary.winRate.toFixed(1)}%</p>
-          <p className="text-xs text-surface-500 mt-1">{summary.wins} victoires / {summary.losses} pertes</p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-              <ArrowUpRight size={18} className="text-green-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Avg Win</span>
-          </div>
-          <p className="text-2xl font-bold text-green-400">{formatUsd(summary.avgWinUsd)}</p>
-          <p className="text-xs text-surface-500 mt-1">Meilleur: {formatUsd(summary.bestTradeUsd)}</p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-              <ArrowDownRight size={18} className="text-red-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Avg Loss</span>
-          </div>
-          <p className="text-2xl font-bold text-red-400">{formatUsd(summary.avgLossUsd)}</p>
-          <p className="text-xs text-surface-500 mt-1">Pire: {formatUsd(summary.worstTradeUsd)}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="card p-4">
-          <p className="text-xs text-surface-500 uppercase tracking-wider mb-1">Profit Factor</p>
-          <p className="text-xl font-bold text-white">
-            {summary.profitFactor === Infinity ? '∞' : summary.profitFactor.toFixed(2)}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-surface-500 uppercase tracking-wider mb-1">Frais totaux</p>
-          <p className="text-xl font-bold text-white">{formatUsd(summary.totalFeesUsd)}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-surface-500 uppercase tracking-wider mb-1">Trades exécutés</p>
-          <p className="text-xl font-bold text-white">{summary.totalTrades}</p>
-        </div>
+      {error && <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{error}</div>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Metric icon={Wallet} label="Capital observé" value={formatUsd(portfolio?.totalValueUsd || 0)} sub="Solde actuel des wallets lus" />
+        <Metric icon={DollarSign} label="P&L LIVE réalisé" value={formatUsd(pnl?.totalNetPnlUsd || 0)} sub="Gain/perte vérifié enregistré" highlight={(pnl?.totalNetPnlUsd || 0) !== 0} />
+        <Metric icon={Receipt} label="Écritures LIVE" value={String(pnl?.count || 0)} sub="Lignes du registre P&L" />
+        <Metric icon={ShieldCheck} label="Frais LIVE enregistrés" value={formatUsd(totalFees)} sub="Uniquement frais réellement journalisés" />
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden mb-8">
         <div className="p-4 border-b border-surface-800 flex items-center gap-2">
           <Receipt size={16} className="text-brand-400" />
-          <h3 className="font-semibold text-white">Historique des revenus</h3>
+          <h3 className="font-semibold text-white">Historique LIVE vérifié</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-surface-800 text-surface-500 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Date</th>
-                <th className="text-left px-4 py-3 font-medium">Type</th>
-                <th className="text-left px-4 py-3 font-medium">Symbole</th>
-                <th className="text-right px-4 py-3 font-medium">Montant</th>
-                <th className="text-right px-4 py-3 font-medium">Frais</th>
-                <th className="text-right px-4 py-3 font-medium">P&L Net</th>
-                <th className="text-right px-4 py-3 font-medium">Rendement</th>
-                <th className="text-center px-4 py-3 font-medium">Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => (
-                <tr key={r.id} className="border-b border-surface-800/50 hover:bg-surface-900/40 transition-colors">
-                  <td className="px-4 py-3 text-surface-300 whitespace-nowrap">{formatDate(r.date)}</td>
-                  <td className="px-4 py-3">
-                    <span className="badge-neutral text-[10px]">{TYPE_LABELS[r.type]}</span>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-surface-200">{r.symbol || '-'}</td>
-                  <td className="px-4 py-3 text-right text-surface-200">{formatUsd(r.amountUsd)}</td>
-                  <td className="px-4 py-3 text-right text-surface-400">{formatUsd(r.feeUsd)}</td>
-                  <td className={`px-4 py-3 text-right font-semibold ${r.status === 'WIN' ? 'text-brand-400' : 'text-danger-400'}`}>
-                    {r.netPnlUsd >= 0 ? '+' : ''}{formatUsd(r.netPnlUsd)}
-                  </td>
-                  <td className={`px-4 py-3 text-right ${r.pnlPct >= 0 ? 'text-brand-400' : 'text-danger-400'}`}>
-                    {r.pnlPct >= 0 ? '+' : ''}{r.pnlPct.toFixed(2)}%
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <StatusBadge status={r.status === 'WIN' ? 'SUCCESS' : r.status === 'LOSS' ? 'FAILED' : 'PREPARED'} size="sm" />
-                  </td>
+        {(pnl?.rows || []).length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-lg font-semibold text-white">Aucun gain LIVE enregistré pour le moment</p>
+            <p className="text-sm text-surface-500 mt-2">Cela signifie 0 USD de P&L LIVE vérifié, pas que ton portefeuille vaut 0.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-800 text-surface-500 text-xs uppercase tracking-wider">
+                  <th className="text-left px-4 py-3">Date</th>
+                  <th className="text-left px-4 py-3">Marché</th>
+                  <th className="text-left px-4 py-3">Type</th>
+                  <th className="text-right px-4 py-3">Brut</th>
+                  <th className="text-right px-4 py-3">Frais</th>
+                  <th className="text-right px-4 py-3">Net</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {(pnl?.rows || []).map(row => (
+                  <tr key={row.id} className="border-b border-surface-800/50">
+                    <td className="px-4 py-3 text-surface-300 whitespace-nowrap">{formatDate(row.occurred_at)}</td>
+                    <td className="px-4 py-3 text-surface-200">{row.venue || '-'} · {row.market || '-'}</td>
+                    <td className="px-4 py-3 text-surface-400">{row.pnl_type}</td>
+                    <td className="px-4 py-3 text-right">{formatUsd(Number(row.gross_pnl_usd || 0))}</td>
+                    <td className="px-4 py-3 text-right">{formatUsd(Number(row.fees_usd || 0))}</td>
+                    <td className={`px-4 py-3 text-right font-semibold ${Number(row.net_pnl_usd || 0) >= 0 ? 'text-brand-400' : 'text-danger-400'}`}>
+                      {formatUsd(Number(row.net_pnl_usd || 0))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="card p-5 mt-6 border-l-4 border-l-brand-500/50">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar size={16} className="text-brand-400" />
-          <h3 className="font-semibold text-white">Liens de paiement Stripe</h3>
+      <div className="card p-5 border-l-4 border-l-warn-500/50">
+        <div className="flex items-center gap-2 mb-2">
+          <FlaskConical size={17} className="text-warn-400" />
+          <h3 className="font-semibold text-white">Simulations séparées des gains réels</h3>
         </div>
-        <p className="text-sm text-surface-400 mb-4">
-          Les abonnements Pro et Enterprise sont disponibles via Stripe.
-          {proLink || enterpriseLink
-            ? ' Les liens sont configurés et ouvrent Stripe dans un nouvel onglet.'
-            : ' Offre indisponible temporairement tant que les liens Stripe ne sont pas renseignés.'}
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <a
-            href={proLink || undefined}
-            target={proLink ? '_blank' : undefined}
-            rel={proLink ? 'noopener noreferrer' : undefined}
-            aria-disabled={!proLink}
-            onClick={e => { if (!proLink) e.preventDefault(); }}
-            className={`btn-primary flex items-center gap-2 text-sm ${!proLink ? 'pointer-events-none opacity-60' : ''}`}
-          >
-            <DollarSign size={14} />
-            {proLink ? 'Payer Pro - 49€/mois' : 'Offre indisponible temporairement'}
-          </a>
-          <a
-            href={enterpriseLink || undefined}
-            target={enterpriseLink ? '_blank' : undefined}
-            rel={enterpriseLink ? 'noopener noreferrer' : undefined}
-            aria-disabled={!enterpriseLink}
-            onClick={e => { if (!enterpriseLink) e.preventDefault(); }}
-            className={`btn-secondary flex items-center gap-2 text-sm ${!enterpriseLink ? 'pointer-events-none opacity-60' : ''}`}
-          >
-            <DollarSign size={14} />
-            {enterpriseLink ? 'Payer Enterprise - 149€/mois' : 'Offre indisponible temporairement'}
-          </a>
-        </div>
+        <p className="text-sm text-surface-400 mb-5">Les outils ci-dessous servent à tester des objectifs et des stratégies. Leurs résultats ne sont jamais ajoutés au P&L LIVE.</p>
+        <GoalSimulator />
+        <RevenueLab />
       </div>
+    </div>
+  );
+}
+
+function Metric({ icon: Icon, label, value, sub, highlight = false }: {
+  icon: typeof DollarSign;
+  label: string;
+  value: string;
+  sub: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="card p-5">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-9 h-9 rounded-xl bg-brand-600/10 flex items-center justify-center">
+          <Icon size={17} className="text-brand-400" />
+        </div>
+        <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">{label}</span>
+      </div>
+      <p className={`text-2xl font-bold ${highlight ? 'text-brand-400' : 'text-white'}`}>{value}</p>
+      <p className="text-xs text-surface-500 mt-1">{sub}</p>
     </div>
   );
 }
