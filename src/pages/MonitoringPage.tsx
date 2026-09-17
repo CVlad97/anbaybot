@@ -1,276 +1,123 @@
-import { useState, useEffect } from 'react';
-import {
-  Activity, CheckCircle2, XCircle, Clock, Signal,
-  BarChart3, Server, RefreshCw,
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, CheckCircle2, Clock, RefreshCw, Server, ShieldCheck, Wallet, XCircle } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import StatusBadge from '../components/ui/StatusBadge';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { publicApi, type LivePnl, type PublicExchangeAccount, type PublicPortfolio, type PublicStrategy } from '../lib/publicApi';
 import { getAppBaseUrl } from '../lib/siteUrl';
-import type { MonitoringStats } from '../lib/types';
 
 const BASE_URL = getAppBaseUrl();
-
-const PAGES_TO_CHECK = [
+const PAGES = [
   { path: '/', label: 'Dashboard' },
   { path: '/#/wallets', label: 'Portefeuilles' },
-  { path: '/#/signals', label: 'Signaux' },
   { path: '/#/earnings', label: 'Revenus' },
-  { path: '/#/subscriptions', label: 'Souscriptions' },
+  { path: '/#/strategies', label: 'Stratégies' },
   { path: '/#/monitoring', label: 'Monitoring' },
 ];
 
-interface PageCheck {
-  label: string;
-  url: string;
-  status: 'ok' | 'error' | 'checking';
-  responseTime?: number;
-  statusCode?: number;
-}
-
-function generateDemoStats(): MonitoringStats {
-  const total = 8760; // 1 year of hourly checks
-  const passed = Math.floor(total * 0.997);
-  return {
-    uptimePct: 99.7,
-    totalChecks: total,
-    passedChecks: passed,
-    failedChecks: total - passed,
-    lastCheckAt: new Date().toISOString(),
-    tradesExecuted: 1284,
-    signalsGenerated: 8942,
-    avgResponseTimeMs: 342,
-    pagesLoaded: PAGES_TO_CHECK.map(p => p.label),
-  };
-}
+type PageCheck = { label: string; status: 'ok' | 'error'; responseTimeMs: number };
 
 export default function MonitoringPage() {
-  const [stats] = useState<MonitoringStats>(generateDemoStats);
-  const [pageChecks, setPageChecks] = useState<PageCheck[]>(
-    PAGES_TO_CHECK.map(p => ({ label: p.label, url: `${BASE_URL}${p.path}`, status: 'checking' }))
-  );
-  const [running, setRunning] = useState(false);
-  const [overallStatus, setOverallStatus] = useState<'ok' | 'degraded' | 'down'>('ok');
+  const [backendOk, setBackendOk] = useState(false);
+  const [portfolio, setPortfolio] = useState<PublicPortfolio | null>(null);
+  const [pnl, setPnl] = useState<LivePnl | null>(null);
+  const [exchanges, setExchanges] = useState<PublicExchangeAccount[]>([]);
+  const [strategies, setStrategies] = useState<PublicStrategy[]>([]);
+  const [checks, setChecks] = useState<PageCheck[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const runHealthCheck = async () => {
-    setRunning(true);
-    setPageChecks(prev => prev.map(p => ({ ...p, status: 'checking' as const })));
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [health, p, livePnl, ex, st] = await Promise.all([
+        publicApi.health(), publicApi.portfolio(), publicApi.pnl(), publicApi.exchanges(), publicApi.strategies(),
+      ]);
+      setBackendOk(health.status === 'ok');
+      setPortfolio(p);
+      setPnl(livePnl);
+      setExchanges(ex.exchanges);
+      setStrategies(st.strategies);
 
-    const results = await Promise.all(
-      PAGES_TO_CHECK.map(async (page) => {
-        const url = `${BASE_URL}${page.path}`;
-        const start = performance.now();
+      const pageResults = await Promise.all(PAGES.map(async page => {
+        const started = performance.now();
         try {
-          const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-          const time = Math.round(performance.now() - start);
-          // no-cors returns opaque response (status 0) but it means reachable
-          return { label: page.label, url, status: 'ok' as const, responseTime: time, statusCode: res.status || 200 };
+          const res = await fetch(`${BASE_URL}${page.path}`, { method: 'HEAD', cache: 'no-store' });
+          return { label: page.label, status: res.ok ? 'ok' as const : 'error' as const, responseTimeMs: Math.round(performance.now() - started) };
         } catch {
-          const time = Math.round(performance.now() - start);
-          return { label: page.label, url, status: 'error' as const, responseTime: time, statusCode: 0 };
+          return { label: page.label, status: 'error' as const, responseTimeMs: Math.round(performance.now() - started) };
         }
-      })
-    );
-
-    setPageChecks(results);
-    const errors = results.filter(r => r.status === 'error').length;
-    if (errors === 0) setOverallStatus('ok');
-    else if (errors < results.length) setOverallStatus('degraded');
-    else setOverallStatus('down');
-    setRunning(false);
-  };
+      }));
+      setChecks(pageResults);
+    } catch (e) {
+      setBackendOk(false);
+      setError(e instanceof Error ? e.message : 'Monitoring indisponible');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    runHealthCheck();
-  }, []);
+    void refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
+
+  const latestScan = useMemo(() => {
+    const dates = strategies.map(s => s.last_verified_at).filter(Boolean).map(v => new Date(v as string).getTime()).filter(Number.isFinite);
+    return dates.length ? new Date(Math.max(...dates)) : null;
+  }, [strategies]);
+  const scanOn = strategies.filter(s => s.scan_enabled).length;
+  const paperReady = strategies.filter(s => s.status === 'PAPER_READY' || s.status === 'DATA_READY').length;
+  const connectedExchanges = exchanges.filter(x => x.connection_status !== 'NOT_CONFIGURED' && x.connection_status !== 'ERROR').length;
+  const pagesOk = checks.filter(c => c.status === 'ok').length;
 
   return (
     <div className="animate-fade-in">
       <PageHeader
         icon={Activity}
-        title="Monitoring 24/7"
-        subtitle="Statut des services, uptime, performances du site et du bot"
-        action={
-          <button
-            onClick={runHealthCheck}
-            disabled={running}
-            className="btn-secondary flex items-center gap-2"
-          >
-            {running ? (
-              <RefreshCw size={14} className="animate-spin" />
-            ) : (
-              <RefreshCw size={14} />
-            )}
-            <span>Vérifier maintenant</span>
-          </button>
-        }
+        title="Monitoring réel 24/7"
+        subtitle="État courant uniquement — aucune statistique fictive"
+        action={<button onClick={refresh} disabled={loading} className="btn-secondary flex items-center gap-2">{loading ? <LoadingSpinner size={14}/> : <RefreshCw size={14}/>}Actualiser</button>}
       />
 
-      {/* Overall status banner */}
-      <div className={`mb-6 rounded-2xl border px-5 py-4 ${
-        overallStatus === 'ok'
-          ? 'border-brand-500/30 bg-brand-500/10'
-          : overallStatus === 'degraded'
-            ? 'border-warn-500/30 bg-warn-500/10'
-            : 'border-danger-500/30 bg-danger-500/10'
-      }`}>
+      <div className={`card p-4 mb-6 border-l-4 ${backendOk ? 'border-l-brand-500' : 'border-l-danger-500'}`}>
         <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${
-            overallStatus === 'ok' ? 'bg-brand-400 animate-pulse' :
-            overallStatus === 'degraded' ? 'bg-warn-400' : 'bg-danger-400'
-          }`} />
-          <div>
-            <p className="font-semibold text-sm text-white">
-              {overallStatus === 'ok' ? '✅ Tous les systèmes sont opérationnels' :
-               overallStatus === 'degraded' ? '⚠️ Certains services sont dégradés' :
-               '❌ Site indisponible'}
-            </p>
-            <p className="text-xs text-surface-400 mt-0.5">
-              {overallStatus === 'ok'
-                ? "L'ensemble des pages et services répondent correctement."
-                : "Des problèmes ont été détectés. Consultez le détail ci-dessous."}
-            </p>
-          </div>
+          {backendOk ? <CheckCircle2 size={18} className="text-brand-400"/> : <XCircle size={18} className="text-danger-400"/>}
+          <div><p className="font-medium text-white">Backend {backendOk ? 'opérationnel' : 'indisponible'}</p><p className="text-xs text-surface-500 mt-1">Données issues directement de l'API publique ANBAYBOT en lecture seule.</p></div>
         </div>
       </div>
 
-      {/* Stats grid */}
+      {error && <div className="card p-4 mb-6 text-sm text-danger-300">{error}</div>}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Metric icon={Wallet} label="Wallets lus" value={String(portfolio?.wallets.length || 0)} sub={`${(portfolio?.totalValueUsd || 0).toLocaleString('fr-FR',{style:'currency',currency:'USD'})} observés`} />
+        <Metric icon={Server} label="Exchanges connectés" value={`${connectedExchanges}/${exchanges.length}`} sub="Binance / MEXC" />
+        <Metric icon={Activity} label="P&L LIVE" value={(pnl?.totalNetPnlUsd || 0).toLocaleString('fr-FR',{style:'currency',currency:'USD'})} sub={`${pnl?.count || 0} écriture(s) LIVE`} />
+        <Metric icon={ShieldCheck} label="Scanners actifs" value={`${scanOn}/${strategies.length}`} sub={`${paperReady} DATA/PAPER ready`} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-600/10 flex items-center justify-center">
-              <Server size={18} className="text-brand-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Uptime</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{stats.uptimePct}%</p>
-          <p className="text-xs text-surface-500 mt-1">Depuis le déploiement</p>
+          <div className="flex items-center gap-2 mb-4"><Clock size={16} className="text-brand-400"/><h3 className="font-semibold text-white">Scanner serveur</h3></div>
+          <p className="text-2xl font-bold text-white">{latestScan ? latestScan.toLocaleString('fr-FR') : 'Pas encore vérifié'}</p>
+          <p className="text-xs text-surface-500 mt-2">Cron Supabase horaire. Le scan mesure les opportunités mais n'exécute aucun ordre LIVE.</p>
         </div>
 
         <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-              <BarChart3 size={18} className="text-blue-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Trades</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{stats.tradesExecuted.toLocaleString()}</p>
-          <p className="text-xs text-surface-500 mt-1">Exécutés (paper)</p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-warn-500/10 flex items-center justify-center">
-              <Signal size={18} className="text-warn-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Signaux</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{stats.signalsGenerated.toLocaleString()}</p>
-          <p className="text-xs text-surface-500 mt-1">Générés</p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-              <Clock size={18} className="text-purple-400" />
-            </div>
-            <span className="text-xs text-surface-500 font-medium uppercase tracking-wider">Temps moyen</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{stats.avgResponseTimeMs} ms</p>
-          <p className="text-xs text-surface-500 mt-1">Réponse serveur</p>
+          <h3 className="font-semibold text-white mb-4">Comptes d'exchange</h3>
+          <div className="space-y-3">{exchanges.map(x => <div key={x.exchange} className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium text-white">{x.label}</p><p className="text-xs text-surface-500">{x.connection_status}</p></div><span className="badge-neutral">LIVE {x.live_trading_enabled ? 'ON' : 'OFF'}</span></div>)}</div>
         </div>
       </div>
 
-      {/* Page health checks */}
-      <div className="card p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-white flex items-center gap-2">
-            <Activity size={16} className="text-brand-400" />
-            Vérification des pages
-          </h3>
-          <StatusBadge
-            status={overallStatus === 'ok' ? 'SUCCESS' : overallStatus === 'degraded' ? 'FAILED' : 'REFUSED'}
-            size="md"
-          />
-        </div>
-        <div className="space-y-2">
-          {pageChecks.map(check => (
-            <div
-              key={check.label}
-              className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-all ${
-                check.status === 'checking'
-                  ? 'border-surface-700 bg-surface-900/30'
-                  : check.status === 'ok'
-                    ? 'border-brand-500/20 bg-brand-500/5'
-                    : 'border-danger-500/20 bg-danger-500/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {check.status === 'checking' ? (
-                  <RefreshCw size={14} className="text-surface-500 animate-spin" />
-                ) : check.status === 'ok' ? (
-                  <CheckCircle2 size={14} className="text-brand-400" />
-                ) : (
-                  <XCircle size={14} className="text-danger-400" />
-                )}
-                <div>
-                  <p className="text-sm font-medium text-white">{check.label}</p>
-                  <p className="text-[10px] text-surface-500 font-mono">{check.url}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                {check.responseTime && (
-                  <p className="text-xs text-surface-400">{check.responseTime}ms</p>
-                )}
-                {check.statusCode && (
-                  <p className="text-[10px] text-surface-500">{check.statusCode}</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Uptime history */}
-      <div className="card p-5 mb-6">
-        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-          <BarChart3 size={16} className="text-brand-400" />
-          Statistiques de vérification
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 rounded-xl bg-surface-900/50">
-            <p className="text-2xl font-bold text-white">{stats.totalChecks.toLocaleString()}</p>
-            <p className="text-xs text-surface-500 mt-1">Vérifications totales</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-surface-900/50">
-            <p className="text-2xl font-bold text-brand-400">{stats.passedChecks.toLocaleString()}</p>
-            <p className="text-xs text-surface-500 mt-1">Réussies</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-surface-900/50">
-            <p className="text-2xl font-bold text-danger-400">{stats.failedChecks.toLocaleString()}</p>
-            <p className="text-xs text-surface-500 mt-1">Échouées</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-surface-900/50">
-            <p className="text-2xl font-bold text-warn-400">{stats.uptimePct}%</p>
-            <p className="text-xs text-surface-500 mt-1">Taux de succès</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Pages loaded */}
       <div className="card p-5">
-        <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-          <CheckCircle2 size={16} className="text-brand-400" />
-          Pages surveillées ({stats.pagesLoaded.length})
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {stats.pagesLoaded.map(page => (
-            <span key={page} className="badge-neutral text-xs flex items-center gap-1">
-              <CheckCircle2 size={10} className="text-brand-400" />
-              {page}
-            </span>
-          ))}
-        </div>
+        <div className="flex items-center justify-between mb-4"><h3 className="font-semibold text-white">Pages actuelles</h3><span className="badge-neutral">{pagesOk}/{checks.length} OK</span></div>
+        <div className="space-y-2">{checks.map(check => <div key={check.label} className="flex items-center justify-between rounded-xl border border-surface-800 px-4 py-3"><div className="flex items-center gap-3">{check.status === 'ok' ? <CheckCircle2 size={14} className="text-brand-400"/> : <XCircle size={14} className="text-danger-400"/>}<span className="text-sm text-white">{check.label}</span></div><span className="text-xs text-surface-500">{check.responseTimeMs} ms</span></div>)}</div>
       </div>
     </div>
   );
+}
+
+function Metric({ icon: Icon, label, value, sub }: { icon: typeof Activity; label:string; value:string; sub:string }) {
+  return <div className="card p-5"><div className="flex items-center gap-3 mb-3"><div className="w-9 h-9 rounded-xl bg-brand-600/10 flex items-center justify-center"><Icon size={17} className="text-brand-400"/></div><span className="text-xs text-surface-500 font-medium uppercase tracking-wider">{label}</span></div><p className="text-2xl font-bold text-white">{value}</p><p className="text-xs text-surface-500 mt-1">{sub}</p></div>;
 }
