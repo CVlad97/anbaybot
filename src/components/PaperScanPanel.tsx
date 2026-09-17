@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, SearchCheck } from 'lucide-react';
+import { actionsApi } from '../lib/actionsApi';
 import { runRevenueScan, type RevenueScanResult } from '../lib/revenueScanApi';
 
 const AUTO_KEY = 'anbaybot_paper_scan_auto';
@@ -7,18 +8,43 @@ const AUTO_KEY = 'anbaybot_paper_scan_auto';
 export default function PaperScanPanel() {
   const [result, setResult] = useState<RevenueScanResult | null>(null);
   const [running, setRunning] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [auto, setAuto] = useState(() => typeof window !== 'undefined' && window.localStorage.getItem(AUTO_KEY) === '1');
 
   async function scan() {
     setRunning(true);
     setError('');
+    setMessage('');
     try {
       setResult(await runRevenueScan());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Scan impossible');
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function prepareArbitrage() {
+    const arb = result?.bestArbitrage;
+    if (!arb) return;
+    setPreparing(true);
+    setError('');
+    setMessage('');
+    try {
+      await actionsApi.prepareArbitrage({
+        symbol: arb.symbol,
+        buyVenue: arb.buyVenue,
+        sellVenue: arb.sellVenue,
+        amountUsd: 10,
+        grossSpreadPct: arb.grossSpreadPct,
+      });
+      setMessage('Arbitrage PAPER 10 USD préparé et enregistré. Aucun ordre réel n’a été envoyé.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Préparation arbitrage impossible');
+    } finally {
+      setPreparing(false);
     }
   }
 
@@ -54,6 +80,7 @@ export default function PaperScanPanel() {
       </div>
 
       {error && <p className="text-xs text-danger-300 mt-4">{error}</p>}
+      {message && <p className="text-xs text-brand-300 mt-4">{message}</p>}
       {result && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
           <Result label="Funding" value={result.bestFunding ? `${result.bestFunding.symbol} ${result.bestFunding.grossPct.toFixed(4)}% brut` : result.fundingStatus} />
@@ -61,7 +88,14 @@ export default function PaperScanPanel() {
           <Result label="Arbitrage brut" value={result.bestArbitrage ? `${result.bestArbitrage.symbol} ${result.bestArbitrage.buyVenue}→${result.bestArbitrage.sellVenue} ${result.bestArbitrage.grossSpreadPct.toFixed(4)}%` : result.arbitrageStatus} />
         </div>
       )}
-      {result?.bestArbitrage && <p className="text-[11px] text-warn-300 mt-3">Spread brut uniquement : frais, slippage, retraits et latence ne sont pas encore soustraits.</p>}
+      {result?.bestArbitrage && (
+        <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="text-[11px] text-warn-300 flex-1">Spread brut uniquement : frais, slippage, retraits et latence ne sont pas encore soustraits.</p>
+          <button className="btn-secondary whitespace-nowrap" disabled={preparing} onClick={prepareArbitrage}>
+            {preparing ? 'Préparation…' : 'Préparer arbitrage PAPER · 10 USD'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
