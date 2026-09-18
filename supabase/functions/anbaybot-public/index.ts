@@ -43,7 +43,7 @@ async function eurUsdRate() {
     const row = await fetchJson<{rates?: {USD?: number}}>("https://api.frankfurter.app/latest?from=EUR&to=USD");
     const value = Number(row.rates?.USD || 0);
     if (value > 0) return { eurUsd: value, source: "FRANKFURTER_ECB" };
-  } catch {}
+  } catch { /* use approximate FX fallback */ }
   return { eurUsd: 1.15, source: "FALLBACK_APPROX" };
 }
 
