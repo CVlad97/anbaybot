@@ -77,9 +77,6 @@ type ExchangeHealthRow = {
   errorCode: string | null;
   lastCheckedAt: string;
 };
-type RiskSettings = { risk_params?: Record<string, unknown> } | null;
-type TradableAccount = { tradableCapitalUsd?: number } | null;
-type PnlValueRow = { net_pnl_usd?: unknown };
 
 async function exchangeHealth(s:ReturnType<typeof db>){
   const checkedAt=new Date().toISOString();
@@ -118,74 +115,6 @@ async function testExchangeOrder(exchange:"BINANCE"|"MEXC", symbol:string, side:
   }
   const raw=await signed("POST","/api/v3/order/test",{symbol:pair,side:"BUY",type:"MARKET",quoteOrderQty:amt.toFixed(2)});
   return {exchange,mode:"TEST",status:"ACCEPTED",symbol:pair,side:"BUY",amountUsd:amt,message:"MEXC order/test accepted; no asset bought or sold.",raw};
-}
-
-async function riskState(s:ReturnType<typeof db>, cfg:RiskSettings, acct:TradableAccount){
-  const rp=cfg?.risk_params||{};
-  const now=new Date();
-  const startDay=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate())).toISOString();
-  const startWeek=new Date(now.getTime()-7*86_400_000).toISOString();
-
-  const [
-    {data:dayPnl,error:dayErr},
-    {data:weekPnl,error:weekErr},
-    {data:recentPnl,error:recentErr},
-    {count:liveOrdersToday,error:ordersErr},
-  ]=await Promise.all([
-    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at",startDay),
-    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at",startWeek),
-    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").order("occurred_at",{ascending:false}).limit(20),
-    s.from("audit_logs").select("id",{count:"exact",head:true}).eq("event","mexc_live_order_submitted").gte("created_at",startDay),
-  ]);
-  if(dayErr)throw dayErr;if(weekErr)throw weekErr;if(recentErr)throw recentErr;if(ordersErr)throw ordersErr;
-
-  const dayNet=(dayPnl||[]).reduce((sum:number,row:PnlValueRow)=>sum+Number(row.net_pnl_usd||0),0);
-  const weekNet=(weekPnl||[]).reduce((sum:number,row:PnlValueRow)=>sum+Number(row.net_pnl_usd||0),0);
-  let consecutiveLosses=0;
-  for(const row of recentPnl||[]){
-    if(Number(row.net_pnl_usd||0)<0) consecutiveLosses++;
-    else break;
-  }
-
-  const capital=Math.max(0,Number(acct?.tradableCapitalUsd||0));
-  const maxTradeFixed=Math.max(0,Number(rp.maxTradeSizeEur??100));
-  const maxTradePct=Math.max(0,Number(rp.maxTradeSizePctCapital??10));
-  const dynamicCap=capital*(maxTradePct/100);
-  const maxOrderUsd=Math.max(0,Math.min(maxTradeFixed,dynamicCap||maxTradeFixed,capital));
-
-  const dailyLossLimit=capital*Math.max(0,Number(rp.maxDailyLossPctCapital??2))/100;
-  const weeklyLossLimit=capital*Math.max(0,Number(rp.maxWeeklyLossPctCapital??5))/100;
-  const maxTradesPerDay=Math.max(1,Number(rp.maxTradesPerDay??6));
-  const haltAfterLosses=Math.max(1,Number(rp.haltAfterConsecutiveLosses??3));
-  const dailyLossUsd=Math.max(0,-dayNet);
-  const weeklyLossUsd=Math.max(0,-weekNet);
-
-  const reasons:string[]=[];
-  if(dailyLossLimit>0&&dailyLossUsd>=dailyLossLimit) reasons.push("daily_loss_limit");
-  if(weeklyLossLimit>0&&weeklyLossUsd>=weeklyLossLimit) reasons.push("weekly_loss_limit");
-  if(consecutiveLosses>=haltAfterLosses) reasons.push("consecutive_loss_limit");
-  if(Number(liveOrdersToday||0)>=maxTradesPerDay) reasons.push("daily_trade_limit");
-
-  return {
-    mode:String(rp.riskMode||"DYNAMIC"),
-    stage:String(rp.liveRampStage||"TEST"),
-    maxOrderUsd,
-    maxTradeSizePctCapital:maxTradePct,
-    maxRiskPerTradePctCapital:Number(rp.maxRiskPerTradePctCapital??0.75),
-    dailyLossUsd,
-    dailyLossLimitUsd:dailyLossLimit,
-    weeklyLossUsd,
-    weeklyLossLimitUsd:weeklyLossLimit,
-    consecutiveLosses,
-    haltAfterConsecutiveLosses:haltAfterLosses,
-    liveOrdersToday:Number(liveOrdersToday||0),
-    maxTradesPerDay,
-    remainingTradesToday:Math.max(0,maxTradesPerDay-Number(liveOrdersToday||0)),
-    minLiquidityUsd:Number(rp.minLiquidityUsd??250000),
-    minConfidencePct:Number(rp.minConfidencePct??75),
-    blocked:reasons.length>0,
-    blockReasons:reasons,
-  };
 }
 
 async function account(){
