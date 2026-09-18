@@ -75,7 +75,7 @@ function formatPrice(usd: number, eur: number) {
 
 export default function SubscriptionsPage() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [showCheckoutNotice, setShowCheckoutNotice] = useState(false);
   const proLink = getStripePaymentLink('pro');
   const enterpriseLink = getStripePaymentLink('enterprise');
 
@@ -108,14 +108,18 @@ export default function SubscriptionsPage() {
         subtitle="Choisissez le plan adapté à votre activité de trading"
       />
 
-      {showSuccess && selectedPlan && (
+      {showCheckoutNotice && selectedPlan && (
         <div className="mb-6 rounded-2xl border border-brand-500/30 bg-brand-500/10 px-5 py-4 flex items-center gap-3">
           <CheckCircle2 size={20} className="text-brand-400 shrink-0" />
           <div>
             <p className="text-sm text-brand-200 font-semibold">
-              Abonnement {PLANS.find(p => p.id === selectedPlan)?.name} activé avec succès !
+              {selectedPlan === 'free' ? 'Plan Free sélectionné.' : `Checkout ${PLANS.find(p => p.id === selectedPlan)?.name} ouvert.`}
             </p>
-            <p className="text-xs text-surface-400">Bienvenue sur le plan {PLANS.find(p => p.id === selectedPlan)?.name}.</p>
+            <p className="text-xs text-surface-400">
+              {selectedPlan === 'free'
+                ? 'Aucun paiement requis.'
+                : 'Le plan ne sera compté comme actif qu’après confirmation réelle du paiement par Stripe.'}
+            </p>
           </div>
         </div>
       )}
@@ -164,7 +168,7 @@ export default function SubscriptionsPage() {
 
             <button
               onClick={() => handleSubscribe(plan)}
-              disabled={(selectedPlan === plan.id && showSuccess) || (plan.id !== 'free' && !(plan.id === 'pro' ? proLink : enterpriseLink))}
+              disabled={(selectedPlan === plan.id && showCheckoutNotice) || (plan.id !== 'free' && !(plan.id === 'pro' ? proLink : enterpriseLink))}
               className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
                 plan.id === 'free'
                   ? 'bg-surface-800 text-surface-300 hover:bg-surface-700 border border-surface-700'
@@ -173,8 +177,8 @@ export default function SubscriptionsPage() {
                     : 'bg-surface-800 text-white hover:bg-surface-700 border border-surface-700'
               } disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              {selectedPlan === plan.id && showSuccess
-                ? '✅ Activé'
+              {selectedPlan === plan.id && showCheckoutNotice
+                ? (plan.id === 'free' ? 'Sélectionné' : 'Checkout ouvert')
                 : plan.id === 'free'
                   ? 'Commencer gratuitement'
                   : (plan.id === 'pro' ? proLink : enterpriseLink)
