@@ -69,9 +69,21 @@ async function signed(method:"GET"|"POST", path:string, params:Record<string,str
 }
 async function prices(){const syms=["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","TRXUSDT"];return await Promise.all(syms.map(async symbol=>{try{const r=await fetch(`${mexcBase()}/api/v3/ticker/24hr?symbol=${symbol}`);const d=await r.json();return {symbol,lastPrice:Number(d.lastPrice||0),priceChangePercent:Number(d.priceChangePercent||0),quoteVolume:Number(d.quoteVolume||0)};}catch{return {symbol,lastPrice:0,priceChangePercent:0,quoteVolume:0};}}));}
 
+type ExchangeHealthRow = {
+  exchange: "BINANCE" | "MEXC";
+  configured: boolean;
+  readOk: boolean;
+  status: "NOT_CONFIGURED" | "READ_ONLY" | "ERROR";
+  errorCode: string | null;
+  lastCheckedAt: string;
+};
+type RiskSettings = { risk_params?: Record<string, unknown> } | null;
+type TradableAccount = { tradableCapitalUsd?: number } | null;
+type PnlValueRow = { net_pnl_usd?: unknown };
+
 async function exchangeHealth(s:ReturnType<typeof db>){
   const checkedAt=new Date().toISOString();
-  const results:any[]=[];
+  const results:ExchangeHealthRow[]=[];
   for(const exchange of ["BINANCE","MEXC"] as const){
     const configured=exchange==="BINANCE"?binanceConfigured():mexcConfigured();
     let readOk=false, errorCode="";
@@ -108,7 +120,7 @@ async function testExchangeOrder(exchange:"BINANCE"|"MEXC", symbol:string, side:
   return {exchange,mode:"TEST",status:"ACCEPTED",symbol:pair,side:"BUY",amountUsd:amt,message:"MEXC order/test accepted; no asset bought or sold.",raw};
 }
 
-async function riskState(s:ReturnType<typeof db>, cfg:any, acct:any){
+async function riskState(s:ReturnType<typeof db>, cfg:RiskSettings, acct:TradableAccount){
   const rp=cfg?.risk_params||{};
   const now=new Date();
   const startDay=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate())).toISOString();
@@ -127,8 +139,8 @@ async function riskState(s:ReturnType<typeof db>, cfg:any, acct:any){
   ]);
   if(dayErr)throw dayErr;if(weekErr)throw weekErr;if(recentErr)throw recentErr;if(ordersErr)throw ordersErr;
 
-  const dayNet=(dayPnl||[]).reduce((sum:any,row:any)=>sum+Number(row.net_pnl_usd||0),0);
-  const weekNet=(weekPnl||[]).reduce((sum:any,row:any)=>sum+Number(row.net_pnl_usd||0),0);
+  const dayNet=(dayPnl||[]).reduce((sum:number,row:PnlValueRow)=>sum+Number(row.net_pnl_usd||0),0);
+  const weekNet=(weekPnl||[]).reduce((sum:number,row:PnlValueRow)=>sum+Number(row.net_pnl_usd||0),0);
   let consecutiveLosses=0;
   for(const row of recentPnl||[]){
     if(Number(row.net_pnl_usd||0)<0) consecutiveLosses++;
