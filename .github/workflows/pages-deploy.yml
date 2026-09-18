@@ -45,6 +45,7 @@ jobs:
           VITE_STRIPE_PRO_PAYMENT_LINK: ${{ vars.VITE_STRIPE_PRO_PAYMENT_LINK }}
           VITE_STRIPE_ENTERPRISE_PAYMENT_LINK: ${{ vars.VITE_STRIPE_ENTERPRISE_PAYMENT_LINK }}
           VITE_ENABLE_TX_SIGNING: "false"
+          VITE_COMMERCIAL_LAUNCH: "false"
         run: npm run build
 
       - name: Add SPA fallback
