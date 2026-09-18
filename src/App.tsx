@@ -14,6 +14,7 @@ import OrchestrationPage from './pages/OrchestrationPage';
 import EarningsPage from './pages/EarningsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import MonitoringPage from './pages/MonitoringPage';
+import SetupPage from './pages/SetupPage';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/wallets" element={<WalletsPage />} />
+          <Route path="/setup" element={<SetupPage />} />
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/traders" element={<TradersPage />} />
           <Route path="/strategies" element={<StrategiesPage />} />
