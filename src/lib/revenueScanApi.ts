@@ -3,6 +3,21 @@ import { supabaseUrl } from './supabase';
 
 const endpoint = supabaseUrl ? `${supabaseUrl}/functions/v1/revenue-scanner` : '';
 
+export type YieldCandidate = {
+  pool: string;
+  chain: string;
+  project: string;
+  symbol: string;
+  tvlUsd: number;
+  apy: number;
+  apyBase: number;
+  apyReward: number;
+  stablecoin: boolean;
+  ilRisk: string;
+  exposure: string;
+  score: number;
+};
+
 export type RevenueScanResult = {
   status: string;
   bucket: string;
@@ -10,6 +25,10 @@ export type RevenueScanResult = {
   fundingStatus: string;
   marketStatus: string;
   arbitrageStatus: string;
+  yieldStatus: string;
+  farmingStatus: string;
+  capitalObservedUsd: number;
+  yieldHourlyGrossUsd: number | null;
   bestFunding: { symbol: string; grossPct: number } | null;
   strongest24h: { symbol: string; changePct: number } | null;
   bestArbitrage: {
@@ -20,6 +39,8 @@ export type RevenueScanResult = {
     sellPrice: number;
     grossSpreadPct: number;
   } | null;
+  bestYield: YieldCandidate | null;
+  bestFarm: YieldCandidate | null;
   liveExecution: false;
 };
 
