@@ -7,6 +7,7 @@ import RevenueLab from '../components/RevenueLab';
 import PaperScanPanel from '../components/PaperScanPanel';
 import WeeklyGoalEngine from '../components/WeeklyGoalEngine';
 import BusinessRevenuePanel from '../components/BusinessRevenuePanel';
+import PolymarketPanel from '../components/PolymarketPanel';
 import { publicApi, type LivePnl, type PublicPortfolio } from '../lib/publicApi';
 
 function formatUsd(n: number) {
@@ -123,6 +124,7 @@ export default function EarningsPage() {
 
       <WeeklyGoalEngine />
       <BusinessRevenuePanel />
+      <PolymarketPanel />
       <PaperScanPanel />
 
       <div className="card p-5 border-l-4 border-l-warn-500/50">
