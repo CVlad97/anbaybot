@@ -108,6 +108,74 @@ async function testExchangeOrder(exchange:"BINANCE"|"MEXC", symbol:string, side:
   return {exchange,mode:"TEST",status:"ACCEPTED",symbol:pair,side:"BUY",amountUsd:amt,message:"MEXC order/test accepted; no asset bought or sold.",raw};
 }
 
+async function riskState(s:ReturnType<typeof db>, cfg:any, acct:any){
+  const rp=cfg?.risk_params||{};
+  const now=new Date();
+  const startDay=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate())).toISOString();
+  const startWeek=new Date(now.getTime()-7*86_400_000).toISOString();
+
+  const [
+    {data:dayPnl,error:dayErr},
+    {data:weekPnl,error:weekErr},
+    {data:recentPnl,error:recentErr},
+    {count:liveOrdersToday,error:ordersErr},
+  ]=await Promise.all([
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at",startDay),
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at",startWeek),
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").order("occurred_at",{ascending:false}).limit(20),
+    s.from("audit_logs").select("id",{count:"exact",head:true}).eq("event","mexc_live_order_submitted").gte("created_at",startDay),
+  ]);
+  if(dayErr)throw dayErr;if(weekErr)throw weekErr;if(recentErr)throw recentErr;if(ordersErr)throw ordersErr;
+
+  const dayNet=(dayPnl||[]).reduce((sum:any,row:any)=>sum+Number(row.net_pnl_usd||0),0);
+  const weekNet=(weekPnl||[]).reduce((sum:any,row:any)=>sum+Number(row.net_pnl_usd||0),0);
+  let consecutiveLosses=0;
+  for(const row of recentPnl||[]){
+    if(Number(row.net_pnl_usd||0)<0) consecutiveLosses++;
+    else break;
+  }
+
+  const capital=Math.max(0,Number(acct?.tradableCapitalUsd||0));
+  const maxTradeFixed=Math.max(0,Number(rp.maxTradeSizeEur??100));
+  const maxTradePct=Math.max(0,Number(rp.maxTradeSizePctCapital??10));
+  const dynamicCap=capital*(maxTradePct/100);
+  const maxOrderUsd=Math.max(0,Math.min(maxTradeFixed,dynamicCap||maxTradeFixed,capital));
+
+  const dailyLossLimit=capital*Math.max(0,Number(rp.maxDailyLossPctCapital??2))/100;
+  const weeklyLossLimit=capital*Math.max(0,Number(rp.maxWeeklyLossPctCapital??5))/100;
+  const maxTradesPerDay=Math.max(1,Number(rp.maxTradesPerDay??6));
+  const haltAfterLosses=Math.max(1,Number(rp.haltAfterConsecutiveLosses??3));
+  const dailyLossUsd=Math.max(0,-dayNet);
+  const weeklyLossUsd=Math.max(0,-weekNet);
+
+  const reasons:string[]=[];
+  if(dailyLossLimit>0&&dailyLossUsd>=dailyLossLimit) reasons.push("daily_loss_limit");
+  if(weeklyLossLimit>0&&weeklyLossUsd>=weeklyLossLimit) reasons.push("weekly_loss_limit");
+  if(consecutiveLosses>=haltAfterLosses) reasons.push("consecutive_loss_limit");
+  if(Number(liveOrdersToday||0)>=maxTradesPerDay) reasons.push("daily_trade_limit");
+
+  return {
+    mode:String(rp.riskMode||"DYNAMIC"),
+    stage:String(rp.liveRampStage||"TEST"),
+    maxOrderUsd,
+    maxTradeSizePctCapital:maxTradePct,
+    maxRiskPerTradePctCapital:Number(rp.maxRiskPerTradePctCapital??0.75),
+    dailyLossUsd,
+    dailyLossLimitUsd:dailyLossLimit,
+    weeklyLossUsd,
+    weeklyLossLimitUsd:weeklyLossLimit,
+    consecutiveLosses,
+    haltAfterConsecutiveLosses:haltAfterLosses,
+    liveOrdersToday:Number(liveOrdersToday||0),
+    maxTradesPerDay,
+    remainingTradesToday:Math.max(0,maxTradesPerDay-Number(liveOrdersToday||0)),
+    minLiquidityUsd:Number(rp.minLiquidityUsd??250000),
+    minConfidencePct:Number(rp.minConfidencePct??75),
+    blocked:reasons.length>0,
+    blockReasons:reasons,
+  };
+}
+
 async function account(){
   const configured=Boolean(Deno.env.get("MEXC_API_KEY")&&Deno.env.get("MEXC_API_SECRET"));
   if(!configured) return {totalAccountValueUsd:0,freeStableUsd:0,tradableCapitalUsd:0,canTradeLive:false,missingConfig:true,assets:[],note:"Backend reel actif; compte MEXC non connecte."};
@@ -120,9 +188,45 @@ async function account(){
 async function cockpit(s:ReturnType<typeof db>){
   const [cfg,px,acct,walletQuery]=await Promise.all([settings(s),prices(),account(),s.from("managed_wallets").select("id,chain,label,address,platform,enabled").eq("enabled",true)]);
   const wallets=(walletQuery.data||[]) as TrackedWallet[];
+  const risk=await riskState(s,cfg,acct);
   const sorted=[...px].sort((a,b)=>b.priceChangePercent-a.priceChangePercent), top=sorted[0]||{symbol:"BTCUSDT",priceChangePercent:0};
   const kill=Boolean(cfg?.kill_switch), live=Boolean(!acct.missingConfig&&Deno.env.get("ALLOW_LIVE_TRADING")==="true");
-  return {updatedAt:new Date().toISOString(),settings:cfg,prices:px,account:acct,wallets,recommendation:{action:"WAIT",symbol:String(top.symbol).replace(/USDT$/,""),side:"HOLD",amountUsd:0,confidence:50,momentum:Number(top.priceChangePercent||0),reasoning:["Backend reel actif","Aucun ordre autonome force"],timestamp:new Date().toISOString()},validation:{passed:!kill&&!acct.missingConfig,canSubmit:!kill&&!acct.missingConfig&&acct.tradableCapitalUsd>0,killSwitchActive:kill,liveTradingEnabled:live,tradableCapitalUsd:acct.tradableCapitalUsd,maxOrderUsd:Math.min(10,acct.tradableCapitalUsd),issues:[...(kill?[{field:"killSwitch",message:"Kill switch active",severity:"error"}]:[]),...(acct.missingConfig?[{field:"mexc",message:"MEXC credentials missing",severity:"warning"}]:[])]},pnl:{totalValueUsd:acct.totalAccountValueUsd,pnlUsd:0,pnlPct:0,sinceLabel:"live-backend"},liveTradingReady:live&&!kill&&acct.tradableCapitalUsd>0};
+  const canSubmit=!kill&&!acct.missingConfig&&Number(acct.tradableCapitalUsd||0)>0&&!risk.blocked&&risk.maxOrderUsd>0;
+  return {
+    updatedAt:new Date().toISOString(),
+    settings:cfg,
+    prices:px,
+    account:acct,
+    wallets,
+    risk,
+    recommendation:{
+      action:"WAIT",
+      symbol:String(top.symbol).replace(/USDT$/,""),
+      side:"HOLD",
+      amountUsd:0,
+      confidence:50,
+      momentum:Number(top.priceChangePercent||0),
+      reasoning:["Backend reel actif","Aucun ordre autonome force","Taille dynamique et plafonds de pertes appliqués côté serveur"],
+      timestamp:new Date().toISOString()
+    },
+    validation:{
+      passed:canSubmit,
+      canSubmit,
+      killSwitchActive:kill,
+      liveTradingEnabled:live,
+      tradableCapitalUsd:acct.tradableCapitalUsd,
+      maxOrderUsd:risk.maxOrderUsd,
+      riskBlocked:risk.blocked,
+      riskBlockReasons:risk.blockReasons,
+      issues:[
+        ...(kill?[{field:"killSwitch",message:"Kill switch active",severity:"error"}]:[]),
+        ...(acct.missingConfig?[{field:"mexc",message:"MEXC credentials missing",severity:"warning"}]:[]),
+        ...(risk.blocked?[{field:"risk",message:`Risk guard: ${risk.blockReasons.join(", ")}`,severity:"error"}]:[])
+      ]
+    },
+    pnl:{totalValueUsd:acct.totalAccountValueUsd,pnlUsd:0,pnlPct:0,sinceLabel:"live-backend"},
+    liveTradingReady:live&&canSubmit
+  };
 }
 async function list(s:ReturnType<typeof db>,table:string,order="created_at",limit=100){const {data,error}=await s.from(table).select("*").order(order,{ascending:false}).limit(limit);if(error)throw error;return data||[];}
 async function livePortfolio(s:ReturnType<typeof db>){
@@ -183,7 +287,8 @@ Deno.serve(async req=>{
       const b=await req.json(); const mode=String(b.mode||"TEST").toUpperCase(); const c=await cockpit(s); const symbol=String(b.symbol||"").toUpperCase().replace(/USDT$/,"")+"USDT", side=String(b.side||"BUY").toUpperCase(), amount=Number(b.amountUsd||0);
       if(c.account.missingConfig) return json(req,{data:{mode,status:"REJECTED",message:"MEXC credentials missing"}},400);
       if(mode==="LIVE"&&c.settings.kill_switch) return json(req,{data:{mode,status:"REJECTED",message:"LIVE kill switch active"}},400);
-      if(amount<=0||amount>c.validation.maxOrderUsd) return json(req,{data:{mode,status:"REJECTED",message:"Amount outside server risk limit"}},400);
+      if(mode==="LIVE"&&c.validation.riskBlocked) return json(req,{data:{mode,status:"REJECTED",message:"Risk guard active",reasons:c.validation.riskBlockReasons}},400);
+      if(amount<=0||amount>c.validation.maxOrderUsd) return json(req,{data:{mode,status:"REJECTED",message:"Amount outside dynamic server risk limit",maxOrderUsd:c.validation.maxOrderUsd}},400);
       if(side!=="BUY") return json(req,{data:{mode,status:"REJECTED",message:"Only BUY by quote amount is enabled"}},400);
       if(mode==="TEST"){const raw=await signed("POST","/api/v3/order/test",{symbol,side,type:"MARKET",quoteOrderQty:amount.toFixed(2)});await audit(s,"mexc_test_order_ok",{symbol,side,amountUsd:amount});return json(req,{data:{mode:"TEST",symbol,side,amountUsd:amount,status:"ACCEPTED",message:"MEXC test accepted; no asset bought or sold.",raw}});}
       if(mode==="LIVE"){const phrase=Deno.env.get("CONFIRMATION_PHRASE")||"JE COMPRENDS LE RISQUE ET JE VALIDE CETTE ACTION";if(Deno.env.get("ALLOW_LIVE_TRADING")!=="true"||b.confirmationPhrase!==phrase)return json(req,{data:{mode:"LIVE",status:"REJECTED",message:"Live blocked by server switch or confirmation phrase"}},403);const raw=await signed("POST","/api/v3/order",{symbol,side,type:"MARKET",quoteOrderQty:amount.toFixed(2)});await audit(s,"mexc_live_order_submitted",{symbol,side,amountUsd:amount});return json(req,{data:{mode:"LIVE",symbol,side,amountUsd:amount,status:"SUBMITTED",raw}});}
