@@ -21,7 +21,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = serviceKey();
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, {global:{headers:{"X-Client-Info":"anbaybot-edge-v5"}}});
+  return createClient(url, key, {global:{headers:{"X-Client-Info":"anbaybot-edge-v7"}}});
 }
 async function sha256(v:string) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
@@ -39,7 +39,7 @@ async function requireAdmin(req:Request, path:string, s:ReturnType<typeof db>) {
 }
 async function audit(s:ReturnType<typeof db>, event:string, meta:Record<string,unknown>={}) {
   await s.from("audit_logs").insert({event,meta});
-  await s.from("audit_ledger").insert({severity:"INFO",event_type:event,actor_type:"API",source:"ikb-api-v5",sanitized_payload:meta});
+  await s.from("audit_ledger").insert({severity:"INFO",event_type:event,actor_type:"API",source:"ikb-api-v7",sanitized_payload:meta});
 }
 async function settings(s:ReturnType<typeof db>) {
   const {data,error}=await s.from("settings").select("*").limit(1).maybeSingle();
@@ -240,7 +240,7 @@ Deno.serve(async req=>{
   if(req.method==="OPTIONS") return new Response(null,{status:200,headers:cors(req)});
   const path=route(req); let s:ReturnType<typeof db>;
   try{s=db();}catch(e){return json(req,{error:"backend_config_error",message:String(e)},500);}
-  if(path==="health") return json(req,{status:"ok",mode:"real_edge_v5",databaseConfigured:true,adminHashAuth:true,mexcConfigured:mexcConfigured(),binanceConfigured:binanceConfigured(),liveTradingEnabled:Deno.env.get("ALLOW_LIVE_TRADING")==="true",timestamp:new Date().toISOString()});
+  if(path==="health") return json(req,{status:"ok",mode:"real_edge_v7",databaseConfigured:true,adminHashAuth:true,mexcConfigured:mexcConfigured(),binanceConfigured:binanceConfigured(),liveTradingEnabled:Deno.env.get("ALLOW_LIVE_TRADING")==="true",timestamp:new Date().toISOString()});
   if(path==="trading/prices") return json(req,{data:await prices()});
   if(path==="exchange/health") return json(req,await exchangeHealth(s));
   const auth=await requireAdmin(req,path,s); if(auth) return auth;
@@ -266,6 +266,30 @@ Deno.serve(async req=>{
     if(path==="trading/account") return json(req,{data:(await cockpit(s)).account});
     if(path==="trading/recommendation") return json(req,{data:(await cockpit(s)).recommendation});
     if(path==="trading/pnl") return json(req,{data:(await cockpit(s)).pnl});
+    if(path==="business-revenue"&&req.method==="GET"){
+      const {data,error}=await s.from("business_revenue_ledger").select("id,occurred_at,source,gross_eur,fees_eur,net_eur,note,proof_ref,created_at").order("occurred_at",{ascending:false}).limit(100);
+      if(error)throw error;
+      return json(req,{data:data||[]});
+    }
+    if(path==="business-revenue"&&req.method==="POST"){
+      const b=await req.json();
+      const source=String(b.source||"OTHER").toUpperCase();
+      if(!["SAAS","REFERRAL","AFFILIATE","SERVICES","OTHER"].includes(source))return json(req,{error:"invalid_source"},400);
+      const gross=Math.max(0,Number(b.gross_eur||0));
+      const fees=Math.max(0,Number(b.fees_eur||0));
+      if(gross<=0)return json(req,{error:"gross_eur_must_be_positive"},400);
+      const {data,error}=await s.from("business_revenue_ledger").insert({
+        occurred_at:b.occurred_at||new Date().toISOString(),
+        source,
+        gross_eur:gross,
+        fees_eur:Math.min(fees,gross),
+        note:String(b.note||"").slice(0,500),
+        proof_ref:String(b.proof_ref||"").slice(0,500)
+      }).select("*").single();
+      if(error)throw error;
+      await audit(s,"business_revenue_recorded",{source,gross_eur:gross,fees_eur:Math.min(fees,gross)});
+      return json(req,{data},201);
+    }
     if(path==="earn/flexible/list") return json(req,{data:[],implemented:false,message:"Backend reel actif; aucun produit Earn verifie/connecte."});
     if(path==="autotrade/config"&&req.method==="GET") return json(req,{data:await list(s,"auto_trade_config","strategy_id",100)});
     if(path==="autotrade/config"&&req.method==="PUT"){const b=await req.json();const {data:row}=await s.from("auto_trade_config").select("id").eq("strategy_id",b.strategy_id).maybeSingle();if(row)await s.from("auto_trade_config").update({...b,updated_at:new Date().toISOString()}).eq("id",row.id).throwOnError();else await s.from("auto_trade_config").insert(b).throwOnError();await audit(s,"auto_trade_config_updated",{strategy_id:b.strategy_id});return json(req,{success:true});}
@@ -295,5 +319,5 @@ Deno.serve(async req=>{
     }
     const am=path.match(/^actions\/([^/]+)\/(build|confirm|refuse)$/);if(am){const [,id,verb]=am;if(verb==="build"){const cfg=await settings(s);if(cfg.kill_switch)return json(req,{error:"Kill switch is active"},403);await s.from("actions").update({status:"BUILDING",updated_at:new Date().toISOString()}).eq("id",id).throwOnError();return json(req,{transaction:"",note:"Prepared action only; wallet signature required."});}if(verb==="confirm"){const b=await req.json();await s.from("actions").update({status:"CONFIRMED",updated_at:new Date().toISOString()}).eq("id",id).throwOnError();if(b.signature)await s.from("transactions").insert({action_id:id,signature:b.signature,explorer_url:"",status:"SUCCESS"}).throwOnError();return json(req,{success:true});}if(verb==="refuse"){await s.from("actions").update({status:"REFUSED",updated_at:new Date().toISOString()}).eq("id",id).throwOnError();return json(req,{success:true});}}
     return json(req,{data:null,unsupported:true,path});
-  }catch(e){console.error("[ikb-api-v5]",path,e);return json(req,{error:"Internal server error",path},500);}
+  }catch(e){console.error("[ikb-api-v7]",path,e);return json(req,{error:"Internal server error",path},500);}
 });
