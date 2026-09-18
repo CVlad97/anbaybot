@@ -84,6 +84,34 @@ export type PublicOpportunities = {
   updatedAt: string;
 };
 
+export type PublicWeeklyGoal = {
+  targetWeeklyEur: number;
+  targetDailyEur: number;
+  capitalUsd: number;
+  capitalEur: number;
+  fx: { eurUsd: number; source: string };
+  actualEur7d: number;
+  marketPnlEur7d: number;
+  businessEur7d: number;
+  gapEur7d: number;
+  progressPct: number;
+  requiredWeeklyReturnPct: number | null;
+  marketScenarios: Array<{
+    weeklyPct: number;
+    weeklyEur: number;
+    targetCoveragePct: number;
+  }>;
+  referenceMarketEur: number;
+  businessGapEur: number;
+  subscriptionTargets: Array<{
+    priceMonthlyEur: number;
+    subscribersNeeded: number;
+    monthlyRevenueNeeded: number;
+  }>;
+  note: string;
+  updatedAt: string;
+};
+
 export type PublicReadiness = {
   killSwitch: boolean;
   riskParams: Record<string, unknown>;
@@ -129,4 +157,5 @@ export const publicApi = {
   pnl: () => get<LivePnl>('pnl'),
   opportunities: () => get<PublicOpportunities>('opportunities'),
   readiness: () => get<PublicReadiness>('readiness'),
+  goal: () => get<PublicWeeklyGoal>('goal'),
 };
