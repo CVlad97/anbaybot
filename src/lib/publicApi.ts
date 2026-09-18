@@ -84,6 +84,32 @@ export type PublicOpportunities = {
   updatedAt: string;
 };
 
+export type PublicPolymarketMarket = {
+  id: string;
+  question: string;
+  slug: string;
+  outcomePrices: number[];
+  liquidityUsd: number;
+  volume24hUsd: number;
+  spread: number | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+  lastTradePrice: number | null;
+  rewardsDailyRate: number;
+  endDate: string | null;
+  acceptingOrders: boolean;
+  restricted: boolean;
+};
+
+export type PublicPolymarket = {
+  source: 'POLYMARKET_GAMMA_PUBLIC';
+  mode: 'READ_ONLY';
+  politicalMarketsExcluded: boolean;
+  geoblockCheckUrl: string;
+  markets: PublicPolymarketMarket[];
+  updatedAt: string;
+};
+
 export type PublicWeeklyGoal = {
   targetWeeklyEur: number;
   targetDailyEur: number;
@@ -158,4 +184,5 @@ export const publicApi = {
   opportunities: () => get<PublicOpportunities>('opportunities'),
   readiness: () => get<PublicReadiness>('readiness'),
   goal: () => get<PublicWeeklyGoal>('goal'),
+  polymarket: () => get<PublicPolymarket>('polymarket'),
 };
