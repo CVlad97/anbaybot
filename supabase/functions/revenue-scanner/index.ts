@@ -15,7 +15,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-revenue-scanner-v4" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-revenue-scanner-v5" } } });
 }
 
 async function sha256(value: string) {
@@ -57,6 +57,43 @@ type YieldPool = {
   stablecoin?: boolean;
   ilRisk?: string;
   exposure?: string;
+};
+
+type PolymarketMarket = {
+  id?: string;
+  question?: string;
+  slug?: string;
+  outcomes?: string;
+  outcomePrices?: string;
+  liquidityNum?: number;
+  volume24hr?: number;
+  spread?: number;
+  bestBid?: number;
+  bestAsk?: number;
+  lastTradePrice?: number;
+  acceptingOrders?: boolean;
+  active?: boolean;
+  closed?: boolean;
+  restricted?: boolean;
+  endDate?: string;
+  clobRewards?: Array<{ rewardsDailyRate?: number }>;
+};
+
+type PolymarketCandidate = {
+  id: string;
+  question: string;
+  slug: string;
+  outcomePrices: number[];
+  liquidityUsd: number;
+  volume24hUsd: number;
+  spread: number | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+  lastTradePrice: number | null;
+  rewardsDailyRate: number;
+  endDate: string | null;
+  acceptingOrders: boolean;
+  restricted: boolean;
 };
 
 type YieldCandidate = {
@@ -143,6 +180,62 @@ function normalizeYield(row: YieldPool): YieldCandidate | null {
   };
 }
 
+
+const POLYMARKET_SAFE_INCLUDE = /(bitcoin|btc|ethereum|eth|solana|sol|xrp|doge|crypto|cryptocurrency|price|market cap|sports?|nba|nfl|mlb|nhl|soccer|football|basketball|baseball|tennis|ufc|formula 1|f1|esports?|champions league|premier league|la liga|serie a|bundesliga)/i;
+const POLYMARKET_POLITICAL_EXCLUDE = /(election|president|prime minister|parliament|congress|senate|governor|government|cabinet|referendum|politic|geopolit|trump|biden|vance|newsom|macron|le pen|mélenchon|merkel|scholz|starmer|putin|zelensky|xi jinping|netanyahu|iran|israel|ukraine|russia|china invasion|war|ceasefire|sanction)/i;
+
+function parsePolyPrices(raw?: string) {
+  try {
+    const rows = JSON.parse(raw || "[]");
+    return Array.isArray(rows) ? rows.map(Number).filter(Number.isFinite) : [];
+  } catch { return []; }
+}
+
+function normalizePolymarket(row: PolymarketMarket): PolymarketCandidate | null {
+  const question = String(row.question || "").trim();
+  const slug = String(row.slug || "").trim();
+  const searchable = `${question} ${slug}`;
+  if (!question || row.closed === true || row.active === false) return null;
+  // Conservative filter: only clearly non-political crypto/sports markets are surfaced.
+  if (!POLYMARKET_SAFE_INCLUDE.test(searchable) || POLYMARKET_POLITICAL_EXCLUDE.test(searchable)) return null;
+  const liquidityUsd = Number(row.liquidityNum || 0);
+  const volume24hUsd = Number(row.volume24hr || 0);
+  if (!Number.isFinite(liquidityUsd) || liquidityUsd < 10_000) return null;
+  return {
+    id: String(row.id || ""),
+    question,
+    slug,
+    outcomePrices: parsePolyPrices(row.outcomePrices),
+    liquidityUsd,
+    volume24hUsd: Number.isFinite(volume24hUsd) ? volume24hUsd : 0,
+    spread: Number.isFinite(Number(row.spread)) ? Number(row.spread) : null,
+    bestBid: Number.isFinite(Number(row.bestBid)) ? Number(row.bestBid) : null,
+    bestAsk: Number.isFinite(Number(row.bestAsk)) ? Number(row.bestAsk) : null,
+    lastTradePrice: Number.isFinite(Number(row.lastTradePrice)) ? Number(row.lastTradePrice) : null,
+    rewardsDailyRate: (row.clobRewards || []).reduce((sum, x) => sum + Number(x.rewardsDailyRate || 0), 0),
+    endDate: row.endDate || null,
+    acceptingOrders: Boolean(row.acceptingOrders),
+    restricted: Boolean(row.restricted),
+  };
+}
+
+async function scanPolymarket() {
+  const rows = await fetchJson<PolymarketMarket[]>("https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200");
+  const candidates = (rows || [])
+    .map(normalizePolymarket)
+    .filter((x): x is PolymarketCandidate => Boolean(x))
+    .sort((a,b) => (b.volume24hUsd + b.liquidityUsd * 0.1) - (a.volume24hUsd + a.liquidityUsd * 0.1))
+    .slice(0, 20);
+  return {
+    candidates,
+    top: candidates[0] || null,
+    source: "POLYMARKET_GAMMA_PUBLIC",
+    execution: "NONE",
+    filter: "NON_POLITICAL_CRYPTO_SPORTS_V1",
+    geoblockRequiredBeforeTrading: true,
+  };
+}
+
 async function scanYields() {
   const payload = await fetchJson<{ data?: YieldPool[] }>("https://yields.llama.fi/pools");
   const candidates = (payload.data || []).map(normalizeYield).filter((x): x is YieldCandidate => Boolean(x));
@@ -185,10 +278,18 @@ Deno.serve(async req => {
 
     let yieldData: Awaited<ReturnType<typeof scanYields>> = { bestEarn: null, bestFarm: null, earn: [], farms: [] };
     let yieldError = "";
+    let polymarketData: Awaited<ReturnType<typeof scanPolymarket>> = { candidates: [], top: null, source: "POLYMARKET_GAMMA_PUBLIC", execution: "NONE", filter: "NON_POLITICAL_CRYPTO_SPORTS_V1", geoblockRequiredBeforeTrading: true };
+    let polymarketError = "";
     try {
       yieldData = await scanYields();
     } catch (error) {
       yieldError = error instanceof Error ? error.message : String(error);
+    }
+
+    try {
+      polymarketData = await scanPolymarket();
+    } catch (error) {
+      polymarketError = error instanceof Error ? error.message : String(error);
     }
 
     const { data: balances } = await client.from("wallet_balances").select("value_usd");
@@ -202,6 +303,7 @@ Deno.serve(async req => {
     const arbitrageStatus = bestArb ? "DATA_READY" : "UNVERIFIED";
     const yieldStatus = yieldData.bestEarn ? "DATA_READY" : "UNVERIFIED";
     const farmingStatus = yieldData.bestFarm ? "DATA_READY" : "UNVERIFIED";
+    const polymarketStatus = polymarketData.candidates.length ? "DATA_READY" : "UNVERIFIED";
     const yieldHourlyGrossUsd = yieldData.bestEarn ? capitalObservedUsd * (yieldData.bestEarn.apy / 100) / 8760 : null;
 
     const runs = [
@@ -213,7 +315,7 @@ Deno.serve(async req => {
       { strategy_key: "lending", mode: "RESEARCH", source: yieldData.bestEarn ? "DEFILLAMA_YIELDS" : "NO_VERIFIED_CONNECTOR", status: yieldStatus, expected_return_pct: yieldData.bestEarn?.apy ?? null, metadata: yieldData.bestEarn ? { best: yieldData.bestEarn, apy_is_annualized: true, execution: "NONE" } : { reason: yieldError || "No qualifying stablecoin lending candidate." } },
       { strategy_key: "farming_lp", mode: "RESEARCH", source: yieldData.bestFarm ? "DEFILLAMA_YIELDS" : "NO_VERIFIED_CONNECTOR", status: farmingStatus, expected_return_pct: yieldData.bestFarm?.apy ?? null, metadata: yieldData.bestFarm ? { best: yieldData.bestFarm, top: yieldData.farms, apy_is_annualized: true, impermanent_loss_risk: yieldData.bestFarm.ilRisk, execution: "NONE" } : { reason: yieldError || "No qualifying stablecoin farm." } },
       { strategy_key: "arbitrage", mode: "PAPER", source: bestArb ? "BINANCE_MEXC_PUBLIC_BOOK" : "PUBLIC_BOOK_BLOCKED", status: arbitrageStatus, expected_return_pct: bestArb?.grossSpreadPct ?? null, metadata: bestArb ? { quotes: arbRows, best: bestArb, costs_included: false, note: "Gross bid/ask spread only. Fees, slippage, withdrawal cost and latency not included." } : { errors: arbErrors } },
-      { strategy_key: "prediction_markets", mode: "RESEARCH", source: "NO_VERIFIED_CONNECTOR", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Prediction connector not verified." } },
+      { strategy_key: "prediction_markets", mode: "RESEARCH", source: polymarketData.candidates.length ? polymarketData.source : "POLYMARKET_PUBLIC_UNAVAILABLE", status: polymarketStatus, expected_return_pct: null, metadata: polymarketData.candidates.length ? { markets: polymarketData.candidates, top_liquid: polymarketData.top, execution: "NONE", geoblock_required_before_trading: true, political_markets_excluded: true, filter: polymarketData.filter } : { reason: polymarketError || "No qualifying non-political Polymarket markets." } },
       { strategy_key: "copy_trading", mode: "PAPER", source: "NO_VERIFIED_TRADER", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "No verified source trader connected." } },
       { strategy_key: "referral", mode: "RESEARCH", source: "ANBAYBOT", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Revenue recognized only after actual commission payment." } },
       { strategy_key: "saas", mode: "RESEARCH", source: "ANBAYBOT", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Revenue recognized only after actual subscription payment." } },
@@ -258,10 +360,17 @@ Deno.serve(async req => {
     if (bestArb) await client.from("strategy_catalog").update({ status: "DATA_READY", note: "Bid/ask Binance↔MEXC mesuré. Spread brut seulement; coûts et latence restent à soustraire." }).eq("strategy_key", "arbitrage");
     if (yieldData.bestEarn) await client.from("strategy_catalog").update({ status: "DATA_READY", note: "APY public stablecoin détecté. Analyse seulement; aucun dépôt automatique." }).in("strategy_key", ["earn_staking", "lending"]);
     if (yieldData.bestFarm) await client.from("strategy_catalog").update({ status: "DATA_READY", note: "APY farming public détecté. IL/protocole à évaluer avant toute allocation." }).eq("strategy_key", "farming_lp");
+    if (polymarketData.candidates.length) await client.from("strategy_catalog").update({
+      status: "DATA_READY",
+      execution_mode: "RESEARCH",
+      venue: "POLYMARKET",
+      connection_required: ["POLYMARKET_GEO_ELIGIBILITY","POLYMARKET_WALLET_AUTH"],
+      note: "API publique Polymarket connectée en lecture. Marchés politiques exclus du scanner. Aucun ordre; géoblocage à vérifier côté utilisateur avant toute exécution."
+    }).eq("strategy_key", "prediction_markets");
 
     await client.from("audit_ledger").insert({
       severity: bestFunding || strongest || bestArb || yieldData.bestEarn ? "INFO" : "WARNING",
-      event_type: "REVENUE_SCAN_COMPLETED", actor_type: "JOB", source: "revenue-scanner-v4", source_ref: `${bucket}:${Date.now()}`,
+      event_type: "REVENUE_SCAN_COMPLETED", actor_type: "JOB", source: "revenue-scanner-v5", source_ref: `${bucket}:${Date.now()}`,
       sanitized_payload: {
         bucket,
         strategies: runs.length,
@@ -270,12 +379,15 @@ Deno.serve(async req => {
         arbitrage_status: arbitrageStatus,
         yield_status: yieldStatus,
         farming_status: farmingStatus,
+        polymarket_status: polymarketStatus,
         capital_observed_usd: capitalObservedUsd,
         bestFunding: bestFunding ? { symbol: bestFunding.symbol, grossPct: bestFunding.grossPct } : null,
         strongest24h: strongest ? { symbol: strongest.symbol, changePct: strongest.change24hPct } : null,
         bestArbitrage: bestArb,
         bestYield: yieldData.bestEarn,
         bestFarm: yieldData.bestFarm,
+      polymarket: polymarketData,
+        polymarket: { count: polymarketData.candidates.length, top: polymarketData.top, political_markets_excluded: true },
       },
     });
 
@@ -288,6 +400,7 @@ Deno.serve(async req => {
       arbitrageStatus,
       yieldStatus,
       farmingStatus,
+      polymarketStatus,
       capitalObservedUsd,
       yieldHourlyGrossUsd,
       bestFunding: bestFunding ? { symbol: bestFunding.symbol, grossPct: bestFunding.grossPct } : null,
