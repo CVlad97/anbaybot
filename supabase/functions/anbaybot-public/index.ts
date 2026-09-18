@@ -20,7 +20,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v4" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v5" } } });
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -66,6 +66,42 @@ function maskAddress(address: string) {
 type WalletRow = { id: string; chain: string; label: string; address: string; platform: string; enabled: boolean };
 type Token = { symbol: string; balance: number; priceUsd: number; valueUsd: number };
 type PublicWallet = { walletId: string; label: string; chain: string; platform: string; addressMasked: string; totalValueUsd: number; tokens: Token[]; error?: string };
+
+type PublicPolymarketMarket = {
+  id: string;
+  question: string;
+  slug: string;
+  outcomePrices: number[];
+  liquidityUsd: number;
+  volume24hUsd: number;
+  spread: number | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+  lastTradePrice: number | null;
+  rewardsDailyRate: number;
+  endDate: string | null;
+  acceptingOrders: boolean;
+  restricted: boolean;
+};
+
+type RawPolymarketMarket = {
+  id?: string;
+  question?: string;
+  slug?: string;
+  outcomePrices?: string;
+  liquidityNum?: number;
+  volume24hr?: number;
+  spread?: number;
+  bestBid?: number;
+  bestAsk?: number;
+  lastTradePrice?: number;
+  acceptingOrders?: boolean;
+  active?: boolean;
+  closed?: boolean;
+  restricted?: boolean;
+  endDate?: string;
+  clobRewards?: Array<{ rewardsDailyRate?: number }>;
+};
 
 async function readTron(w: WalletRow, px: Map<string, number>): Promise<PublicWallet> {
   const data = await fetchJson<{data?: Array<{balance?: number; trc20?: Array<Record<string,string>>}>}>(`https://api.trongrid.io/v1/accounts/${w.address}`);
@@ -148,6 +184,55 @@ async function portfolio(s: ReturnType<typeof db>) {
     if (w.chain.toLowerCase() === "tron") await sleep(350);
   }
   return { wallets: output, totalValueUsd: output.reduce((s,w)=>s+w.totalValueUsd,0), updatedAt: new Date().toISOString() };
+}
+
+const POLY_SAFE_INCLUDE = /(bitcoin|btc|ethereum|eth|solana|sol|xrp|doge|crypto|cryptocurrency|price|market cap|sports?|nba|nfl|mlb|nhl|soccer|football|basketball|baseball|tennis|ufc|formula 1|f1|esports?|champions league|premier league|la liga|serie a|bundesliga)/i;
+const POLY_POLITICAL_EXCLUDE = /(election|president|prime minister|parliament|congress|senate|governor|government|cabinet|referendum|politic|geopolit|trump|biden|vance|newsom|macron|le pen|mélenchon|merkel|scholz|starmer|putin|zelensky|xi jinping|netanyahu|iran|israel|ukraine|russia|china invasion|war|ceasefire|sanction)/i;
+
+function parsePrices(raw?: string) {
+  try {
+    const arr = JSON.parse(raw || "[]");
+    return Array.isArray(arr) ? arr.map(Number).filter(Number.isFinite) : [];
+  } catch { return []; }
+}
+
+async function polymarket() {
+  const rows = await fetchJson<RawPolymarketMarket[]>("https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200");
+  const markets: PublicPolymarketMarket[] = [];
+  for (const row of rows || []) {
+    const question = String(row.question || "").trim();
+    const slug = String(row.slug || "").trim();
+    const searchable = `${question} ${slug}`;
+    if (!question || row.closed === true || row.active === false) continue;
+    if (!POLY_SAFE_INCLUDE.test(searchable) || POLY_POLITICAL_EXCLUDE.test(searchable)) continue;
+    const liquidityUsd = Number(row.liquidityNum || 0);
+    if (!Number.isFinite(liquidityUsd) || liquidityUsd < 10_000) continue;
+    markets.push({
+      id: String(row.id || ""),
+      question,
+      slug,
+      outcomePrices: parsePrices(row.outcomePrices),
+      liquidityUsd,
+      volume24hUsd: Number(row.volume24hr || 0),
+      spread: Number.isFinite(Number(row.spread)) ? Number(row.spread) : null,
+      bestBid: Number.isFinite(Number(row.bestBid)) ? Number(row.bestBid) : null,
+      bestAsk: Number.isFinite(Number(row.bestAsk)) ? Number(row.bestAsk) : null,
+      lastTradePrice: Number.isFinite(Number(row.lastTradePrice)) ? Number(row.lastTradePrice) : null,
+      rewardsDailyRate: (row.clobRewards || []).reduce((sum,x)=>sum+Number(x.rewardsDailyRate||0),0),
+      endDate: row.endDate || null,
+      acceptingOrders: Boolean(row.acceptingOrders),
+      restricted: Boolean(row.restricted),
+    });
+  }
+  markets.sort((a,b)=>(b.volume24hUsd+b.liquidityUsd*0.1)-(a.volume24hUsd+a.liquidityUsd*0.1));
+  return {
+    source:"POLYMARKET_GAMMA_PUBLIC",
+    mode:"READ_ONLY",
+    politicalMarketsExcluded:true,
+    geoblockCheckUrl:"https://polymarket.com/api/geoblock",
+    markets:markets.slice(0,20),
+    updatedAt:new Date().toISOString(),
+  };
 }
 
 async function exchanges(s: ReturnType<typeof db>) {
@@ -302,6 +387,7 @@ Deno.serve(async req => {
     if (path === "opportunities") return json(await opportunities(s));
     if (path === "readiness") return json(await readiness(s));
     if (path === "goal") return json(await weeklyGoal(s));
+    if (path === "polymarket") return json(await polymarket());
     return json({ error:"not_found" }, 404);
   } catch (e) {
     console.error("[anbaybot-public]", e);
