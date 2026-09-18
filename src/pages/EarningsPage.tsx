@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import GoalSimulator from '../components/GoalSimulator';
 import RevenueLab from '../components/RevenueLab';
 import PaperScanPanel from '../components/PaperScanPanel';
+import WeeklyGoalEngine from '../components/WeeklyGoalEngine';
 import { publicApi, type LivePnl, type PublicPortfolio } from '../lib/publicApi';
 
 function formatUsd(n: number) {
@@ -119,6 +120,7 @@ export default function EarningsPage() {
         )}
       </div>
 
+      <WeeklyGoalEngine />
       <PaperScanPanel />
 
       <div className="card p-5 border-l-4 border-l-warn-500/50">
