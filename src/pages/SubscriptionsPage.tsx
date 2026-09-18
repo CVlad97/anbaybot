@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import type { SubscriptionPlan } from '../lib/types';
-import { getStripePaymentLink } from '../lib/stripe';
+import { getStripePaymentLink, isCommercialLaunchEnabled } from '../lib/stripe';
 
 const PLANS: SubscriptionPlan[] = [
   {
@@ -78,8 +78,16 @@ export default function SubscriptionsPage() {
   const [showCheckoutNotice, setShowCheckoutNotice] = useState(false);
   const proLink = getStripePaymentLink('pro');
   const enterpriseLink = getStripePaymentLink('enterprise');
+  const commercialLaunchEnabled = isCommercialLaunchEnabled();
 
   const handleSubscribe = (plan: SubscriptionPlan) => {
+    if (plan.id !== 'free' && !commercialLaunchEnabled) {
+      setSelectedPlan(plan.id);
+      setShowCheckoutNotice(true);
+      setTimeout(() => setShowCheckoutNotice(false), 4000);
+      return;
+    }
+
     if (plan.id === 'free') {
       setSelectedPlan('free');
       setShowCheckoutNotice(true);
@@ -105,8 +113,17 @@ export default function SubscriptionsPage() {
       <PageHeader
         icon={CreditCard}
         title="Souscriptions"
-        subtitle="Choisissez le plan adapté à votre activité de trading"
+        subtitle={commercialLaunchEnabled ? "Choisissez le plan adapté à votre activité de trading" : "Pré-lancement — abonnements payants fermés jusqu’à certification complète"}
       />
+
+      {!commercialLaunchEnabled && (
+        <div className="mb-6 rounded-2xl border border-warn-500/30 bg-warn-500/10 px-5 py-4">
+          <p className="text-sm font-semibold text-warn-200">Pré-lancement · NO-GO commercial</p>
+          <p className="text-xs text-surface-400 mt-1">
+            Les paiements Pro et Enterprise sont volontairement désactivés pendant la validation des parcours Binance/MEXC, signature wallet, sécurité multi-utilisateur et activation des droits après paiement.
+          </p>
+        </div>
+      )}
 
       {showCheckoutNotice && selectedPlan && (
         <div className="mb-6 rounded-2xl border border-brand-500/30 bg-brand-500/10 px-5 py-4 flex items-center gap-3">
@@ -168,7 +185,7 @@ export default function SubscriptionsPage() {
 
             <button
               onClick={() => handleSubscribe(plan)}
-              disabled={(selectedPlan === plan.id && showCheckoutNotice) || (plan.id !== 'free' && !(plan.id === 'pro' ? proLink : enterpriseLink))}
+              disabled={(selectedPlan === plan.id && showCheckoutNotice) || (plan.id !== 'free' && (!commercialLaunchEnabled || !(plan.id === 'pro' ? proLink : enterpriseLink)))}
               className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
                 plan.id === 'free'
                   ? 'bg-surface-800 text-surface-300 hover:bg-surface-700 border border-surface-700'
@@ -181,9 +198,11 @@ export default function SubscriptionsPage() {
                 ? (plan.id === 'free' ? 'Sélectionné' : 'Checkout ouvert')
                 : plan.id === 'free'
                   ? 'Commencer gratuitement'
-                  : (plan.id === 'pro' ? proLink : enterpriseLink)
-                    ? `Souscrire au ${plan.name}`
-                    : 'Offre indisponible temporairement'}
+                  : !commercialLaunchEnabled
+                    ? 'Pré-lancement — bientôt disponible'
+                    : (plan.id === 'pro' ? proLink : enterpriseLink)
+                      ? `Souscrire au ${plan.name}`
+                      : 'Offre indisponible temporairement'}
             </button>
           </div>
         ))}
@@ -237,9 +256,11 @@ export default function SubscriptionsPage() {
           <CreditCard size={16} className="text-brand-400 shrink-0" />
           <p className="text-xs text-surface-400">
             Paiements sécurisés via <strong className="text-surface-200">Stripe</strong>.
-            {proLink || enterpriseLink
-              ? ' Les liens configurés ouvrent Stripe dans un nouvel onglet.'
-              : ' Offre indisponible temporairement tant que les liens Stripe ne sont pas renseignés.'}
+            {!commercialLaunchEnabled
+              ? ' Les ventes sont volontairement fermées jusqu’au GO commercial.'
+              : proLink || enterpriseLink
+                ? ' Les liens configurés ouvrent Stripe dans un nouvel onglet.'
+                : ' Offre indisponible temporairement tant que les liens Stripe ne sont pas renseignés.'}
           </p>
         </div>
       </div>
