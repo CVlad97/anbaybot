@@ -82,22 +82,22 @@ export default function SubscriptionsPage() {
   const handleSubscribe = (plan: SubscriptionPlan) => {
     if (plan.id === 'free') {
       setSelectedPlan('free');
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      setShowCheckoutNotice(true);
+      setTimeout(() => setShowCheckoutNotice(false), 3000);
       return;
     }
 
     const link = plan.id === 'pro' ? proLink : plan.id === 'enterprise' ? enterpriseLink : null;
     if (link) {
       setSelectedPlan(plan.id);
-      setShowSuccess(true);
+      setShowCheckoutNotice(true);
       window.open(link, '_blank', 'noopener,noreferrer');
-      setTimeout(() => setShowSuccess(false), 3000);
+      setTimeout(() => setShowCheckoutNotice(false), 3000);
       return;
     }
 
     setSelectedPlan(null);
-    setShowSuccess(false);
+    setShowCheckoutNotice(false);
   };
 
   return (
