@@ -4,6 +4,7 @@ import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import RevenueReadinessPanel from '../components/RevenueReadinessPanel';
 import WeeklyGoalEngine from '../components/WeeklyGoalEngine';
+import Challenge48hPanel from '../components/Challenge48hPanel';
 import {
   publicApi,
   type LivePnl,
@@ -96,6 +97,7 @@ export default function DashboardPage() {
 
       {error && <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{error}</div>}
 
+      <Challenge48hPanel />
       <WeeklyGoalEngine />
       <RevenueReadinessPanel />
 
