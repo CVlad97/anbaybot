@@ -20,7 +20,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v5" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v6" } } });
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -197,7 +197,14 @@ function parsePrices(raw?: string) {
 }
 
 async function polymarket() {
-  const rows = await fetchJson<RawPolymarketMarket[]>("https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200");
+  const tagIds = [745, 1234];
+  const pages = await Promise.all(tagIds.map(async tagId => {
+    try {
+      const payload = await fetchJson<{markets?: RawPolymarketMarket[]}>(`https://gamma-api.polymarket.com/markets/keyset?tag_id=${tagId}&closed=false&limit=50`);
+      return payload.markets || [];
+    } catch { return []; }
+  }));
+  const rows = pages.flat();
   const markets: PublicPolymarketMarket[] = [];
   for (const row of rows || []) {
     const question = String(row.question || "").trim();
