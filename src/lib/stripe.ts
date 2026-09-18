@@ -14,3 +14,7 @@ export function hasStripePaymentLinks() {
   return Boolean(getStripePaymentLink('pro') || getStripePaymentLink('enterprise'));
 }
 
+
+export function isCommercialLaunchEnabled() {
+  return String(import.meta.env.VITE_COMMERCIAL_LAUNCH || 'false').toLowerCase() === 'true';
+}
