@@ -315,11 +315,19 @@ async function weeklyGoal(s: ReturnType<typeof db>) {
   const referenceMarketEur = capitalEur * 0.02;
   const businessGapEur = Math.max(0, targetWeeklyEur - referenceMarketEur);
   const monthlyRevenueNeeded = targetWeeklyEur * 52 / 12;
-  const subscriptionTargets = [29,49,99].map(priceMonthlyEur => ({
+  const subscriptionTargets = [49,149].map(priceMonthlyEur => ({
     priceMonthlyEur,
     subscribersNeeded: Math.ceil(monthlyRevenueNeeded / priceMonthlyEur),
     monthlyRevenueNeeded,
   }));
+  const commercialMix = {
+    proPriceMonthlyEur: 49,
+    enterprisePriceMonthlyEur: 149,
+    proSubscribers: 30,
+    enterpriseSubscribers: 20,
+    monthlyRevenueEur: 30 * 49 + 20 * 149,
+    weeklyRevenueEur: (30 * 49 + 20 * 149) * 12 / 52,
+  };
 
   return {
     targetWeeklyEur,
@@ -337,6 +345,7 @@ async function weeklyGoal(s: ReturnType<typeof db>) {
     referenceMarketEur,
     businessGapEur,
     subscriptionTargets,
+    commercialMix,
     note: "Les scénarios de marché sont des références mathématiques, pas des prévisions ni des promesses de rendement.",
     updatedAt: new Date().toISOString(),
   };
