@@ -447,6 +447,34 @@ async function demoRequest<T>(path: string, opts: RequestInit = {}): Promise<T> 
 export const api = {
   health: () => request<{ status: string }>('/ikb-api?path=health'),
 
+  getExchangeHealth: () => request<{
+    exchanges: Array<{
+      exchange: 'BINANCE' | 'MEXC';
+      configured: boolean;
+      readOk: boolean;
+      status: 'NOT_CONFIGURED' | 'READ_ONLY' | 'ERROR';
+      errorCode: string | null;
+      lastCheckedAt: string;
+    }>;
+    liveTradingEnabled: boolean;
+    killSwitch: boolean;
+    checkedAt: string;
+  }>('/ikb-api?path=exchange/health'),
+
+  testExchange: (exchange: 'BINANCE' | 'MEXC', symbol = 'BTC', amountUsd = 1) =>
+    request<{ data: {
+      exchange: 'BINANCE' | 'MEXC';
+      mode: 'TEST';
+      status: string;
+      symbol: string;
+      side: 'BUY';
+      amountUsd: number;
+      message: string;
+    } }>('/ikb-api?path=exchange/test', {
+      method: 'POST',
+      body: JSON.stringify({ exchange, symbol, amountUsd }),
+    }),
+
   trending: () => request<{ items: unknown[] }>('/ikb-api?path=market/trending'),
   dexMovers: () => request<{ items: unknown[] }>('/ikb-api?path=market/dex-movers'),
   tokenSearch: (q: string) => request<{ items: unknown[] }>(`/ikb-api?path=market/token-search&q=${encodeURIComponent(q)}`),
