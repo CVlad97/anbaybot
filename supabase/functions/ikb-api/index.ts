@@ -198,19 +198,49 @@ async function account(){
   return {totalAccountValueUsd:total,freeStableUsd,tradableCapitalUsd:freeStableUsd*0.9,canTradeLive:Deno.env.get("ALLOW_LIVE_TRADING")==="true",missingConfig:false,assets,note:"Compte MEXC reel connecte cote serveur."};
 }
 async function cockpit(s:ReturnType<typeof db>){
-  const [cfg,px,acct,walletQuery]=await Promise.all([settings(s),prices(),account(),s.from("managed_wallets").select("id,chain,label,address,platform,enabled").eq("enabled",true)]);
+  const [cfg,px,acct,walletQuery]=await Promise.all([
+    settings(s),
+    prices(),
+    account(),
+    s.from("managed_wallets").select("id,chain,label,address,platform,enabled").eq("enabled",true)
+  ]);
   const wallets=(walletQuery.data||[]) as TrackedWallet[];
-  const risk=await riskState(s,cfg,acct);
-  const sorted=[...px].sort((a,b)=>b.priceChangePercent-a.priceChangePercent), top=sorted[0]||{symbol:"BTCUSDT",priceChangePercent:0};
+  const sorted=[...px].sort((a,b)=>b.priceChangePercent-a.priceChangePercent),top=sorted[0]||{symbol:"BTCUSDT",priceChangePercent:0};
   const kill=Boolean(cfg?.kill_switch), live=Boolean(!acct.missingConfig&&Deno.env.get("ALLOW_LIVE_TRADING")==="true");
-  const canSubmit=!kill&&!acct.missingConfig&&Number(acct.tradableCapitalUsd||0)>0&&!risk.blocked&&risk.maxOrderUsd>0;
+
+  const rp=(cfg?.risk_params||{}) as Record<string,unknown>;
+  const maxFixed=Math.max(1,Number(rp.maxTradeSizeEur||100));
+  const maxPct=Math.max(0.1,Math.min(100,Number(rp.maxTradeSizePctCapital||10)));
+  const maxDailyLossPct=Math.max(0.1,Number(rp.maxDailyLossPctCapital||2));
+  const maxWeeklyLossPct=Math.max(0.1,Number(rp.maxWeeklyLossPctCapital||5));
+  const haltAfterLosses=Math.max(1,Number(rp.haltAfterConsecutiveLosses||3));
+
+  const tradable=Math.max(0,Number(acct.tradableCapitalUsd||0));
+  const dynamicMax=Math.max(1,Math.min(maxFixed,tradable*(maxPct/100)));
+
+  const dayStart=new Date(); dayStart.setUTCHours(0,0,0,0);
+  const weekStart=new Date(Date.now()-7*86_400_000);
+  const [{data:dailyRows},{data:weeklyRows},{data:recentRows}]=await Promise.all([
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at",dayStart.toISOString()),
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at",weekStart.toISOString()),
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").order("occurred_at",{ascending:false}).limit(haltAfterLosses)
+  ]);
+  const dailyPnl=(dailyRows||[]).reduce((sum,row)=>sum+Number(row.net_pnl_usd||0),0);
+  const weeklyPnl=(weeklyRows||[]).reduce((sum,row)=>sum+Number(row.net_pnl_usd||0),0);
+  const baseCapital=Math.max(Number(acct.totalAccountValueUsd||0),tradable,1);
+  const dailyLossLimit=baseCapital*(maxDailyLossPct/100);
+  const weeklyLossLimit=baseCapital*(maxWeeklyLossPct/100);
+  const dailyStop=dailyPnl<=-dailyLossLimit;
+  const weeklyStop=weeklyPnl<=-weeklyLossLimit;
+  const consecutiveLossStop=(recentRows||[]).length>=haltAfterLosses&&(recentRows||[]).every(row=>Number(row.net_pnl_usd||0)<0);
+  const riskHalt=dailyStop||weeklyStop||consecutiveLossStop;
+
   return {
     updatedAt:new Date().toISOString(),
     settings:cfg,
     prices:px,
     account:acct,
     wallets,
-    risk,
     recommendation:{
       action:"WAIT",
       symbol:String(top.symbol).replace(/USDT$/,""),
@@ -218,26 +248,33 @@ async function cockpit(s:ReturnType<typeof db>){
       amountUsd:0,
       confidence:50,
       momentum:Number(top.priceChangePercent||0),
-      reasoning:["Backend reel actif","Aucun ordre autonome force","Taille dynamique et plafonds de pertes appliqués côté serveur"],
+      reasoning:["Backend reel actif","Aucun ordre autonome force"],
       timestamp:new Date().toISOString()
     },
     validation:{
-      passed:canSubmit,
-      canSubmit,
+      passed:!kill&&!acct.missingConfig&&!riskHalt,
+      canSubmit:!kill&&!acct.missingConfig&&!riskHalt&&tradable>0,
       killSwitchActive:kill,
       liveTradingEnabled:live,
-      tradableCapitalUsd:acct.tradableCapitalUsd,
-      maxOrderUsd:risk.maxOrderUsd,
-      riskBlocked:risk.blocked,
-      riskBlockReasons:risk.blockReasons,
+      tradableCapitalUsd:tradable,
+      maxOrderUsd:dynamicMax,
+      riskMode:String(rp.riskMode||"DYNAMIC"),
+      liveRampStage:String(rp.liveRampStage||"TEST"),
+      dailyPnlUsd:dailyPnl,
+      weeklyPnlUsd:weeklyPnl,
+      dailyLossLimitUsd:dailyLossLimit,
+      weeklyLossLimitUsd:weeklyLossLimit,
+      riskHalt,
       issues:[
         ...(kill?[{field:"killSwitch",message:"Kill switch active",severity:"error"}]:[]),
-        ...(acct.missingConfig?[{field:"mexc",message:"MEXC credentials missing",severity:"warning"}]:[]),
-        ...(risk.blocked?[{field:"risk",message:`Risk guard: ${risk.blockReasons.join(", ")}`,severity:"error"}]:[])
+        ...(acct.missingConfig?[{field:"exchange",message:"Private exchange credentials missing",severity:"warning"}]:[]),
+        ...(dailyStop?[{field:"dailyLoss",message:"Daily loss limit reached",severity:"error"}]:[]),
+        ...(weeklyStop?[{field:"weeklyLoss",message:"Weekly loss limit reached",severity:"error"}]:[]),
+        ...(consecutiveLossStop?[{field:"lossStreak",message:"Consecutive-loss halt active",severity:"error"}]:[])
       ]
     },
-    pnl:{totalValueUsd:acct.totalAccountValueUsd,pnlUsd:0,pnlPct:0,sinceLabel:"live-backend"},
-    liveTradingReady:live&&canSubmit
+    pnl:{totalValueUsd:acct.totalAccountValueUsd,pnlUsd:weeklyPnl,pnlPct:baseCapital>0?(weeklyPnl/baseCapital)*100:0,sinceLabel:"7d-live"},
+    liveTradingReady:live&&!kill&&!riskHalt&&tradable>0
   };
 }
 async function list(s:ReturnType<typeof db>,table:string,order="created_at",limit=100){const {data,error}=await s.from(table).select("*").order(order,{ascending:false}).limit(limit);if(error)throw error;return data||[];}
