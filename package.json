@@ -8,7 +8,8 @@
     "build": "vite build && cp dist/index.html dist/404.html",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "smoke:prelaunch": "node scripts/prelaunch-smoke.mjs"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
