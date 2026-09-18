@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+type SolanaWalletProvider = 'phantom' | 'solflare';
+type EvmWalletProvider = 'metamask' | 'trust' | 'base' | 'best';
+
 interface WalletState {
   solanaAddress: string | null;
-  solanaProvider: 'phantom' | 'solflare' | null;
+  solanaProvider: SolanaWalletProvider | null;
   evmAddress: string | null;
-  evmProvider: 'metamask' | 'trust' | 'base' | null;
-  setSolana: (address: string | null, provider: 'phantom' | 'solflare' | null) => void;
-  setEvm: (address: string | null, provider: 'metamask' | 'trust' | 'base' | null) => void;
+  evmProvider: EvmWalletProvider | null;
+  bestAddresses: string[];
+  setSolana: (address: string | null, provider: SolanaWalletProvider | null) => void;
+  setEvm: (address: string | null, provider: EvmWalletProvider | null) => void;
+  setBestAddresses: (addresses: string[]) => void;
   disconnect: () => void;
 }
 
@@ -18,9 +23,17 @@ export const useWalletStore = create<WalletState>()(
       solanaProvider: null,
       evmAddress: null,
       evmProvider: null,
+      bestAddresses: [],
       setSolana: (address, provider) => set({ solanaAddress: address, solanaProvider: provider }),
       setEvm: (address, provider) => set({ evmAddress: address, evmProvider: provider }),
-      disconnect: () => set({ solanaAddress: null, solanaProvider: null, evmAddress: null, evmProvider: null }),
+      setBestAddresses: (addresses) => set({ bestAddresses: Array.from(new Set(addresses.filter(Boolean))) }),
+      disconnect: () => set({
+        solanaAddress: null,
+        solanaProvider: null,
+        evmAddress: null,
+        evmProvider: null,
+        bestAddresses: [],
+      }),
     }),
     {
       name: 'ikb-wallet-state',
@@ -30,6 +43,7 @@ export const useWalletStore = create<WalletState>()(
         solanaProvider: state.solanaProvider,
         evmAddress: state.evmAddress,
         evmProvider: state.evmProvider,
+        bestAddresses: state.bestAddresses,
       }),
     }
   )
