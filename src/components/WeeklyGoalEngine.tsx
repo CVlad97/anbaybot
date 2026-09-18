@@ -107,3 +107,14 @@ export default function WeeklyGoalEngine() {
     </section>
   );
 }
+
+
+function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="rounded-xl border border-surface-800 p-4">
+      <p className="text-[10px] uppercase tracking-wider text-surface-500">{label}</p>
+      <p className="text-lg font-semibold text-white mt-1">{value}</p>
+      <p className="text-[11px] text-surface-500 mt-1">{sub}</p>
+    </div>
+  );
+}
