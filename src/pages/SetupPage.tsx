@@ -5,11 +5,14 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { publicApi, type PublicOpportunities, type PublicPortfolio, type PublicReadiness } from '../lib/publicApi';
+import { api } from '../lib/api';
 
 const TARGET_TRON = 'TC5rdUUpmWBZuCraVg4YsEq81UR6n4jWSN';
 const TARGET_TRON_MASK = 'TC5rdU…jWSN';
 const USDT_TRC20 = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const SETUP_KEY = 'anbaybot_setup_progress_v1';
+
+type ExchangeHealth = Awaited<ReturnType<typeof api.getExchangeHealth>>;
 
 type SetupProgress = {
   trustWalletOpens: boolean;
@@ -43,6 +46,8 @@ export default function SetupPage() {
   const [portfolio, setPortfolio] = useState<PublicPortfolio | null>(null);
   const [readiness, setReadiness] = useState<PublicReadiness | null>(null);
   const [opportunities, setOpportunities] = useState<PublicOpportunities | null>(null);
+  const [exchangeHealth, setExchangeHealth] = useState<ExchangeHealth | null>(null);
+  const [testResult, setTestResult] = useState('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
@@ -51,6 +56,8 @@ export default function SetupPage() {
     setLoading(true);
     setError('');
     try {
+      const x = await api.getExchangeHealth();
+      setExchangeHealth(x);
       const [p, r, o] = await Promise.all([publicApi.portfolio(), publicApi.readiness(), publicApi.opportunities()]);
       setPortfolio(p);
       setReadiness(r);
@@ -109,6 +116,17 @@ export default function SetupPage() {
     await navigator.clipboard.writeText(value);
     setCopied(label);
     window.setTimeout(() => setCopied(''), 1500);
+  }
+
+  async function runExchangeTest(exchange: 'BINANCE' | 'MEXC') {
+    setTestResult('Test en cours…');
+    try {
+      const result = await api.testExchange(exchange, 'BTC', 1);
+      setTestResult(result.data.message);
+      await refresh();
+    } catch (e) {
+      setTestResult(e instanceof Error ? e.message : 'Test impossible');
+    }
   }
 
   return (
@@ -274,45 +292,74 @@ export default function SetupPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          {(readiness?.exchanges || []).map(exchange => (
-            <div key={exchange.exchange} className="rounded-xl border border-surface-800 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-medium text-white">{exchange.exchange}</p>
-                <span className={exchange.connection_status === 'LIVE_READY' ? 'badge-success' : 'badge-neutral'}>{exchange.connection_status}</span>
+          {(['BINANCE','MEXC'] as const).map(name => {
+            const db = (readiness?.exchanges || []).find(x => x.exchange === name);
+            const health = (exchangeHealth?.exchanges || []).find(x => x.exchange === name);
+            const status = health?.status || db?.connection_status || 'NOT_CONFIGURED';
+            return (
+              <div key={name} className="rounded-xl border border-surface-800 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium text-white">{name}</p>
+                  <span className={status === 'TEST_READY' || status === 'READ_ONLY' ? 'badge-success' : status === 'ERROR' ? 'badge-danger' : 'badge-neutral'}>{status}</span>
+                </div>
+                <p className="text-xs text-surface-500 mt-2">
+                  Clés serveur : {health?.configured ? 'détectées' : 'absentes'} · lecture : {health?.readOk ? 'OK' : 'non validée'}
+                </p>
+                <p className="text-[11px] text-surface-500 mt-1">
+                  Dernier contrôle {health?.lastCheckedAt ? new Date(health.lastCheckedAt).toLocaleString('fr-FR') : db?.last_checked_at ? new Date(db.last_checked_at).toLocaleString('fr-FR') : 'aucun'}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <a
+                    className="btn-secondary inline-flex items-center gap-2"
+                    href={name === 'BINANCE' ? 'https://www.binance.com/en/my/settings/api-management' : 'https://www.mexc.com/user/openapi'}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Créer/voir API <ExternalLink size={12}/>
+                  </a>
+                  <button
+                    className="btn-secondary"
+                    disabled={!health?.readOk}
+                    onClick={() => runExchangeTest(name)}
+                    title={health?.readOk ? 'Teste order/test avec 1 USDT sans transaction réelle' : 'Ajoutez d’abord les clés et validez la lecture'}
+                  >
+                    Ordre TEST 1 USDT
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-surface-500 mt-2">
-                LIVE : {exchange.live_trading_enabled ? 'activé' : 'désactivé'} · dernier contrôle {exchange.last_checked_at ? new Date(exchange.last_checked_at).toLocaleString('fr-FR') : 'aucun'}
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <a
-                  className="btn-secondary inline-flex items-center gap-2"
-                  href={exchange.exchange === 'BINANCE' ? 'https://www.binance.com/en/my/settings/api-management' : 'https://www.mexc.com/user/openapi'}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Gestion API officielle <ExternalLink size={12}/>
-                </a>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
+        {testResult && <div className="rounded-xl border border-surface-800 p-3 mt-4 text-xs text-surface-300">{testResult}</div>}
+
         <div className="rounded-xl border border-surface-800 p-4 mt-4">
-          <p className="text-sm font-medium text-white">Règles de sécurité</p>
+          <p className="text-sm font-medium text-white">Secrets à créer dans Supabase</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+            {['BINANCE_API_KEY','BINANCE_API_SECRET','MEXC_API_KEY','MEXC_API_SECRET'].map(name => (
+              <CopyField key={name} label="Nom du secret" value={name} copied={copied === name} onCopy={() => copy(name, name)} />
+            ))}
+          </div>
+          <p className="text-xs text-surface-400 mt-3">
+            Colle les valeurs directement dans Supabase, jamais dans le chat ni dans GitHub. Permissions recommandées : lecture + spot trading, retraits désactivés.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-xs text-surface-400">
-            <p>✓ Lecture + trading uniquement</p>
+            <p>✓ Lecture + trading spot uniquement</p>
             <p>✓ Retraits API désactivés</p>
             <p>✓ Restriction IP si le fournisseur la permet</p>
-            <p>✓ Clés stockées en secrets serveur, jamais dans GitHub</p>
+            <p>✓ Le kill switch LIVE reste actif pendant les tests</p>
           </div>
-          <a
-            className="btn-secondary inline-flex items-center gap-2 mt-4"
-            href="https://supabase.com/dashboard/project/lmfwtiytqwedrazxjnwu/settings/functions"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Ouvrir les secrets Supabase <ExternalLink size={12}/>
-          </a>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <a
+              className="btn-secondary inline-flex items-center gap-2"
+              href="https://supabase.com/dashboard/project/lmfwtiytqwedrazxjnwu/settings/functions"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ouvrir les secrets Supabase <ExternalLink size={12}/>
+            </a>
+            <button className="btn-primary" onClick={refresh} disabled={loading}>J’ai ajouté les clés · Tester</button>
+          </div>
         </div>
       </section>
 
