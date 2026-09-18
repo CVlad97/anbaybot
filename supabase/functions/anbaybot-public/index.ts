@@ -38,7 +38,7 @@ async function eurUsdRate() {
     const row = await fetchJson<{price?: string}>("https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT");
     const value = Number(row.price || 0);
     if (value > 0) return { eurUsd: value, source: "BINANCE_EURUSDT" };
-  } catch {}
+  } catch { /* try the next FX source */ }
   try {
     const row = await fetchJson<{rates?: {USD?: number}}>("https://api.frankfurter.app/latest?from=EUR&to=USD");
     const value = Number(row.rates?.USD || 0);
