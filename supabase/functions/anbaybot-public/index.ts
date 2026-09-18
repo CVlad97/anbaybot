@@ -161,6 +161,61 @@ async function pnl(s: ReturnType<typeof db>) {
   return { environment:"LIVE", totalNetPnlUsd, count:rows.length, rows, updatedAt:new Date().toISOString() };
 }
 
+async function opportunities(s: ReturnType<typeof db>) {
+  const { data: latest, error: latestError } = await s.from("strategy_scan_runs")
+    .select("run_bucket,created_at")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestError) throw latestError;
+  if (!latest?.run_bucket) return { bucket:null, rows:[], updatedAt:new Date().toISOString() };
+
+  const { data, error } = await s.from("strategy_scan_runs")
+    .select("strategy_key,mode,status,expected_return_pct,metadata,created_at")
+    .eq("run_bucket", latest.run_bucket)
+    .order("strategy_key");
+  if (error) throw error;
+  return { bucket: latest.run_bucket, rows:data || [], updatedAt:new Date().toISOString() };
+}
+
+async function readiness(s: ReturnType<typeof db>) {
+  const [
+    { data: settings, error: settingsError },
+    { data: ai, error: aiError },
+    { data: exchangeRows, error: exchangeError },
+    { data: scan, error: scanError },
+    { data: livePnl, error: pnlError },
+  ] = await Promise.all([
+    s.from("settings").select("kill_switch,risk_params,payout_threshold_eur,updated_at").limit(1).maybeSingle(),
+    s.from("ai_config").select("enabled,risk_tolerance,auto_rebalance,rebalance_interval_hours,last_run_at,updated_at").limit(1).maybeSingle(),
+    s.from("exchange_accounts").select("exchange,connection_status,live_trading_enabled,last_checked_at").order("exchange"),
+    s.from("strategy_scan_runs").select("created_at").order("created_at",{ascending:false}).limit(1).maybeSingle(),
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE"),
+  ]);
+  if (settingsError) throw settingsError;
+  if (aiError) throw aiError;
+  if (exchangeError) throw exchangeError;
+  if (scanError) throw scanError;
+  if (pnlError) throw pnlError;
+
+  const exchanges = exchangeRows || [];
+  const privateReady = exchanges.length > 0 && exchanges.every(row => ["READ_ONLY","TEST_READY","LIVE_READY"].includes(row.connection_status));
+  const liveEnabled = exchanges.some(row => row.connection_status === "LIVE_READY" && row.live_trading_enabled);
+  const totalNetPnlUsd = (livePnl || []).reduce((sum,row)=>sum+Number(row.net_pnl_usd||0),0);
+
+  return {
+    killSwitch: Boolean(settings?.kill_switch ?? true),
+    riskParams: settings?.risk_params || {},
+    ai: ai || null,
+    exchanges,
+    privateReady,
+    liveEnabled,
+    latestScanAt: scan?.created_at || null,
+    livePnlUsd: totalNetPnlUsd,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: cors });
   if (req.method !== "GET") return json({ error:"method_not_allowed" }, 405);
@@ -172,6 +227,8 @@ Deno.serve(async req => {
     if (path === "exchanges") return json(await exchanges(s));
     if (path === "strategies") return json(await strategies(s));
     if (path === "pnl") return json(await pnl(s));
+    if (path === "opportunities") return json(await opportunities(s));
+    if (path === "readiness") return json(await readiness(s));
     return json({ error:"not_found" }, 404);
   } catch (e) {
     console.error("[anbaybot-public]", e);
