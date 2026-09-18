@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRightLeft, ShieldAlert } from 'lucide-react';
+import { ArrowRightLeft, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { actionsApi } from '../lib/actionsApi';
 import { publicApi, type LivePnl, type PublicPortfolio } from '../lib/publicApi';
 
@@ -24,6 +24,8 @@ export default function TransferPlanner({ portfolio }: { portfolio: PublicPortfo
 
   const source = tronWallets.find(w => w.walletId === sourceId);
   const available = amountFor(source, asset);
+  const trxReserve = amountFor(source, 'TRX');
+  const mobileRecovered = Boolean(source?.label.toLowerCase().includes('mobile retrouvé'));
 
   async function prepare() {
     setMessage('');
@@ -45,7 +47,7 @@ export default function TransferPlanner({ portfolio }: { portfolio: PublicPortfo
         destinationAddress: destination.trim(),
         note: 'Préparé depuis le tableau de bord ANBAYBOT',
       });
-      setMessage(`Action préparée. Solde vérifié: ${result.balances.USDT.toFixed(6)} USDT / ${result.balances.TRX.toFixed(6)} TRX. Aucun transfert n’a été diffusé; signature wallet requise.`);
+      setMessage(`Action préparée. Solde vérifié: ${result.balances.USDT.toFixed(6)} USDT / ${result.balances.TRX.toFixed(6)} TRX. Aucun transfert n’a été diffusé; ouvrez Trust Wallet sur le mobile et signez seulement après contrôle de l’adresse et des frais.`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Préparation impossible');
     } finally {
@@ -59,9 +61,18 @@ export default function TransferPlanner({ portfolio }: { portfolio: PublicPortfo
         <ArrowRightLeft size={18} className="text-brand-400 mt-0.5" />
         <div>
           <h2 className="font-semibold text-white">Transfert TRON → autre wallet</h2>
-          <p className="text-xs text-surface-500 mt-1">Prépare le transfert et vérifie le réseau. La signature finale reste dans votre wallet.</p>
+          <p className="text-xs text-surface-500 mt-1">Prépare le transfert et vérifie le réseau. La signature finale reste dans Trust Wallet sur votre mobile.</p>
         </div>
       </div>
+
+      {mobileRecovered && (
+        <div className="card p-3 mb-4 border-l-4 border-l-brand-500/60">
+          <div className="flex gap-2 text-xs text-surface-300">
+            <CheckCircle2 size={15} className="text-brand-400 shrink-0" />
+            <p><strong className="text-white">Wallet mobile retrouvé.</strong> Source reconnue: {source?.label}. ANBAYBOT suit l’adresse en lecture, mais ne possède aucune clé privée.</p>
+          </div>
+        </div>
+      )}
 
       <div className="card p-3 mb-4 border-l-4 border-l-warn-500/60">
         <div className="flex gap-2 text-xs text-surface-400">
@@ -80,10 +91,12 @@ export default function TransferPlanner({ portfolio }: { portfolio: PublicPortfo
         </select>
         <div>
           <input className="input w-full" type="number" min="0" step="any" value={amount} onChange={e => setAmount(e.target.value)} placeholder={`Montant (disponible ≈ ${available.toFixed(6)})`} />
-          <div className="flex gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2">
+            {asset === 'USDT' && <button className="btn-ghost text-xs" onClick={() => setAmount(Math.min(1, available).toFixed(6))}>Test 1 USDT</button>}
             <button className="btn-ghost text-xs" onClick={() => setAmount((available * 0.5).toFixed(6))}>50% du solde</button>
-            <button className="btn-ghost text-xs" onClick={() => setAmount(available.toFixed(6))}>100%</button>
+            {asset === 'USDT' && <button className="btn-ghost text-xs" onClick={() => setAmount(available.toFixed(6))}>100% USDT</button>}
           </div>
+          {asset === 'USDT' && <p className="text-[11px] text-surface-500 mt-2">Réserve TRX détectée: {trxReserve.toFixed(6)} TRX. Conservez-la pour les frais; Trust Wallet affichera le coût exact avant signature.</p>}
         </div>
         <input className="input font-mono" value={destination} onChange={e => setDestination(e.target.value)} placeholder="Adresse Trust Wallet TRON (T…)" />
       </div>
