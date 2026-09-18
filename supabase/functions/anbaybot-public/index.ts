@@ -20,7 +20,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v2" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-public-v4" } } });
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -31,6 +31,20 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(`http_${res.status}`);
   }
   throw new Error("http_retry_exhausted");
+}
+
+async function eurUsdRate() {
+  try {
+    const row = await fetchJson<{price?: string}>("https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT");
+    const value = Number(row.price || 0);
+    if (value > 0) return { eurUsd: value, source: "BINANCE_EURUSDT" };
+  } catch {}
+  try {
+    const row = await fetchJson<{rates?: {USD?: number}}>("https://api.frankfurter.app/latest?from=EUR&to=USD");
+    const value = Number(row.rates?.USD || 0);
+    if (value > 0) return { eurUsd: value, source: "FRANKFURTER_ECB" };
+  } catch {}
+  return { eurUsd: 1.15, source: "FALLBACK_APPROX" };
 }
 
 async function prices() {
@@ -178,6 +192,64 @@ async function opportunities(s: ReturnType<typeof db>) {
   return { bucket: latest.run_bucket, rows:data || [], updatedAt:new Date().toISOString() };
 }
 
+async function weeklyGoal(s: ReturnType<typeof db>) {
+  const [{ totalValueUsd }, fx] = await Promise.all([portfolio(s), eurUsdRate()]);
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+
+  const [{ data: pnlRows, error: pnlError }, { data: businessRows, error: businessError }] = await Promise.all([
+    s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at", since),
+    s.from("business_revenue_ledger").select("net_eur").gte("occurred_at", since),
+  ]);
+  if (pnlError) throw pnlError;
+  if (businessError && !String(businessError.message || "").includes("business_revenue_ledger")) throw businessError;
+
+  const marketPnlUsd7d = (pnlRows || []).reduce((sum,row)=>sum+Number(row.net_pnl_usd||0),0);
+  const marketPnlEur7d = marketPnlUsd7d / fx.eurUsd;
+  const businessEur7d = (businessRows || []).reduce((sum,row)=>sum+Number(row.net_eur||0),0);
+  const actualEur7d = marketPnlEur7d + businessEur7d;
+
+  const capitalEur = totalValueUsd / fx.eurUsd;
+  const targetWeeklyEur = 1000;
+  const targetDailyEur = targetWeeklyEur / 7;
+  const requiredWeeklyReturnPct = capitalEur > 0 ? (targetWeeklyEur / capitalEur) * 100 : null;
+
+  const scenarioPcts = [0.25, 1, 2];
+  const marketScenarios = scenarioPcts.map(weeklyPct => ({
+    weeklyPct,
+    weeklyEur: capitalEur * weeklyPct / 100,
+    targetCoveragePct: targetWeeklyEur > 0 ? (capitalEur * weeklyPct / 100) / targetWeeklyEur * 100 : 0,
+  }));
+
+  const referenceMarketEur = capitalEur * 0.02;
+  const businessGapEur = Math.max(0, targetWeeklyEur - referenceMarketEur);
+  const monthlyRevenueNeeded = targetWeeklyEur * 52 / 12;
+  const subscriptionTargets = [29,49,99].map(priceMonthlyEur => ({
+    priceMonthlyEur,
+    subscribersNeeded: Math.ceil(monthlyRevenueNeeded / priceMonthlyEur),
+    monthlyRevenueNeeded,
+  }));
+
+  return {
+    targetWeeklyEur,
+    targetDailyEur,
+    capitalUsd: totalValueUsd,
+    capitalEur,
+    fx,
+    actualEur7d,
+    marketPnlEur7d,
+    businessEur7d,
+    gapEur7d: Math.max(0, targetWeeklyEur - actualEur7d),
+    progressPct: Math.max(0, Math.min(100, targetWeeklyEur ? actualEur7d / targetWeeklyEur * 100 : 0)),
+    requiredWeeklyReturnPct,
+    marketScenarios,
+    referenceMarketEur,
+    businessGapEur,
+    subscriptionTargets,
+    note: "Les scénarios de marché sont des références mathématiques, pas des prévisions ni des promesses de rendement.",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 async function readiness(s: ReturnType<typeof db>) {
   const [
     { data: settings, error: settingsError },
@@ -229,6 +301,7 @@ Deno.serve(async req => {
     if (path === "pnl") return json(await pnl(s));
     if (path === "opportunities") return json(await opportunities(s));
     if (path === "readiness") return json(await readiness(s));
+    if (path === "goal") return json(await weeklyGoal(s));
     return json({ error:"not_found" }, 404);
   } catch (e) {
     console.error("[anbaybot-public]", e);
