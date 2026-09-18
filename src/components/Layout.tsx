@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Wallet, TrendingUp, Users, Cpu, Terminal, ListOrdered,
   Shield, Menu, X, Zap, ChevronRight, LayoutDashboard,
-  Repeat, Brain, Activity, DollarSign, CreditCard, HeartPulse,
+  Repeat, Brain, Activity, DollarSign, CreditCard, HeartPulse, Settings2,
 } from 'lucide-react';
 import { useWalletStore } from '../store/walletStore';
 import OpportunityNotifications from './OpportunityNotifications';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: '/', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/earnings', label: 'Revenus & P&L', icon: DollarSign },
   { path: '/wallets', label: 'Portefeuilles', icon: Wallet },
+  { path: '/setup', label: 'Setup guidé', icon: Settings2 },
   { path: '/subscriptions', label: 'Souscriptions', icon: CreditCard },
   { path: '/monitoring', label: 'Monitoring 24/7', icon: HeartPulse },
   { path: '/signals', label: 'Signaux live', icon: TrendingUp },
@@ -30,7 +31,7 @@ const NAV_ITEMS = [
   { path: '/safety', label: 'Sécurité', icon: Shield },
 ];
 
-const ADMIN_PATHS = new Set(['/wallets', '/auto-trade', '/ai', '/console', '/safety']);
+const ADMIN_PATHS = new Set(['/wallets', '/setup', '/auto-trade', '/ai', '/console', '/safety']);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   useWalletAutoReconnect();
