@@ -16,6 +16,8 @@ import {
 } from '../lib/wallets/solana';
 import {
   connectEvmWallet,
+  connectEvmWalletAccounts,
+  getConnectedEvmAddresses,
   getEvmWalletDeeplink,
   isEvmWalletInstalled,
   type EvmWalletId,
@@ -34,12 +36,12 @@ function shorten(address: string | null) {
 }
 
 export default function WalletsPage() {
-  const { evmAddress, evmProvider, setSolana, setEvm } = useWalletStore();
+  const { evmAddress, evmProvider, bestAddresses, setSolana, setEvm, setBestAddresses } = useWalletStore();
   const [phantomAddress, setPhantomAddress] = useState<string | null>(null);
   const [solflareAddress, setSolflareAddress] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<PublicPortfolio | null>(null);
   const [exchanges, setExchanges] = useState<PublicExchangeAccount[]>([]);
-  const [localSolana, setLocalSolana] = useState<WalletBalanceData[]>([]);
+  const [localBrowser, setLocalBrowser] = useState<WalletBalanceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -51,9 +53,10 @@ export default function WalletsPage() {
     setLoading(true);
     setError('');
     try {
-      const [serverPortfolio, exchangeData, phantom, solflare] = await Promise.all([
+      const [serverPortfolio, exchangeData, phantom, solflare, best] = await Promise.all([
         publicApi.portfolio(), publicApi.exchanges(),
         getConnectedSolanaAddress('phantom'), getConnectedSolanaAddress('solflare'),
+        getConnectedEvmAddresses('best'),
       ]);
       setPortfolio(serverPortfolio);
       setExchanges(exchangeData.exchanges);
@@ -61,10 +64,18 @@ export default function WalletsPage() {
       setSolflareAddress(solflare);
       if (phantom) setSolana(phantom, 'phantom');
       else if (solflare) setSolana(solflare, 'solflare');
+      if (best.length) {
+        setBestAddresses(best);
+        setEvm(best[0], 'best');
+      }
 
       const localWallets: ManagedWallet[] = [];
       if (phantom) localWallets.push({ id: 'local-phantom', chain: 'solana', label: 'Phantom / Solana', address: phantom, platform: 'PHANTOM', enabled: true, created_at: new Date().toISOString() });
       if (solflare && solflare !== phantom) localWallets.push({ id: 'local-solflare', chain: 'solana', label: 'Solflare / Solana', address: solflare, platform: 'SOLFLARE', enabled: true, created_at: new Date().toISOString() });
+      best.forEach((address, index) => {
+        localWallets.push({ id: `local-best-${index + 1}-eth`, chain: 'eth', label: `Best Wallet ${index + 1} / Ethereum`, address, platform: 'BEST', enabled: true, created_at: new Date().toISOString() });
+        localWallets.push({ id: `local-best-${index + 1}-base`, chain: 'base', label: `Best Wallet ${index + 1} / Base`, address, platform: 'BEST', enabled: true, created_at: new Date().toISOString() });
+      });
 
       let solPrice = 0;
       if (backendApiUrl) {
@@ -76,13 +87,13 @@ export default function WalletsPage() {
           }
         } catch { solPrice = 0; }
       }
-      setLocalSolana(await fetchWalletBalances(localWallets, { sol: solPrice, eth: 0 }));
+      setLocalBrowser(await fetchWalletBalances(localWallets, { sol: solPrice, eth: 0 }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lecture portefeuille impossible');
     } finally {
       setLoading(false);
     }
-  }, [setSolana]);
+  }, [setBestAddresses, setEvm, setSolana]);
 
   useEffect(() => {
     void refresh();
@@ -104,12 +115,21 @@ export default function WalletsPage() {
 
   async function connectEvm(provider: EvmWalletId) {
     setConnecting(provider); setError('');
-    try { setEvm(await connectEvmWallet(provider), provider); }
+    try {
+      if (provider === 'best') {
+        const addresses = await connectEvmWalletAccounts('best');
+        setBestAddresses(addresses);
+        setEvm(addresses[0], 'best');
+      } else {
+        setEvm(await connectEvmWallet(provider), provider);
+      }
+      await refresh();
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Connexion refusée'); }
     finally { setConnecting(null); }
   }
 
-  const browserWalletTotal = useMemo(() => localSolana.reduce((sum, row) => sum + row.totalValueUsd, 0), [localSolana]);
+  const browserWalletTotal = useMemo(() => localBrowser.reduce((sum, row) => sum + row.totalValueUsd, 0), [localBrowser]);
   const connectedExchangeTotal = useMemo(() => exchanges.filter(x => x.connection_status !== 'NOT_CONFIGURED').reduce((s,x)=>s+Number(x.balance_usd||0),0), [exchanges]);
 
   return (
@@ -132,6 +152,17 @@ export default function WalletsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <WalletConnector name="Phantom" chain="Solana" address={phantomAddress} installed={isPhantomInstalled()} connecting={connecting === 'phantom'} onConnect={() => connectSolana('phantom')} deeplink={isMobile ? getPhantomDeeplink(appUrl) : null} />
         <WalletConnector name="Solflare" chain="Solana" address={solflareAddress} installed={isSolflareInstalled()} connecting={connecting === 'solflare'} onConnect={() => connectSolana('solflare')} deeplink={isMobile ? getSolflareDeeplink(appUrl) : null} />
+        <WalletConnector
+          name="Best Wallet"
+          chain="Ethereum / Base · multi-compte"
+          address={evmProvider === 'best' ? evmAddress : (bestAddresses[0] || null)}
+          addresses={bestAddresses}
+          installed={isEvmWalletInstalled('best')}
+          connecting={connecting === 'best'}
+          onConnect={() => connectEvm('best')}
+          deeplink={null}
+          hint={isMobile ? 'Ouvrez ANBAYBOT depuis le navigateur DApp de Best Wallet puis touchez Connecter.' : 'Best Wallet non détecté dans ce navigateur.'}
+        />
         <WalletConnector name="Trust Wallet" chain="Base / Ethereum" address={evmProvider === 'trust' ? evmAddress : null} installed={isEvmWalletInstalled('trust')} connecting={connecting === 'trust'} onConnect={() => connectEvm('trust')} deeplink={isMobile ? getEvmWalletDeeplink('trust', appUrl) : null} />
         <WalletConnector name="MetaMask / Coinbase" chain="Base / Ethereum" address={evmProvider === 'metamask' || evmProvider === 'base' ? evmAddress : null} installed={isEvmWalletInstalled('metamask') || isEvmWalletInstalled('base')} connecting={connecting === 'metamask' || connecting === 'base'} onConnect={() => connectEvm(isEvmWalletInstalled('base') ? 'base' : 'metamask')} deeplink={isMobile ? getEvmWalletDeeplink('metamask', appUrl) : null} />
       </div>
@@ -159,7 +190,7 @@ export default function WalletsPage() {
         </div>
       </section>
 
-      {localSolana.length > 0 && <section className="mb-8"><h2 className="text-lg font-semibold text-white mb-4">Solana connecté dans ce navigateur</h2><div className="space-y-3">{localSolana.map(row => <BalanceRow key={row.walletId} title={row.walletLabel} subtitle={shorten(row.address)} total={row.totalValueUsd} tokens={row.tokens.map(t => `${t.balance.toLocaleString('fr-FR',{maximumFractionDigits:6})} ${t.symbol}`)} />)}</div></section>}
+      {localBrowser.length > 0 && <section className="mb-8"><h2 className="text-lg font-semibold text-white mb-4">Wallets connectés dans ce navigateur</h2><div className="space-y-3">{localBrowser.map(row => <BalanceRow key={row.walletId} title={row.walletLabel} subtitle={`${row.chain} · ${shorten(row.address)}`} total={row.totalValueUsd} tokens={row.tokens.map(t => `${t.balance.toLocaleString('fr-FR',{maximumFractionDigits:6})} ${t.symbol}`)} />)}</div></section>}
 
       <section>
         <h2 className="text-lg font-semibold text-white mb-4">Wallets on-chain vérifiés</h2>
@@ -171,8 +202,9 @@ export default function WalletsPage() {
   );
 }
 
-function WalletConnector({ name, chain, address, installed, connecting, onConnect, deeplink }: { name:string; chain:string; address:string|null; installed:boolean; connecting:boolean; onConnect:()=>void; deeplink:string|null }) {
-  return <div className="card p-5"><div className="flex items-center justify-between gap-3"><div><p className="font-semibold text-white">{name}</p><p className="text-xs text-surface-500">{chain}</p></div>{address && <CheckCircle2 size={18} className="text-brand-400" />}</div>{address ? <div className="mt-4"><p className="text-xs text-brand-400 font-mono">{shorten(address)}</p><p className="text-[11px] text-surface-500 mt-1">Reconnexion auto activée</p></div> : installed ? <button className="btn-primary w-full mt-4" disabled={connecting} onClick={onConnect}>{connecting ? 'Connexion…' : 'Connecter une fois'}</button> : deeplink ? <a className="btn-secondary w-full mt-4 flex items-center justify-center gap-2" href={deeplink} rel="noopener noreferrer"><Smartphone size={15}/> Ouvrir dans le wallet</a> : <p className="text-xs text-surface-500 mt-4">Wallet non détecté. Vous pouvez ajouter l’adresse publique ci-dessous.</p>}</div>;
+function WalletConnector({ name, chain, address, addresses, installed, connecting, onConnect, deeplink, hint }: { name:string; chain:string; address:string|null; addresses?:string[]; installed:boolean; connecting:boolean; onConnect:()=>void; deeplink:string|null; hint?:string }) {
+  const visibleAddresses = addresses?.length ? addresses : (address ? [address] : []);
+  return <div className="card p-5"><div className="flex items-center justify-between gap-3"><div><p className="font-semibold text-white">{name}</p><p className="text-xs text-surface-500">{chain}</p></div>{visibleAddresses.length > 0 && <CheckCircle2 size={18} className="text-brand-400" />}</div>{visibleAddresses.length ? <div className="mt-4 space-y-1">{visibleAddresses.map((item, index)=><p key={item} className="text-xs text-brand-400 font-mono">{visibleAddresses.length > 1 ? `#${index + 1} · ` : ''}{shorten(item)}</p>)}<p className="text-[11px] text-surface-500 mt-1">Reconnexion auto activée{visibleAddresses.length > 1 ? ` · ${visibleAddresses.length} comptes` : ''}</p></div> : installed ? <button className="btn-primary w-full mt-4" disabled={connecting} onClick={onConnect}>{connecting ? 'Connexion…' : 'Connecter une fois'}</button> : deeplink ? <a className="btn-secondary w-full mt-4 flex items-center justify-center gap-2" href={deeplink} rel="noopener noreferrer"><Smartphone size={15}/> Ouvrir dans le wallet</a> : <p className="text-xs text-surface-500 mt-4">{hint || 'Wallet non détecté. Vous pouvez ajouter l’adresse publique ci-dessous.'}</p>}</div>;
 }
 function BalanceRow({ title, subtitle, total, tokens, error }: { title:string; subtitle:string; total:number; tokens:string[]; error?:string }) {
   return <div className="card p-4"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div><p className="font-medium text-white">{title}</p><p className="text-xs text-surface-500">{subtitle}</p></div><p className="text-lg font-semibold text-brand-400">{formatUsd(total)}</p></div><div className="mt-3 flex flex-wrap gap-2">{tokens.length ? tokens.map((t,i)=><span key={`${t}-${i}`} className="badge-neutral">{t}</span>) : <span className="text-xs text-surface-500">Aucun actif valorisé détecté</span>}</div>{error && <p className="text-xs text-warn-300 mt-2">{error}</p>}</div>;
