@@ -3,7 +3,7 @@ export interface ManagedWallet {
   chain: string;
   label: string;
   address: string;
-  platform: 'PHANTOM' | 'SOLFLARE' | 'METAMASK' | 'TRUST' | 'BASE' | 'EVM' | 'CEX';
+  platform: 'PHANTOM' | 'SOLFLARE' | 'METAMASK' | 'TRUST' | 'BASE' | 'BEST' | 'EVM' | 'CEX';
   enabled: boolean;
   created_at: string;
 }
