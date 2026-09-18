@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Cpu, DollarSign, LayoutDashboard, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import RevenueReadinessPanel from '../components/RevenueReadinessPanel';
 import {
   publicApi,
   type LivePnl,
@@ -93,6 +94,8 @@ export default function DashboardPage() {
       </div>
 
       {error && <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{error}</div>}
+
+      <RevenueReadinessPanel />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Metric icon={DollarSign} label="Capital observé" value={formatUsd(totalObserved)} sub={`${formatUsd(portfolio?.totalValueUsd || 0)} on-chain + ${formatUsd(exchangeTotal)} exchanges connectés`} />
