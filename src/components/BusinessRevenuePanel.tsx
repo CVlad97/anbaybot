@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BriefcaseBusiness, Plus, RefreshCw } from 'lucide-react';
+import { Briefcase, Plus, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
 
 type Row = Awaited<ReturnType<typeof api.getBusinessRevenue>>['data'][number];
@@ -74,7 +74,7 @@ export default function BusinessRevenuePanel() {
     <section className="card p-5 mb-8">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
         <div className="flex items-start gap-3">
-          <BriefcaseBusiness size={20} className="text-brand-400 mt-0.5" />
+          <Briefcase size={20} className="text-brand-400 mt-0.5" />
           <div>
             <h3 className="font-semibold text-white">Revenus business vérifiés</h3>
             <p className="text-xs text-surface-500 mt-1">Services, affiliation, referral et SaaS. Ces lignes alimentent l’objectif hebdomadaire.</p>
