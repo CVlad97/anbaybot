@@ -15,7 +15,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-revenue-scanner-v5" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-revenue-scanner-v6" } } });
 }
 
 async function sha256(value: string) {
@@ -220,7 +220,14 @@ function normalizePolymarket(row: PolymarketMarket): PolymarketCandidate | null 
 }
 
 async function scanPolymarket() {
-  const rows = await fetchJson<PolymarketMarket[]>("https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200");
+  const tagIds = [745, 1234];
+  const pages = await Promise.all(tagIds.map(async tagId => {
+    try {
+      const payload = await fetchJson<{markets?: PolymarketMarket[]}>(`https://gamma-api.polymarket.com/markets/keyset?tag_id=${tagId}&closed=false&limit=50`);
+      return payload.markets || [];
+    } catch { return []; }
+  }));
+  const rows = pages.flat();
   const candidates = (rows || [])
     .map(normalizePolymarket)
     .filter((x): x is PolymarketCandidate => Boolean(x))
@@ -370,7 +377,7 @@ Deno.serve(async req => {
 
     await client.from("audit_ledger").insert({
       severity: bestFunding || strongest || bestArb || yieldData.bestEarn ? "INFO" : "WARNING",
-      event_type: "REVENUE_SCAN_COMPLETED", actor_type: "JOB", source: "revenue-scanner-v5", source_ref: `${bucket}:${Date.now()}`,
+      event_type: "REVENUE_SCAN_COMPLETED", actor_type: "JOB", source: "revenue-scanner-v6", source_ref: `${bucket}:${Date.now()}`,
       sanitized_payload: {
         bucket,
         strategies: runs.length,
