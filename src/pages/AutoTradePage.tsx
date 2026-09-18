@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import QuickStartBanner from '../components/QuickStartBanner';
 import PaperScanPanel from '../components/PaperScanPanel';
 import RevenueReadinessPanel from '../components/RevenueReadinessPanel';
+import DynamicRiskPanel from '../components/DynamicRiskPanel';
 import { useAppStore } from '../store/appStore';
 import { api } from '../lib/api';
 import { getStrategies } from '../lib/engines/strategies/index';
@@ -93,6 +94,7 @@ export default function AutoTradePage() {
 
       <QuickStartBanner />
       <RevenueReadinessPanel />
+      <DynamicRiskPanel />
       <PaperScanPanel />
 
       <div className="card p-4 mb-6 border-l-4 border-l-warn-500/50">
