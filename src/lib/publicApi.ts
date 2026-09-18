@@ -110,6 +110,66 @@ export type PublicPolymarket = {
   updatedAt: string;
 };
 
+export type PublicChallenge48h = {
+  session: null | {
+    id: string;
+    name: string;
+    mode: 'PAPER';
+    status: 'ACTIVE' | 'COMPLETED' | 'STOPPED';
+    started_at: string;
+    ends_at: string;
+    start_capital_usd: number;
+    target_min_pct: number;
+    target_max_pct: number;
+    max_drawdown_pct: number;
+    fee_bps: number;
+    slippage_bps: number;
+    benchmark: {
+      name?: string;
+      start_prices?: Record<string, number>;
+      market_source?: string;
+      capital_source?: string;
+    };
+    result: Record<string, unknown>;
+  };
+  checkpoint: null | {
+    checked_at: string;
+    equity_usd: number;
+    cash_usd: number;
+    unrealized_pnl_usd: number;
+    realized_pnl_usd: number;
+    return_pct: number;
+    drawdown_pct: number;
+    benchmark_return_pct: number;
+    prices: Record<string, number>;
+    decision: Record<string, unknown>;
+  };
+  positions: Array<{
+    symbol: string;
+    side: string;
+    entry_at: string;
+    entry_price: number;
+    quote_amount_usd: number;
+    stop_loss_pct: number;
+    take_profit_pct: number;
+    trailing_stop_pct: number;
+    status: 'OPEN' | 'CLOSED';
+    exit_at: string | null;
+    exit_price: number | null;
+    realized_pnl_usd: number;
+    fees_usd: number;
+    metadata: Record<string, unknown>;
+  }>;
+  evidence: {
+    mode: 'PAPER';
+    liveFundsMoved: false;
+    includesFeesAndSlippage: true;
+    marketSource: string;
+    benchmark: string;
+  };
+  updatedAt: string;
+};
+
 export type PublicWeeklyGoal = {
   targetWeeklyEur: number;
   targetDailyEur: number;
@@ -184,5 +244,6 @@ export const publicApi = {
   opportunities: () => get<PublicOpportunities>('opportunities'),
   readiness: () => get<PublicReadiness>('readiness'),
   goal: () => get<PublicWeeklyGoal>('goal'),
+  challenge: () => get<PublicChallenge48h>('challenge'),
   polymarket: () => get<PublicPolymarket>('polymarket'),
 };
