@@ -15,7 +15,7 @@ function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("supabase_server_credentials_missing");
-  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-revenue-scanner-v3" } } });
+  return createClient(url, key, { global: { headers: { "X-Client-Info": "anbaybot-revenue-scanner-v4" } } });
 }
 
 async function sha256(value: string) {
@@ -45,6 +45,34 @@ function bucketHour() {
 
 type FundingRow = { fundingRate: string; fundingTime: number };
 type Book = { symbol: string; bid: number; ask: number };
+type YieldPool = {
+  pool?: string;
+  chain?: string;
+  project?: string;
+  symbol?: string;
+  tvlUsd?: number;
+  apy?: number;
+  apyBase?: number;
+  apyReward?: number;
+  stablecoin?: boolean;
+  ilRisk?: string;
+  exposure?: string;
+};
+
+type YieldCandidate = {
+  pool: string;
+  chain: string;
+  project: string;
+  symbol: string;
+  tvlUsd: number;
+  apy: number;
+  apyBase: number;
+  apyReward: number;
+  stablecoin: boolean;
+  ilRisk: string;
+  exposure: string;
+  score: number;
+};
 
 async function funding(symbol: string) {
   const rows = await fetchJson<FundingRow[]>(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&limit=30`);
@@ -87,6 +115,53 @@ async function arbitrage(symbol: string) {
   return directions.sort((a, b) => b.grossSpreadPct - a.grossSpreadPct)[0];
 }
 
+function normalizeYield(row: YieldPool): YieldCandidate | null {
+  const tvlUsd = Number(row.tvlUsd || 0);
+  const apy = Number(row.apy || 0);
+  if (!Number.isFinite(tvlUsd) || !Number.isFinite(apy) || tvlUsd <= 0 || apy <= 0) return null;
+  const symbol = String(row.symbol || "").toUpperCase();
+  const stableSymbol = /(USDT|USDC|DAI|USDS|PYUSD|USDE|FRAX)/.test(symbol);
+  if (!(row.stablecoin === true || stableSymbol)) return null;
+  if (tvlUsd < 5_000_000 || apy > 50) return null;
+  const ilRisk = String(row.ilRisk || "unknown").toLowerCase();
+  const exposure = String(row.exposure || "unknown").toLowerCase();
+  const riskPenalty = ilRisk === "yes" ? 20 : ilRisk === "unknown" ? 5 : 0;
+  const score = apy * 2 + Math.log10(Math.max(tvlUsd, 1)) * 4 - riskPenalty;
+  return {
+    pool: String(row.pool || ""),
+    chain: String(row.chain || "unknown"),
+    project: String(row.project || "unknown"),
+    symbol,
+    tvlUsd,
+    apy,
+    apyBase: Number(row.apyBase || 0),
+    apyReward: Number(row.apyReward || 0),
+    stablecoin: true,
+    ilRisk,
+    exposure,
+    score,
+  };
+}
+
+async function scanYields() {
+  const payload = await fetchJson<{ data?: YieldPool[] }>("https://yields.llama.fi/pools");
+  const candidates = (payload.data || []).map(normalizeYield).filter((x): x is YieldCandidate => Boolean(x));
+  const earn = candidates
+    .filter(row => row.ilRisk !== "yes" && row.apy <= 30)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+  const farms = candidates
+    .filter(row => row.exposure === "multi" || row.ilRisk === "yes")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+  return {
+    bestEarn: earn[0] || null,
+    bestFarm: farms[0] || candidates.sort((a, b) => b.score - a.score)[0] || null,
+    earn,
+    farms,
+  };
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -108,23 +183,37 @@ Deno.serve(async req => {
     const arbRows = arbSettled.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof arbitrage>>> => r.status === "fulfilled").map(r => r.value);
     const arbErrors = arbSettled.filter(r => r.status === "rejected").map(r => r.status === "rejected" ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : "");
 
+    let yieldData: Awaited<ReturnType<typeof scanYields>> = { bestEarn: null, bestFarm: null, earn: [], farms: [] };
+    let yieldError = "";
+    try {
+      yieldData = await scanYields();
+    } catch (error) {
+      yieldError = error instanceof Error ? error.message : String(error);
+    }
+
+    const { data: balances } = await client.from("wallet_balances").select("value_usd");
+    const capitalObservedUsd = (balances || []).reduce((sum, row) => sum + Number(row.value_usd || 0), 0);
+
     const bestFunding = fundingRows.length ? [...fundingRows].sort((a, b) => b.grossPct - a.grossPct)[0] : null;
     const strongest = market.length ? [...market].sort((a, b) => Math.abs(b.change24hPct) - Math.abs(a.change24hPct))[0] : null;
     const bestArb = arbRows.length ? [...arbRows].sort((a, b) => b.grossSpreadPct - a.grossSpreadPct)[0] : null;
     const fundingStatus = bestFunding ? "DATA_READY" : "UNVERIFIED";
     const marketStatus = strongest ? "PAPER_READY" : "UNVERIFIED";
     const arbitrageStatus = bestArb ? "DATA_READY" : "UNVERIFIED";
+    const yieldStatus = yieldData.bestEarn ? "DATA_READY" : "UNVERIFIED";
+    const farmingStatus = yieldData.bestFarm ? "DATA_READY" : "UNVERIFIED";
+    const yieldHourlyGrossUsd = yieldData.bestEarn ? capitalObservedUsd * (yieldData.bestEarn.apy / 100) / 8760 : null;
 
     const runs = [
       { strategy_key: "funding_capture", mode: "PAPER", source: bestFunding ? "BINANCE_PUBLIC" : "BINANCE_PUBLIC_BLOCKED", status: fundingStatus, expected_return_pct: bestFunding?.grossPct ?? null, metadata: bestFunding ? { assets: fundingRows, best_asset: bestFunding.symbol, costs_included: false } : { errors: fundingErrors } },
       { strategy_key: "futures_directional", mode: "PAPER", source: "MEXC_PUBLIC", status: marketStatus, expected_return_pct: null, metadata: { market, strongest_asset: strongest?.symbol ?? null, strongest_24h_pct: strongest?.change24hPct ?? null, errors: marketErrors, decision: "SCAN_ONLY" } },
       { strategy_key: "spot_momentum", mode: "PAPER", source: "MEXC_PUBLIC", status: marketStatus, expected_return_pct: null, metadata: { market, strongest_asset: strongest?.symbol ?? null, strongest_24h_pct: strongest?.change24hPct ?? null, errors: marketErrors, decision: "SCAN_ONLY" } },
       { strategy_key: "grid_dca", mode: "PAPER", source: "MEXC_PUBLIC", status: marketStatus, expected_return_pct: null, metadata: { market, errors: marketErrors, decision: "SCAN_ONLY" } },
-      { strategy_key: "earn_staking", mode: "RESEARCH", source: "NO_VERIFIED_CONNECTOR", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Current verified APY source not connected." } },
-      { strategy_key: "lending", mode: "RESEARCH", source: "NO_VERIFIED_CONNECTOR", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Current lending APY source not connected." } },
-      { strategy_key: "farming_lp", mode: "RESEARCH", source: "NO_VERIFIED_CONNECTOR", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Current APR, IL and protocol risk source not connected." } },
+      { strategy_key: "earn_staking", mode: "RESEARCH", source: yieldData.bestEarn ? "DEFILLAMA_YIELDS" : "NO_VERIFIED_CONNECTOR", status: yieldStatus, expected_return_pct: yieldData.bestEarn?.apy ?? null, metadata: yieldData.bestEarn ? { best: yieldData.bestEarn, top: yieldData.earn, apy_is_annualized: true, execution: "NONE" } : { reason: yieldError || "No qualifying stablecoin yield pool." } },
+      { strategy_key: "lending", mode: "RESEARCH", source: yieldData.bestEarn ? "DEFILLAMA_YIELDS" : "NO_VERIFIED_CONNECTOR", status: yieldStatus, expected_return_pct: yieldData.bestEarn?.apy ?? null, metadata: yieldData.bestEarn ? { best: yieldData.bestEarn, apy_is_annualized: true, execution: "NONE" } : { reason: yieldError || "No qualifying stablecoin lending candidate." } },
+      { strategy_key: "farming_lp", mode: "RESEARCH", source: yieldData.bestFarm ? "DEFILLAMA_YIELDS" : "NO_VERIFIED_CONNECTOR", status: farmingStatus, expected_return_pct: yieldData.bestFarm?.apy ?? null, metadata: yieldData.bestFarm ? { best: yieldData.bestFarm, top: yieldData.farms, apy_is_annualized: true, impermanent_loss_risk: yieldData.bestFarm.ilRisk, execution: "NONE" } : { reason: yieldError || "No qualifying stablecoin farm." } },
       { strategy_key: "arbitrage", mode: "PAPER", source: bestArb ? "BINANCE_MEXC_PUBLIC_BOOK" : "PUBLIC_BOOK_BLOCKED", status: arbitrageStatus, expected_return_pct: bestArb?.grossSpreadPct ?? null, metadata: bestArb ? { quotes: arbRows, best: bestArb, costs_included: false, note: "Gross bid/ask spread only. Fees, slippage, withdrawal cost and latency not included." } : { errors: arbErrors } },
-      { strategy_key: "prediction_markets", mode: "RESEARCH", source: "NO_VERIFIED_CONNECTOR", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Polymarket/prediction live connector not verified." } },
+      { strategy_key: "prediction_markets", mode: "RESEARCH", source: "NO_VERIFIED_CONNECTOR", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Prediction connector not verified." } },
       { strategy_key: "copy_trading", mode: "PAPER", source: "NO_VERIFIED_TRADER", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "No verified source trader connected." } },
       { strategy_key: "referral", mode: "RESEARCH", source: "ANBAYBOT", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Revenue recognized only after actual commission payment." } },
       { strategy_key: "saas", mode: "RESEARCH", source: "ANBAYBOT", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Revenue recognized only after actual subscription payment." } },
@@ -136,28 +225,76 @@ Deno.serve(async req => {
     for (const row of fundingRows) {
       const annualized = row.horizonDays > 0 ? row.grossPct * (365 / row.horizonDays) : null;
       await client.from("revenue_strategy_snapshots").insert({
-        environment: "HISTORICAL", strategy: "FUNDING_CAPTURE", source: "BINANCE_PUBLIC", venue: "BINANCE_FUTURES", asset: row.symbol,
+        environment: "PAPER", strategy: "FUNDING_CAPTURE", source: "BINANCE_PUBLIC", venue: "BINANCE_FUTURES", asset: row.symbol,
         horizon_days: row.horizonDays, gross_return_pct: row.grossPct, total_cost_pct: null, net_return_pct: null,
         annualized_simple_pct: annualized, evidence_quality: "HISTORICAL_VERIFIED",
         inputs: { funding_count: row.count, last_funding_pct: row.lastFundingPct, window_start: row.windowStart, window_end: row.windowEnd },
-        notes: "Gross funding only; not net of fees or basis risk and not a future-profit promise.",
+        notes: "Historical gross funding observed; not net of fees or basis risk and not a future-profit promise.",
+      });
+    }
+
+    if (yieldData.bestEarn) {
+      await client.from("revenue_strategy_snapshots").insert({
+        environment: "PAPER", strategy: "EARN", source: "DEFILLAMA_YIELDS", venue: yieldData.bestEarn.project, asset: yieldData.bestEarn.symbol,
+        horizon_days: 365, gross_return_pct: yieldData.bestEarn.apy, total_cost_pct: null, net_return_pct: null,
+        annualized_simple_pct: yieldData.bestEarn.apy, evidence_quality: "PAPER", capital_eur: null, scenario_pnl_eur: null,
+        inputs: { chain: yieldData.bestEarn.chain, pool: yieldData.bestEarn.pool, tvl_usd: yieldData.bestEarn.tvlUsd, il_risk: yieldData.bestEarn.ilRisk },
+        notes: "Public APY snapshot only. No deposit executed; smart-contract, stablecoin and protocol risks remain.",
+      });
+    }
+
+    if (yieldData.bestFarm) {
+      await client.from("revenue_strategy_snapshots").insert({
+        environment: "PAPER", strategy: "FARMING", source: "DEFILLAMA_YIELDS", venue: yieldData.bestFarm.project, asset: yieldData.bestFarm.symbol,
+        horizon_days: 365, gross_return_pct: yieldData.bestFarm.apy, total_cost_pct: null, net_return_pct: null,
+        annualized_simple_pct: yieldData.bestFarm.apy, evidence_quality: "PAPER", capital_eur: null, scenario_pnl_eur: null,
+        inputs: { chain: yieldData.bestFarm.chain, pool: yieldData.bestFarm.pool, tvl_usd: yieldData.bestFarm.tvlUsd, il_risk: yieldData.bestFarm.ilRisk },
+        notes: "Public farming APY snapshot only. No deposit executed; impermanent loss and protocol risks may apply.",
       });
     }
 
     const now = new Date().toISOString();
-    await client.from("strategy_catalog").update({ last_verified_at: now, updated_at: now }).in("strategy_key", ["funding_capture", "futures_directional", "spot_momentum", "grid_dca", "arbitrage"]);
+    await client.from("strategy_catalog").update({ last_verified_at: now, updated_at: now }).in("strategy_key", ["funding_capture", "futures_directional", "spot_momentum", "grid_dca", "arbitrage", "earn_staking", "lending", "farming_lp"]);
     if (bestArb) await client.from("strategy_catalog").update({ status: "DATA_READY", note: "Bid/ask Binance↔MEXC mesuré. Spread brut seulement; coûts et latence restent à soustraire." }).eq("strategy_key", "arbitrage");
+    if (yieldData.bestEarn) await client.from("strategy_catalog").update({ status: "DATA_READY", note: "APY public stablecoin détecté. Analyse seulement; aucun dépôt automatique." }).in("strategy_key", ["earn_staking", "lending"]);
+    if (yieldData.bestFarm) await client.from("strategy_catalog").update({ status: "DATA_READY", note: "APY farming public détecté. IL/protocole à évaluer avant toute allocation." }).eq("strategy_key", "farming_lp");
 
     await client.from("audit_ledger").insert({
-      severity: bestFunding || strongest || bestArb ? "INFO" : "WARNING", event_type: "REVENUE_SCAN_COMPLETED", actor_type: "JOB", source: "revenue-scanner-v3", source_ref: `${bucket}:${Date.now()}`,
-      sanitized_payload: { bucket, strategies: runs.length, funding_status: fundingStatus, market_status: marketStatus, arbitrage_status: arbitrageStatus, bestFunding: bestFunding ? { symbol: bestFunding.symbol, grossPct: bestFunding.grossPct } : null, strongest24h: strongest ? { symbol: strongest.symbol, changePct: strongest.change24hPct } : null, bestArbitrage: bestArb },
+      severity: bestFunding || strongest || bestArb || yieldData.bestEarn ? "INFO" : "WARNING",
+      event_type: "REVENUE_SCAN_COMPLETED", actor_type: "JOB", source: "revenue-scanner-v4", source_ref: `${bucket}:${Date.now()}`,
+      sanitized_payload: {
+        bucket,
+        strategies: runs.length,
+        funding_status: fundingStatus,
+        market_status: marketStatus,
+        arbitrage_status: arbitrageStatus,
+        yield_status: yieldStatus,
+        farming_status: farmingStatus,
+        capital_observed_usd: capitalObservedUsd,
+        bestFunding: bestFunding ? { symbol: bestFunding.symbol, grossPct: bestFunding.grossPct } : null,
+        strongest24h: strongest ? { symbol: strongest.symbol, changePct: strongest.change24hPct } : null,
+        bestArbitrage: bestArb,
+        bestYield: yieldData.bestEarn,
+        bestFarm: yieldData.bestFarm,
+      },
     });
 
     return json({
-      status: "ok", bucket, strategies: runs.length, fundingStatus, marketStatus, arbitrageStatus,
+      status: "ok",
+      bucket,
+      strategies: runs.length,
+      fundingStatus,
+      marketStatus,
+      arbitrageStatus,
+      yieldStatus,
+      farmingStatus,
+      capitalObservedUsd,
+      yieldHourlyGrossUsd,
       bestFunding: bestFunding ? { symbol: bestFunding.symbol, grossPct: bestFunding.grossPct } : null,
       strongest24h: strongest ? { symbol: strongest.symbol, changePct: strongest.change24hPct } : null,
       bestArbitrage: bestArb,
+      bestYield: yieldData.bestEarn,
+      bestFarm: yieldData.bestFarm,
       liveExecution: false,
     });
   } catch (error) {
