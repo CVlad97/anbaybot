@@ -553,5 +553,26 @@ export const api = {
     mode: 'TEST';
   }) => request<{ data: TradeExecutionResult }>('/ikb-api?path=trading/order', { method: 'POST', body: JSON.stringify(body) }),
   getTradingPnL: () => request<{ data: TradingPnL }>('/ikb-api?path=trading/pnl'),
+  getBusinessRevenue: () => request<{ data: Array<{
+    id: string;
+    occurred_at: string;
+    source: 'SAAS' | 'REFERRAL' | 'AFFILIATE' | 'SERVICES' | 'OTHER';
+    gross_eur: number;
+    fees_eur: number;
+    net_eur: number;
+    note: string | null;
+    proof_ref: string | null;
+  }> }>('/ikb-api?path=business-revenue'),
+  addBusinessRevenue: (body: {
+    source: 'SAAS' | 'REFERRAL' | 'AFFILIATE' | 'SERVICES' | 'OTHER';
+    gross_eur: number;
+    fees_eur?: number;
+    note?: string;
+    proof_ref?: string;
+    occurred_at?: string;
+  }) => request<{ data: unknown }>('/ikb-api?path=business-revenue', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
   getEarnFlexibleProducts: () => request<{ data: unknown }>('/ikb-api?path=earn/flexible/list'),
 };
