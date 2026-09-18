@@ -69,6 +69,45 @@ export type LivePnl = {
   updatedAt: string;
 };
 
+export type PublicOpportunityRow = {
+  strategy_key: string;
+  mode: 'RESEARCH' | 'PAPER' | 'TEST';
+  status: string;
+  expected_return_pct: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type PublicOpportunities = {
+  bucket: string | null;
+  rows: PublicOpportunityRow[];
+  updatedAt: string;
+};
+
+export type PublicReadiness = {
+  killSwitch: boolean;
+  riskParams: Record<string, unknown>;
+  ai: {
+    enabled: boolean;
+    risk_tolerance: string;
+    auto_rebalance: boolean;
+    rebalance_interval_hours: number;
+    last_run_at: string | null;
+    updated_at: string;
+  } | null;
+  exchanges: Array<{
+    exchange: 'BINANCE' | 'MEXC';
+    connection_status: 'NOT_CONFIGURED' | 'READ_ONLY' | 'TEST_READY' | 'LIVE_READY' | 'ERROR';
+    live_trading_enabled: boolean;
+    last_checked_at: string | null;
+  }>;
+  privateReady: boolean;
+  liveEnabled: boolean;
+  latestScanAt: string | null;
+  livePnlUsd: number;
+  updatedAt: string;
+};
+
 const base = supabaseUrl ? `${supabaseUrl}/functions/v1/anbaybot-public` : '';
 
 async function get<T>(path: string): Promise<T> {
@@ -88,4 +127,6 @@ export const publicApi = {
   exchanges: () => get<{ exchanges: PublicExchangeAccount[]; totalExchangeUsd: number; updatedAt: string }>('exchanges'),
   strategies: () => get<{ strategies: PublicStrategy[]; updatedAt: string }>('strategies'),
   pnl: () => get<LivePnl>('pnl'),
+  opportunities: () => get<PublicOpportunities>('opportunities'),
+  readiness: () => get<PublicReadiness>('readiness'),
 };
