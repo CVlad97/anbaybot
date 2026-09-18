@@ -1,13 +1,54 @@
 import { useEffect } from 'react';
-import { getConnectedEvmAddress, type EvmWalletId } from '../lib/wallets/evm';
+import {
+  getConnectedEvmAddress,
+  getConnectedEvmAddresses,
+  type EvmWalletId,
+} from '../lib/wallets/evm';
 import { getConnectedSolanaAddress } from '../lib/wallets/solana';
 import { useWalletStore } from '../store/walletStore';
+import { api } from '../lib/api';
+import { getAdminToken } from '../lib/auth';
 
 const SOLANA_PROVIDERS = ['phantom', 'solflare'] as const;
-const EVM_PROVIDERS: EvmWalletId[] = ['trust', 'metamask', 'base'];
+const EVM_PROVIDERS: EvmWalletId[] = ['best', 'trust', 'metamask', 'base'];
+
+async function syncBestWallets(addresses: string[]) {
+  if (!addresses.length || !getAdminToken()) return;
+  try {
+    const response = await api.getManagedWallets();
+    const existing = Array.isArray(response.data) ? response.data : [];
+    const rows = existing.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object');
+
+    for (const [index, address] of addresses.entries()) {
+      for (const chain of ['eth', 'base'] as const) {
+        const found = rows.some(row =>
+          String(row.address || '').toLowerCase() === address.toLowerCase()
+          && String(row.chain || '').toLowerCase() === chain
+          && String(row.platform || '').toUpperCase() === 'BEST'
+        );
+        if (found) continue;
+        await api.createManagedWallet({
+          chain,
+          label: `Best Wallet ${index + 1} / ${chain === 'eth' ? 'Ethereum' : 'Base'}`,
+          address,
+          platform: 'BEST',
+          enabled: true,
+        });
+      }
+    }
+  } catch {
+    // Read-only browser reconnect stays active even when admin sync is unavailable.
+  }
+}
 
 export function useWalletAutoReconnect() {
-  const { solanaProvider, evmProvider, setSolana, setEvm } = useWalletStore();
+  const {
+    solanaProvider,
+    evmProvider,
+    setSolana,
+    setEvm,
+    setBestAddresses,
+  } = useWalletStore();
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +72,18 @@ export function useWalletAutoReconnect() {
         : [...EVM_PROVIDERS];
 
       for (const provider of evmCandidates) {
+        if (provider === 'best') {
+          const addresses = await getConnectedEvmAddresses('best');
+          if (cancelled) return;
+          if (addresses.length) {
+            setBestAddresses(addresses);
+            setEvm(addresses[0], 'best');
+            void syncBestWallets(addresses);
+            break;
+          }
+          continue;
+        }
+
         const address = await getConnectedEvmAddress(provider);
         if (cancelled) return;
         if (address) {
@@ -54,5 +107,5 @@ export function useWalletAutoReconnect() {
       window.removeEventListener('focus', retry);
       document.removeEventListener('visibilitychange', retry);
     };
-  }, [evmProvider, setEvm, setSolana, solanaProvider]);
+  }, [evmProvider, setBestAddresses, setEvm, setSolana, solanaProvider]);
 }
