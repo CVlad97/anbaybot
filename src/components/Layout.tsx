@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { path: '/safety', label: 'Sécurité', icon: Shield },
 ];
 
-const ADMIN_PATHS = new Set(['/wallets', '/setup', '/auto-trade', '/ai', '/console', '/safety']);
+const ADMIN_PATHS = new Set(['/wallets', '/auto-trade', '/ai', '/console', '/safety']);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   useWalletAutoReconnect();
