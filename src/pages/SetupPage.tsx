@@ -4,7 +4,7 @@ import {
   KeyRound, Link2, RefreshCw, ShieldCheck, Smartphone, Wallet,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import { publicApi, type PublicPortfolio, type PublicReadiness } from '../lib/publicApi';
+import { publicApi, type PublicOpportunities, type PublicPortfolio, type PublicReadiness } from '../lib/publicApi';
 
 const TARGET_TRON = 'TC5rdUUpmWBZuCraVg4YsEq81UR6n4jWSN';
 const TARGET_TRON_MASK = 'TC5rdU…jWSN';
@@ -42,6 +42,7 @@ export default function SetupPage() {
   const [progress, setProgress] = useState<SetupProgress>(() => readProgress());
   const [portfolio, setPortfolio] = useState<PublicPortfolio | null>(null);
   const [readiness, setReadiness] = useState<PublicReadiness | null>(null);
+  const [opportunities, setOpportunities] = useState<PublicOpportunities | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
@@ -50,9 +51,10 @@ export default function SetupPage() {
     setLoading(true);
     setError('');
     try {
-      const [p, r] = await Promise.all([publicApi.portfolio(), publicApi.readiness()]);
+      const [p, r, o] = await Promise.all([publicApi.portfolio(), publicApi.readiness(), publicApi.opportunities()]);
       setPortfolio(p);
       setReadiness(r);
+      setOpportunities(o);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de lire l’état serveur');
     } finally {
@@ -76,6 +78,17 @@ export default function SetupPage() {
   const chainFundsFound = Boolean(usdt && usdt.balance > 0);
   const exchangesReady = Boolean(readiness?.privateReady);
   const paperReady = Boolean(readiness?.ai?.enabled && readiness?.latestScanAt);
+  const walletsReadable = (portfolio?.wallets || []).filter(w => !w.error).length;
+  const walletsTotal = portfolio?.wallets.length || 0;
+  const candidateReady = Boolean((opportunities?.rows || []).some(row => ['DATA_READY', 'PAPER_READY', 'TEST_READY'].includes(row.status)));
+  const liveReady = Boolean(
+    readiness
+    && !readiness.killSwitch
+    && readiness.privateReady
+    && readiness.liveEnabled
+    && progress.canSign
+    && progress.testedSmallTransfer
+  );
 
   const completed = [
     chainFundsFound,
@@ -124,6 +137,24 @@ export default function SetupPage() {
       </div>
 
       {error && <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{error}</div>}
+
+      <section className={`card p-5 mb-6 border-l-4 ${liveReady ? 'border-l-brand-500' : 'border-l-warn-500'}`}>
+        <div className="flex items-start gap-3">
+          {liveReady ? <CheckCircle2 size={20} className="text-brand-400 mt-0.5" /> : <AlertTriangle size={20} className="text-warn-400 mt-0.5" />}
+          <div className="flex-1">
+            <h2 className="font-semibold text-white">Diagnostic « gains réels »</h2>
+            <p className={`text-lg font-bold mt-2 ${liveReady ? 'text-brand-400' : 'text-warn-300'}`}>
+              {liveReady ? 'INFRASTRUCTURE LIVE PRÊTE — résultat non garanti' : 'PAS ENCORE PRÊT POUR UN P&L LIVE'}
+            </p>
+            <p className="text-xs text-surface-400 mt-2">
+              Wallets lisibles {walletsReadable}/{walletsTotal || '—'} · opportunité exploitable en PAPER {candidateReady ? 'oui' : 'non'} · APIs privées {readiness?.privateReady ? 'prêtes' : 'non'} · kill switch {readiness?.killSwitch ? 'actif' : 'désactivé'} · LIVE {readiness?.liveEnabled ? 'activé' : 'désactivé'} · P&L LIVE ${Number(readiness?.livePnlUsd || 0).toFixed(2)}
+            </p>
+          </div>
+          <button className="btn-primary flex items-center gap-2" onClick={refresh} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Tester tout
+          </button>
+        </div>
+      </section>
 
       <section className="card p-5 mb-6 border-l-4 border-l-brand-500">
         <div className="flex items-start gap-3">
@@ -209,10 +240,27 @@ export default function SetupPage() {
         <div className="flex items-start gap-3">
           <Link2 size={20} className="text-brand-400 mt-0.5" />
           <div className="flex-1">
-            <h2 className="font-semibold text-white">3 · Connecter les autres wallets</h2>
-            <p className="text-xs text-surface-500 mt-1">Phantom, Solflare, Best Wallet, Trust Wallet EVM et wallets suivis en lecture.</p>
+            <h2 className="font-semibold text-white">3 · Connecter et vérifier tous les wallets</h2>
+            <p className="text-xs text-surface-500 mt-1">Lecture on-chain automatique. Une connexion de signature reste volontaire et se confirme dans chaque wallet.</p>
           </div>
-          <a href="#/wallets" className="btn-primary inline-flex items-center gap-2">Portefeuilles <ChevronRight size={14}/></a>
+          <a href="#/wallets" className="btn-primary inline-flex items-center gap-2">Connecter navigateur <ChevronRight size={14}/></a>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+          {(portfolio?.wallets || []).map(wallet => (
+            <div key={wallet.walletId} className="rounded-xl border border-surface-800 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-white">{wallet.label}</p>
+                  <p className="text-[11px] text-surface-500 mt-1">{wallet.chain} · {wallet.platform} · {wallet.addressMasked}</p>
+                </div>
+                <span className={wallet.error ? 'badge-danger' : 'badge-success'}>{wallet.error ? 'ERREUR' : 'LISIBLE'}</span>
+              </div>
+              <p className="text-xs text-surface-400 mt-3">
+                {wallet.tokens.length ? wallet.tokens.map(t => `${t.balance.toLocaleString('fr-FR',{maximumFractionDigits:6})} ${t.symbol}`).join(' · ') : 'Aucun actif valorisé détecté'}
+              </p>
+              {wallet.error && <p className="text-[11px] text-danger-300 mt-2">{wallet.error}</p>}
+            </div>
+          ))}
         </div>
       </section>
 
