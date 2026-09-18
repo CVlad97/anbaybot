@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, ShieldCheck } from 'lucide-react';
 import { publicApi, type PublicOpportunities, type PublicReadiness } from '../lib/publicApi';
+import { getAdminToken } from '../lib/auth';
+import { runRevenueScan } from '../lib/revenueScanApi';
 
 function formatTime(value: string | null) {
   return value ? new Date(value).toLocaleString('fr-FR') : 'Aucun';
@@ -34,7 +36,39 @@ export default function RevenueReadinessPanel() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    let active = true;
+    async function boot() {
+      try {
+        const token = getAdminToken();
+        const last = Number(window.localStorage.getItem('anbaybot_last_auto_scan_ms') || 0);
+        if (token && Date.now() - last > 5 * 60 * 1000) {
+          await runRevenueScan();
+          window.localStorage.setItem('anbaybot_last_auto_scan_ms', String(Date.now()));
+        }
+      } catch {
+        // Readiness reste lisible même si le scanner privé échoue.
+      }
+      if (active) await refresh();
+    }
+
+    void boot();
+    const timer = window.setInterval(async () => {
+      if (!getAdminToken()) return;
+      try {
+        await runRevenueScan();
+        window.localStorage.setItem('anbaybot_last_auto_scan_ms', String(Date.now()));
+      } catch {
+        // L'échec d'un scan PAPER ne doit jamais déclencher une action financière.
+      }
+      if (active) await refresh();
+    }, 15 * 60 * 1000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [refresh]);
 
   const configuredExchanges = useMemo(
     () => readiness?.exchanges.filter(x => x.connection_status !== 'NOT_CONFIGURED' && x.connection_status !== 'ERROR').length || 0,
