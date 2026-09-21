@@ -232,9 +232,9 @@ Deno.serve(async req=>{
         list(s,"asset_accounts_registry","updated_at",200),
         list(s,"asset_wallet_registry","updated_at",500)
       ]);
-      const confirmed=wallets.filter((w:any)=>w.ownership_status==="CONFIRMED");
-      const candidates=wallets.filter((w:any)=>w.ownership_status==="CANDIDATE");
-      const unverified=wallets.filter((w:any)=>w.ownership_status==="UNVERIFIED_EXTERNAL");
+      const confirmed=wallets.filter((w:Record<string,unknown>)=>w.ownership_status==="CONFIRMED");
+      const candidates=wallets.filter((w:Record<string,unknown>)=>w.ownership_status==="CANDIDATE");
+      const unverified=wallets.filter((w:Record<string,unknown>)=>w.ownership_status==="UNVERIFIED_EXTERNAL");
       return json(req,{
         accounts,
         wallets,
@@ -243,8 +243,8 @@ Deno.serve(async req=>{
           confirmedWallets:confirmed.length,
           candidateWallets:candidates.length,
           unverifiedWallets:unverified.length,
-          preferredHub:accounts.find((a:any)=>a.preferred_hub)?.provider||null,
-          confirmedNativeBalances:confirmed.map((w:any)=>({
+          preferredHub:accounts.find((a:Record<string,unknown>)=>Boolean(a.preferred_hub))?.provider||null,
+          confirmedNativeBalances:confirmed.map((w:Record<string,unknown>)=>({
             chain:w.chain,
             address:w.address,
             symbol:w.native_symbol,
