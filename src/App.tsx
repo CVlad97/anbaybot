@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
 import WalletsPage from './pages/WalletsPage';
+import AccountsPage from './pages/AccountsPage';
 import SignalsPage from './pages/SignalsPage';
 import TradersPage from './pages/TradersPage';
 import StrategiesPage from './pages/StrategiesPage';
@@ -24,6 +25,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/wallets" element={<WalletsPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/setup" element={<SetupPage />} />
           <Route path="/activate/:token" element={<OwnerActivationPage />} />
           <Route path="/signals" element={<SignalsPage />} />
