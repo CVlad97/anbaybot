@@ -227,6 +227,33 @@ Deno.serve(async req=>{
     if(path==="config"&&req.method==="PUT"){const body=await req.json();const cfg=await settings(s);await s.from("settings").update({...body,updated_at:new Date().toISOString()}).eq("id",cfg.id).throwOnError();await audit(s,"settings_updated",{fields:Object.keys(body)});return json(req,{success:true});}
     if(path==="kill"&&req.method==="POST"){const body=await req.json();const cfg=await settings(s);await s.from("settings").update({kill_switch:Boolean(body.kill),updated_at:new Date().toISOString()}).eq("id",cfg.id).throwOnError();await audit(s,body.kill?"kill_switch_activated":"kill_switch_deactivated");return json(req,{kill_switch:Boolean(body.kill)});}
     if(path==="audit") return json(req,{data:await list(s,"audit_logs","created_at",200)});
+    if(path==="asset-registry"&&req.method==="GET"){
+      const [accounts,wallets]=await Promise.all([
+        list(s,"asset_accounts_registry","updated_at",200),
+        list(s,"asset_wallet_registry","updated_at",500)
+      ]);
+      const confirmed=wallets.filter((w:any)=>w.ownership_status==="CONFIRMED");
+      const candidates=wallets.filter((w:any)=>w.ownership_status==="CANDIDATE");
+      const unverified=wallets.filter((w:any)=>w.ownership_status==="UNVERIFIED_EXTERNAL");
+      return json(req,{
+        accounts,
+        wallets,
+        summary:{
+          accountCount:accounts.length,
+          confirmedWallets:confirmed.length,
+          candidateWallets:candidates.length,
+          unverifiedWallets:unverified.length,
+          preferredHub:accounts.find((a:any)=>a.preferred_hub)?.provider||null,
+          confirmedNativeBalances:confirmed.map((w:any)=>({
+            chain:w.chain,
+            address:w.address,
+            symbol:w.native_symbol,
+            balance:Number(w.native_balance||0)
+          })),
+          updatedAt:new Date().toISOString()
+        }
+      });
+    }
     if(path==="wallets/list") return json(req,{data:await list(s,"managed_wallets")});
     if(path==="followed-wallets/list") return json(req,{data:await list(s,"followed_wallets","score",200)});
     if(path==="actions/list") return json(req,{data:await list(s,"actions")});
