@@ -493,6 +493,23 @@ export const api = {
   runSignals: () => request('/ikb-api?path=signals/run', { method: 'POST' }),
   getSignals: () => request<{ data: unknown[] }>('/ikb-api?path=signals/list'),
 
+  getAssetRegistry: () => request<{
+    accounts: Array<{
+      id:string; provider:string; category:string; account_email:string|null; status:string; connection_status:string;
+      kyc_status:string|null; can_read:boolean; can_trade:boolean; can_withdraw:boolean; preferred_hub:boolean;
+      notes:string|null; evidence_source:string|null; last_checked_at:string|null;
+    }>;
+    wallets: Array<{
+      id:string; provider:string|null; chain:string; address:string; label:string|null; ownership_status:string;
+      connection_status:string; native_balance:number|null; native_symbol:string|null; asset_snapshot:Record<string,unknown>;
+      yield_status:string; notes:string|null; last_checked_at:string|null;
+    }>;
+    summary:{
+      accountCount:number; confirmedWallets:number; candidateWallets:number; unverifiedWallets:number;
+      preferredHub:string|null; updatedAt:string;
+    };
+  }>('/ikb-api?path=asset-registry'),
+
   getManagedWallets: () => request<{ data: unknown[] }>('/ikb-api?path=wallets/list'),
   createManagedWallet: (body: unknown) => request<{ data: unknown }>('/ikb-api?path=wallets', { method: 'POST', body: JSON.stringify(body) }),
   updateManagedWallet: (id: string, body: unknown) =>
