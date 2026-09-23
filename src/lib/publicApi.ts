@@ -170,21 +170,21 @@ export type PublicChallenge48h = {
   updatedAt: string;
 };
 
-export type PublicWeeklyGoal = {
-  targetWeeklyEur: number;
+export type PublicMonthlyGoal = {
+  targetMonthlyEur: number;
   targetDailyEur: number;
   capitalUsd: number;
   capitalEur: number;
   fx: { eurUsd: number; source: string };
-  actualEur7d: number;
-  marketPnlEur7d: number;
-  businessEur7d: number;
-  gapEur7d: number;
+  actualEur30d: number;
+  marketPnlEur30d: number;
+  businessEur30d: number;
+  gapEur30d: number;
   progressPct: number;
-  requiredWeeklyReturnPct: number | null;
+  requiredMonthlyReturnPct: number | null;
   marketScenarios: Array<{
-    weeklyPct: number;
-    weeklyEur: number;
+    monthlyPct: number;
+    monthlyEur: number;
     targetCoveragePct: number;
   }>;
   referenceMarketEur: number;
@@ -195,6 +195,32 @@ export type PublicWeeklyGoal = {
     monthlyRevenueNeeded: number;
   }>;
   note: string;
+  updatedAt: string;
+};
+
+export type PublicTradeIntelligence = {
+  sources: Array<{
+    source_key: string;
+    name: string;
+    url: string;
+    mode: string;
+    enabled: boolean;
+    execution_allowed: boolean;
+    max_weight: number;
+    notes: string | null;
+    updated_at: string;
+  }>;
+  gate: {
+    minInternalConfidencePct: number;
+    minRiskReward: number;
+    getTradeRole: 'SECOND_OPINION';
+    liveExecutionFromGetTrade: boolean;
+    requiredConfluence: string[];
+  };
+  objective: {
+    targetMonthlyEur: number;
+    statement: string;
+  };
   updatedAt: string;
 };
 
@@ -243,7 +269,8 @@ export const publicApi = {
   pnl: () => get<LivePnl>('pnl'),
   opportunities: () => get<PublicOpportunities>('opportunities'),
   readiness: () => get<PublicReadiness>('readiness'),
-  goal: () => get<PublicWeeklyGoal>('goal'),
+  goal: () => get<PublicMonthlyGoal>('goal'),
+  intelligence: () => get<PublicTradeIntelligence>('intelligence'),
   challenge: () => get<PublicChallenge48h>('challenge'),
   polymarket: () => get<PublicPolymarket>('polymarket'),
 };
