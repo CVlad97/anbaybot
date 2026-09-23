@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import RevenueReadinessPanel from '../components/RevenueReadinessPanel';
 import WeeklyGoalEngine from '../components/WeeklyGoalEngine';
 import Challenge48hPanel from '../components/Challenge48hPanel';
+import TradeAiVerifier from '../components/TradeAiVerifier';
 import {
   publicApi,
   type LivePnl,
@@ -99,6 +100,7 @@ export default function DashboardPage() {
 
       <Challenge48hPanel />
       <WeeklyGoalEngine />
+      <TradeAiVerifier />
       <RevenueReadinessPanel />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
