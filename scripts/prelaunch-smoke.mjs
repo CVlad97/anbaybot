@@ -32,8 +32,12 @@ async function main() {
   assert(Array.isArray(strategies.strategies) && strategies.strategies.length >= 1, 'strategies missing');
 
   const goal = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=goal`);
-  assert(Number(goal.targetWeeklyEur) === 1000, 'weekly goal mismatch');
+  assert(Number(goal.targetMonthlyEur) === 1000, 'monthly goal mismatch');
   assert(Number.isFinite(Number(goal.capitalEur)), 'goal capital invalid');
+
+  const intelligence = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=intelligence`);
+  assert(Array.isArray(intelligence.sources) && intelligence.sources.some(x => x.source_key === 'GETTRADE_AI'), 'Trade AI intelligence source missing');
+  assert(intelligence.gate?.liveExecutionFromGetTrade === false, 'Trade AI must not directly execute LIVE orders');
 
   const exchanges = await getJson(`${SUPABASE}/functions/v1/ikb-api?path=exchange/health`);
   assert(Array.isArray(exchanges.exchanges) && exchanges.exchanges.length === 2, 'exchange health incomplete');
