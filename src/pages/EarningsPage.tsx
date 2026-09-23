@@ -8,6 +8,7 @@ import PaperScanPanel from '../components/PaperScanPanel';
 import WeeklyGoalEngine from '../components/WeeklyGoalEngine';
 import BusinessRevenuePanel from '../components/BusinessRevenuePanel';
 import PolymarketPanel from '../components/PolymarketPanel';
+import TradeAiVerifier from '../components/TradeAiVerifier';
 import { publicApi, type LivePnl, type PublicPortfolio } from '../lib/publicApi';
 
 function formatUsd(n: number) {
@@ -123,6 +124,7 @@ export default function EarningsPage() {
       </div>
 
       <WeeklyGoalEngine />
+      <TradeAiVerifier />
       <BusinessRevenuePanel />
       <PolymarketPanel />
       <PaperScanPanel />
