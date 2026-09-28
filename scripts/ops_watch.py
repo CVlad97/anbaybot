@@ -40,7 +40,7 @@ def main():
     scan = ready.get("latestScanAt")
     try:
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(scan.replace("Z", "+00:00"))).total_seconds()
-        if age < 0 or age > 1800:
+        if age < 0 or age > 5400:
             issues.append("scan_stale")
     except (AttributeError, ValueError, TypeError):
         issues.append("scan_missing")

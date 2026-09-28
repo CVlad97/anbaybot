@@ -272,6 +272,16 @@ async function scanYields() {
   };
 }
 
+
+async function persistScanRuns(client: ReturnType<typeof db>, runs: Record<string,unknown>[]) {
+  // An existing hourly observation is immutable. A retry must never UPDATE it.
+  const {data,error} = await client.from("strategy_scan_runs").upsert(runs,{
+    onConflict:"run_bucket,strategy_key",ignoreDuplicates:true,
+  }).select("strategy_key");
+  if(error) throw new Error("scan_persistence_failed",{cause:error});
+  return (data || []).length;
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -338,8 +348,8 @@ Deno.serve(async req => {
       { strategy_key: "saas", mode: "RESEARCH", source: "ANBAYBOT", status: "UNVERIFIED", expected_return_pct: null, metadata: { reason: "Revenue recognized only after actual subscription payment." } },
     ].map(run => ({ ...run, run_bucket: bucket }));
 
-    const { error: insertError } = await client.from("strategy_scan_runs").upsert(runs, { onConflict: "run_bucket,strategy_key" });
-    if (insertError) throw insertError;
+    const insertedStrategies = await persistScanRuns(client,runs);
+    if (insertedStrategies > 0) {
 
     for (const row of fundingRows) {
       const annualized = row.horizonDays > 0 ? row.grossPct * (365 / row.horizonDays) : null;
@@ -407,8 +417,10 @@ Deno.serve(async req => {
       },
     });
 
+    }
     return json({
       status: "ok",
+      insertedStrategies,
       bucket,
       strategies: runs.length,
       fundingStatus,

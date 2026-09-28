@@ -76,6 +76,8 @@ test('freshness rejects stale, invalid, missing and future timestamps', () => {
   const check = ctx.exports.isFreshTimestamp;
   const now = Date.parse('2026-09-28T15:00:00Z');
   assert.equal(check('2026-09-28T14:45:00Z',now), true);
+  assert.equal(check('2026-09-28T14:00:00Z',now), true);
+  assert.equal(check('2026-09-28T13:29:00Z',now), false);
   for (const stamp of [null,'invalid','2026-09-21T14:00:00Z','2026-09-29T00:00:00Z']) assert.equal(check(stamp,now), false);
 });
 const apiSource = fs.readFileSync('src/lib/api.ts','utf8');
@@ -184,4 +186,16 @@ test('scheduler credential is limited to scanner auth and errors fail closed',as
   ctx.client={rpc:async(name,args)=>{assert.equal(name,'authorize_revenue_scan');assert.equal(args.p_token,'fixture-scheduler-token');return {data,error};}};
   assert.equal(await vm.runInContext('authorize(req,client)',ctx),expected);
  }
+});
+
+test('scanner retries preserve immutable observations instead of updating them',async()=>{
+ const raw=fs.readFileSync('supabase/functions/revenue-scanner/index.ts','utf8').replace(/^import .*;\n/gm,'');
+ const ctx=vm.createContext({Response,console,Deno:{serve:()=>{},env:{get:()=>''}}});
+ vm.runInContext(ts.transpileModule(raw,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,ctx);
+ for(const count of [0,12]){
+  ctx.client={from:table=>{assert.equal(table,'strategy_scan_runs');return {upsert:(_rows,options)=>{assert.equal(options.ignoreDuplicates,true);assert.equal(options.onConflict,'run_bucket,strategy_key');return {select:async()=>({data:Array(count).fill({strategy_key:'fixture'}),error:null})};}};}};
+  assert.equal(await vm.runInContext('persistScanRuns(client,[])',ctx),count);
+ }
+ ctx.client={from:()=>({upsert:()=>({select:async()=>({data:null,error:{message:'database offline'}})})})};
+ await assert.rejects(vm.runInContext('persistScanRuns(client,[])',ctx),/scan_persistence_failed/);
 });

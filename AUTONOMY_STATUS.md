@@ -20,17 +20,24 @@ Projet Supabase : ANBAYBOT (lmfwtiytqwedrazxjnwu).
 - Scanner : secret serveur dédié dans Vault, validateur RPC autorisé seulement à service_role.
   Ce secret ne donne aucun accès admin ni ordre LIVE. Cron existant conservé à :17.
   Appels externes bornés 3,5 s, trois groupes de marché parallèles.
-- Fonction anbaybot-public v16, ikb-api v16, revenue-scanner v10.
+- Fonction anbaybot-public v16, ikb-api v16, revenue-scanner v11.
 - Surveillance VPS sans LLM. Les contrôles privés sans token sont marqués NOT_CHECKED, jamais OK par défaut.
 
 ## Vérification
-23 tests ciblés : prix/erreurs/timeout, absence de faux succès, confidentialité,
+24 tests ciblés : prix/erreurs/timeout, absence de faux succès, confidentialité,
 authentification du scanner, couverture du catalogue et calcul net.
 Typecheck, lint, build validés sur VPS. Smoke production :
 accessibilité + refus anonyme des dix routes privées, pas une certification de rentabilité.
 La lecture du cockpit avec le jeton réel du propriétaire reste à vérifier depuis sa session.
 Dernier scan ponctuel avant réparation observé à 15:12 UTC ; cron de 15:17 encore 401.
-Conserver les résultats du contrôle après réparation séparément.
+Après réparation : requête 530 -> HTTP 200, liveExecution=false, 12 stratégies examinées,
+0 nouvelle observation car heure déjà enregistrée. Le journal append-only est préservé.
+Le nouvel horaire écrira au cycle suivant (:17), à vérifier alors.
+Les doublons horaires sont ignorés au lieu de déclencher un UPDATE interdit.
+Fenêtre de fraîcheur 90 minutes pour un cron horaire.
+Publication initiale 1367019 : CI, Pages et smoke confidentialité réussis.
+Navigateur : 19 fiches, filtre Sans capital = 2, recherche Polymarket = 1,
+calcul APY modifiable et pages privées verrouillées hors connexion.
 
 ## Blocages financiers
 Aucune preuve indépendante d'encaissement rapprochée. Ne pas présenter un capital,
