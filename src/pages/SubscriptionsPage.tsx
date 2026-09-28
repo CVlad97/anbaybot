@@ -1,269 +1,40 @@
 import { useState } from 'react';
-import {
-  CreditCard, CheckCircle2, Zap, Shield, Lock, Sparkles,
-} from 'lucide-react';
+import { Briefcase, Copy, CreditCard, Lock } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import type { SubscriptionPlan } from '../lib/types';
-import { getStripePaymentLink, isCommercialLaunchEnabled } from '../lib/stripe';
 
-const PLANS: SubscriptionPlan[] = [
-  {
-    id: 'free',
-    name: 'Free',
-    priceEur: 0,
-    priceUsd: 0,
-    interval: 'monthly',
-    features: [
-      'Dashboard de base',
-      'Signaux live (limité à 5/jour)',
-      '1 portefeuille connecté',
-      'Historique 7 jours',
-      'Mode paper trading',
-    ],
-    highlighted: false,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    priceEur: 49,
-    priceUsd: 49,
-    interval: 'monthly',
-    features: [
-      'Dashboard complet + P&L avancé',
-      'Signaux live illimités',
-      '10 portefeuilles connectés',
-      'Historique illimité',
-      'Trading automatique (validation requise)',
-      'Monitoring 24/7',
-      'Support prioritaire email',
-      'Export CSV des données',
-    ],
-    highlighted: true,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    priceEur: 149,
-    priceUsd: 149,
-    interval: 'monthly',
-    features: [
-      'Tout ce qui est dans Pro',
-      'Portefeuilles illimités',
-      'API access + webhooks',
-      'Stratégies custom',
-      'Multi-comptes Binance',
-      'SLA 99.9% uptime',
-      'Support dédié 24/7',
-      'Déploiement privé GitHub Pages',
-      'Formation équipe (2h)',
-    ],
-    highlighted: false,
-  },
-];
-
-function formatPrice(usd: number, eur: number) {
-  if (usd === 0) return 'Gratuit';
-  return (
-    <span>
-      <span className="text-3xl font-bold text-white">${usd}</span>
-      <span className="text-surface-400 ml-1">/mois</span>
-      <br />
-      <span className="text-xs text-surface-500">Soit {eur}€ TTC</span>
-    </span>
-  );
-}
+const PROPOSAL = "Je propose une séance de 45 minutes pour installer un tableau de suivi de vos actifs à partir de données publiques ou d'un export que vous fournissez, puis vous remettre un récapitulatif des sources et limites. Prix pilote proposé : 49 €, à confirmer sur devis avec la fiscalité applicable. Aucun accès à vos clés privées, aucune opération sur vos fonds, aucun rendement promis. Le rendez-vous et le livrable sont convenus avant facturation.";
 
 export default function SubscriptionsPage() {
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showCheckoutNotice, setShowCheckoutNotice] = useState(false);
-  const proLink = getStripePaymentLink('pro');
-  const enterpriseLink = getStripePaymentLink('enterprise');
-  const commercialLaunchEnabled = isCommercialLaunchEnabled();
-
-  const handleSubscribe = (plan: SubscriptionPlan) => {
-    if (plan.id !== 'free' && !commercialLaunchEnabled) {
-      setSelectedPlan(plan.id);
-      setShowCheckoutNotice(true);
-      setTimeout(() => setShowCheckoutNotice(false), 4000);
-      return;
-    }
-
-    if (plan.id === 'free') {
-      setSelectedPlan('free');
-      setShowCheckoutNotice(true);
-      setTimeout(() => setShowCheckoutNotice(false), 3000);
-      return;
-    }
-
-    const link = plan.id === 'pro' ? proLink : plan.id === 'enterprise' ? enterpriseLink : null;
-    if (link) {
-      setSelectedPlan(plan.id);
-      setShowCheckoutNotice(true);
-      window.open(link, '_blank', 'noopener,noreferrer');
-      setTimeout(() => setShowCheckoutNotice(false), 3000);
-      return;
-    }
-
-    setSelectedPlan(null);
-    setShowCheckoutNotice(false);
+  const [notice, setNotice] = useState('');
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(PROPOSAL); setNotice('Proposition copiée. Aucun message envoyé et aucun paiement créé.'); }
+    catch { setNotice('Sélectionnez et copiez le texte ci-dessous.'); }
   };
-
-  return (
-    <div className="animate-fade-in">
-      <PageHeader
-        icon={CreditCard}
-        title="Souscriptions"
-        subtitle={commercialLaunchEnabled ? "Choisissez le plan adapté à votre activité de trading" : "Pré-lancement — abonnements payants fermés jusqu’à certification complète"}
-      />
-
-      {!commercialLaunchEnabled && (
-        <div className="mb-6 rounded-2xl border border-warn-500/30 bg-warn-500/10 px-5 py-4">
-          <p className="text-sm font-semibold text-warn-200">Pré-lancement · NO-GO commercial</p>
-          <p className="text-xs text-surface-400 mt-1">
-            Les paiements Pro et Enterprise sont volontairement désactivés pendant la validation des parcours Binance/MEXC, signature wallet, sécurité multi-utilisateur et activation des droits après paiement.
-          </p>
-        </div>
-      )}
-
-      {showCheckoutNotice && selectedPlan && (
-        <div className="mb-6 rounded-2xl border border-brand-500/30 bg-brand-500/10 px-5 py-4 flex items-center gap-3">
-          <CheckCircle2 size={20} className="text-brand-400 shrink-0" />
-          <div>
-            <p className="text-sm text-brand-200 font-semibold">
-              {selectedPlan === 'free' ? 'Plan Free sélectionné.' : `Checkout ${PLANS.find(p => p.id === selectedPlan)?.name} ouvert.`}
-            </p>
-            <p className="text-xs text-surface-400">
-              {selectedPlan === 'free'
-                ? 'Aucun paiement requis.'
-                : 'Le plan ne sera compté comme actif qu’après confirmation réelle du paiement par Stripe.'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Plan comparison */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {PLANS.map(plan => (
-          <div
-            key={plan.id}
-            className={`card p-6 flex flex-col transition-all duration-300 ${
-              plan.highlighted
-                ? 'border-brand-500/50 ring-1 ring-brand-500/30 scale-[1.02] md:scale-105'
-                : 'hover:border-surface-700'
-            }`}
-          >
-            {plan.highlighted && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full">
-                Recommandé
-              </div>
-            )}
-
-            <div className="text-center mb-6">
-              <div className={`w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center ${
-                plan.id === 'free' ? 'bg-surface-800' : plan.highlighted ? 'bg-brand-600/20' : 'bg-warn-600/10'
-              }`}>
-                {plan.id === 'free' ? (
-                  <Lock size={20} className="text-surface-400" />
-                ) : plan.highlighted ? (
-                  <Zap size={20} className="text-brand-400" />
-                ) : (
-                  <Sparkles size={20} className="text-warn-400" />
-                )}
-              </div>
-              <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-              <div className="mt-2">{formatPrice(plan.priceUsd, plan.priceEur)}</div>
-            </div>
-
-            <ul className="space-y-3 mb-8 flex-1">
-              {plan.features.map((f, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-surface-300">
-                  <CheckCircle2 size={14} className="text-brand-400 shrink-0 mt-0.5" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-
-            <button
-              onClick={() => handleSubscribe(plan)}
-              disabled={(selectedPlan === plan.id && showCheckoutNotice) || (plan.id !== 'free' && (!commercialLaunchEnabled || !(plan.id === 'pro' ? proLink : enterpriseLink)))}
-              className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
-                plan.id === 'free'
-                  ? 'bg-surface-800 text-surface-300 hover:bg-surface-700 border border-surface-700'
-                  : plan.highlighted
-                    ? 'bg-brand-600 text-white hover:bg-brand-500 shadow-lg shadow-brand-600/20'
-                    : 'bg-surface-800 text-white hover:bg-surface-700 border border-surface-700'
-              } disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              {selectedPlan === plan.id && showCheckoutNotice
-                ? (plan.id === 'free' ? 'Sélectionné' : 'Checkout ouvert')
-                : plan.id === 'free'
-                  ? 'Commencer gratuitement'
-                  : !commercialLaunchEnabled
-                    ? 'Pré-lancement — bientôt disponible'
-                    : (plan.id === 'pro' ? proLink : enterpriseLink)
-                      ? `Souscrire au ${plan.name}`
-                      : 'Offre indisponible temporairement'}
-            </button>
-          </div>
-        ))}
+  return <div className="animate-fade-in">
+    <PageHeader icon={CreditCard} title="Première recette & offres" subtitle="Une proposition, une prestation livrée, un paiement constaté : trois étapes distinctes." />
+    <section className="card p-5 mb-6">
+      <div className="flex items-center gap-3"><Briefcase size={22} className="text-brand-400" /><h2 className="font-semibold text-white">Pilote de service · proposition à valider</h2></div>
+      <p className="text-3xl font-bold text-white mt-4">49 € <span className="text-sm font-normal text-surface-400">prix de travail, pas un encaissement</span></p>
+      <p className="text-sm text-surface-300 mt-3">Installation d’un tableau de suivi et prise en main pendant 45 minutes, avec un récapitulatif des sources et limites. Le client conserve ses accès et la maîtrise de ses fonds.</p>
+      <ol className="list-decimal list-inside text-sm text-surface-400 space-y-2 mt-4">
+        <li>Confirmer le périmètre, le prix final et le rendez-vous sur un devis.</li>
+        <li>Livrer le tableau de suivi et la prise en main convenus.</li>
+        <li>Vérifier le paiement sur le compte d’encaissement avant de l’inscrire au registre.</li>
+      </ol>
+      <label htmlFor="pilot-proposal" className="block text-sm text-surface-300 mt-5 mb-2">Proposition à personnaliser</label>
+      <textarea id="pilot-proposal" className="input w-full min-h-44" rows={7} readOnly value={PROPOSAL} />
+      <button className="btn-secondary flex items-center gap-2 mt-3" onClick={copy}><Copy size={16} />Copier la proposition</button>
+      {notice && <p role="status" className="text-xs text-brand-300 mt-3">{notice}</p>}
+      <p className="text-xs text-surface-500 mt-4">Une vente à 49 € représente 49 € de chiffre d’affaires brut. Les frais, charges et le temps de travail restent à déduire. Aucun client ni revenu n’est garanti.</p>
+    </section>
+    <section className="card p-5 mb-6">
+      <h2 className="font-semibold text-white flex items-center gap-2"><Lock size={18} />Abonnements en préparation</h2>
+      <p className="text-sm text-surface-400 mt-3">Les souscriptions payantes restent fermées : séparation des comptes clients, confidentialité des données, paiement et activation des droits doivent encore être validés ensemble.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+        <div className="rounded-xl border border-surface-800 p-4"><h3 className="text-white font-semibold">Pro · 49 €/mois envisagés</h3><p className="text-xs text-surface-400 mt-2">Suivi et rapports. Périmètre et conditions à confirmer.</p><button className="btn-secondary mt-4 w-full" disabled>Pas encore commercialisé</button></div>
+        <div className="rounded-xl border border-surface-800 p-4"><h3 className="text-white font-semibold">Entreprise · sur devis</h3><p className="text-xs text-surface-400 mt-2">Installation et accompagnement selon un besoin validé. Aucun engagement de disponibilité publié.</p><button className="btn-secondary mt-4 w-full" disabled>Pas encore commercialisé</button></div>
       </div>
-
-      {/* Feature comparison table */}
-      <div className="card p-6">
-        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-          <Shield size={16} className="text-brand-400" />
-          Comparatif détaillé des fonctionnalités
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-surface-800 text-surface-500 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Fonctionnalité</th>
-                <th className="text-center px-4 py-3 font-medium">Free</th>
-                <th className="text-center px-4 py-3 font-medium">Pro</th>
-                <th className="text-center px-4 py-3 font-medium">Enterprise</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Dashboard trading', '✅', '✅', '✅'],
-                ['P&L Paper Trading', '✅ Basique', '✅ Avancé', '✅ Avancé'],
-                ['Signaux live / jour', '5', 'Illimité', 'Illimité'],
-                ['Portefeuilles', '1', '10', 'Illimité'],
-                ['Historique', '7 jours', 'Illimité', 'Illimité'],
-                ['Monitoring 24/7', '❌', '✅', '✅'],
-                ['Export CSV', '❌', '✅', '✅'],
-                ['API Access', '❌', '❌', '✅'],
-                ['Support', 'Community', 'Email prioritaire', '24/7 dédié'],
-                ['SLA Uptime', 'Aucun', '99.5%', '99.9%'],
-                ['Déploiement privé', '❌', '❌', '✅'],
-              ].map(([feature, free, pro, enterprise]) => (
-                <tr key={feature} className="border-b border-surface-800/50 hover:bg-surface-900/40">
-                  <td className="px-4 py-3 text-surface-200 font-medium">{feature}</td>
-                  <td className="px-4 py-3 text-center text-surface-400 text-xs">{free}</td>
-                  <td className="px-4 py-3 text-center text-brand-400 text-xs">{pro}</td>
-                  <td className="px-4 py-3 text-center text-warn-400 text-xs">{enterprise}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Stripe info */}
-      <div className="mt-6 card p-4 border-l-4 border-l-brand-500/30">
-        <div className="flex items-center gap-3">
-          <CreditCard size={16} className="text-brand-400 shrink-0" />
-          <p className="text-xs text-surface-400">
-            Paiements sécurisés via <strong className="text-surface-200">Stripe</strong>.
-            {!commercialLaunchEnabled
-              ? ' Les ventes sont volontairement fermées jusqu’au GO commercial.'
-              : proLink || enterpriseLink
-                ? ' Les liens configurés ouvrent Stripe dans un nouvel onglet.'
-                : ' Offre indisponible temporairement tant que les liens Stripe ne sont pas renseignés.'}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+    </section>
+    <p className="text-xs text-surface-500">Le cockpit actuel sert à l’observation et aux essais. Il ne constitue pas un service de gestion de fonds pour des clients.</p>
+  </div>;
 }

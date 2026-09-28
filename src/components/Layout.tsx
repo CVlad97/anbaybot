@@ -87,7 +87,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight">ANBAYBOT</h1>
-              <p className="text-xs text-surface-500 font-medium">LIVE · {BUILD_SHA}</p>
+              <p className="text-xs text-surface-500 font-medium">LECTURE · {BUILD_SHA}</p>
             </div>
           </div>
           {activeAddress && (
@@ -123,8 +123,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 min-h-screen lg:ml-0">
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-16 lg:pt-8">
           <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${serverOnline === true ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : serverOnline === false ? 'border-danger-500/30 bg-danger-500/10 text-danger-100' : 'border-surface-700 bg-surface-900 text-surface-300'}`}>
-            <strong>{serverOnline === true ? 'Serveur réel connecté.' : serverOnline === false ? 'Serveur de lecture indisponible.' : 'Vérification du serveur…'}</strong>{' '}
-            {serverOnline === true && 'Portefeuille et P&L sont lus en direct sans token admin.'}
+            <strong>{serverOnline === true ? 'Service de lecture joignable.' : serverOnline === false ? 'Serveur de lecture indisponible.' : 'Vérification du serveur…'}</strong>{' '}
+            {serverOnline === true && 'La fraîcheur et les erreurs de chaque source sont indiquées dans le tableau de bord.'}
           </div>
 
           {showAdmin && (

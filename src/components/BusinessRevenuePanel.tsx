@@ -48,6 +48,8 @@ export default function BusinessRevenuePanel() {
       setError('Le montant brut doit être supérieur à 0.');
       return;
     }
+    if (!proof.trim()) { setError('Indiquez une référence de paiement réellement encaissé.'); return; }
+    if (!Number.isFinite(feesNum) || feesNum < 0 || feesNum > grossNum) { setError('Les frais doivent être compris entre zéro et le montant brut.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -76,8 +78,8 @@ export default function BusinessRevenuePanel() {
         <div className="flex items-start gap-3">
           <Briefcase size={20} className="text-brand-400 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-white">Revenus business vérifiés</h3>
-            <p className="text-xs text-surface-500 mt-1">Services, affiliation, referral et SaaS. Ces lignes alimentent l’objectif hebdomadaire.</p>
+            <h3 className="font-semibold text-white">Registre des recettes encaissées</h3>
+            <p className="text-xs text-surface-500 mt-1">Services, affiliation, referral et SaaS. Saisies manuelles avec référence de paiement ; elles ne remplacent pas un rapprochement bancaire.</p>
           </div>
         </div>
         <button className="btn-secondary flex items-center gap-2" onClick={refresh}>

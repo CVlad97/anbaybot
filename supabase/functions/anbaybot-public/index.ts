@@ -14,7 +14,8 @@ const cors = {
   "Vary": "Origin",
 };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const FETCH_TIMEOUT_MS = 3500;
+const PORTFOLIO_TTL_MS = 60_000;
 
 function db() {
   const url = Deno.env.get("SUPABASE_URL") || "";
@@ -24,13 +25,18 @@ function db() {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, init);
-    if (res.ok) return await res.json() as T;
-    if (res.status === 429 && attempt < 2) { await sleep(450 * (attempt + 1)); continue; }
-    throw new Error(`http_${res.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    if (!res.ok) throw new Error(`http_${res.status}`);
+    return await res.json() as T;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("source_timeout", { cause: error });
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  throw new Error("http_retry_exhausted");
 }
 
 async function eurUsdRate() {
@@ -51,8 +57,8 @@ async function prices() {
   const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "TRXUSDT"];
   const rows = await Promise.all(symbols.map(async symbol => {
     try {
-      const d = await fetchJson<{lastPrice?: string}>(`https://api.mexc.com/api/v3/ticker/price?symbol=${symbol}`);
-      return [symbol, Number(d.lastPrice || 0)] as const;
+      const d = await fetchJson<{price?: string}>(`https://api.mexc.com/api/v3/ticker/price?symbol=${symbol}`);
+      return [symbol, Number(d.price || 0)] as const;
     } catch { return [symbol, 0] as const; }
   }));
   return new Map(rows);
@@ -117,7 +123,7 @@ async function readTron(w: WalletRow, px: Map<string, number>): Promise<PublicWa
 }
 
 async function readEvm(w: WalletRow): Promise<PublicWallet> {
-  const base = w.chain === "eth" ? "https://eth.blockscout.com/api/v2" : "https://base.blockscout.com/api/v2";
+  const base = ["eth", "ethereum"].includes(w.chain.toLowerCase()) ? "https://eth.blockscout.com/api/v2" : "https://base.blockscout.com/api/v2";
   const [a, tokenRows] = await Promise.all([
     fetchJson<{coin_balance?: string; exchange_rate?: string}>(`${base}/addresses/${w.address}`),
     fetchJson<Array<{value?: string; balance?: string; token?: {symbol?: string; decimals?: string|number; exchange_rate?: string; fiat_value?: string}}>>(`${base}/addresses/${w.address}/token-balances`),
@@ -132,10 +138,9 @@ async function readEvm(w: WalletRow): Promise<PublicWallet> {
     const raw = Number(row.value ?? row.balance ?? 0);
     const balance = decimals > 0 ? raw / 10 ** decimals : raw;
     if (!Number.isFinite(balance) || balance <= 0) continue;
-    let price = Number(row.token?.exchange_rate ?? row.token?.fiat_value ?? 0);
-    if (!price && ["USDC","USDbC","USDT","DAI"].includes(symbol)) price = 1;
+    const price = Number(row.token?.exchange_rate ?? row.token?.fiat_value ?? 0);
     const valueUsd = balance * price;
-    if (valueUsd > 0) tokens.push({ symbol, balance, priceUsd: price, valueUsd });
+    tokens.push({ symbol, balance, priceUsd: price, valueUsd });
   }
   return { walletId: w.id, label: w.label, chain: w.chain, platform: w.platform, addressMasked: maskAddress(w.address), tokens, totalValueUsd: tokens.reduce((s,t)=>s+t.valueUsd,0) };
 }
@@ -164,26 +169,48 @@ async function readSolana(w: WalletRow, px: Map<string, number>): Promise<Public
   return { walletId:w.id, label:w.label, chain:w.chain, platform:w.platform, addressMasked:maskAddress(w.address), tokens, totalValueUsd:tokens.reduce((s,t)=>s+t.valueUsd,0) };
 }
 
-async function portfolio(s: ReturnType<typeof db>) {
-  const [{data: wallets, error}, px] = await Promise.all([
+type PortfolioResult = { wallets: PublicWallet[]; totalValueUsd: number; updatedAt: string; complete: boolean; failedWallets: number };
+let portfolioCache: PortfolioResult | null = null;
+let portfolioInFlight: Promise<PortfolioResult> | null = null;
+
+async function portfolio(s: ReturnType<typeof db>): Promise<PortfolioResult> {
+  if (portfolioCache && Date.now() - Date.parse(portfolioCache.updatedAt) < PORTFOLIO_TTL_MS) return portfolioCache;
+  if (portfolioInFlight) return portfolioInFlight;
+  portfolioInFlight = readPortfolio(s);
+  try {
+    const result = await portfolioInFlight;
+    // A partial response is shown honestly and retried on the next refresh.
+    if (result.complete) portfolioCache = result;
+    return result;
+  } finally {
+    portfolioInFlight = null;
+  }
+}
+
+async function readPortfolio(s: ReturnType<typeof db>): Promise<PortfolioResult> {
+  const [{ data: wallets, error }, px] = await Promise.all([
     s.from("managed_wallets").select("id,chain,label,address,platform,enabled").eq("enabled", true),
     prices(),
   ]);
   if (error) throw error;
-  const output: PublicWallet[] = [];
-  for (const w of (wallets || []) as WalletRow[]) {
+  const output = await Promise.all(((wallets || []) as WalletRow[]).map(async w => {
     try {
       const chain = w.chain.toLowerCase();
-      if (chain === "tron") output.push(await readTron(w, px));
-      else if (chain === "solana") output.push(await readSolana(w, px));
-      else if (["base","eth","ethereum"].includes(chain)) output.push(await readEvm(w));
-      else output.push({ walletId:w.id,label:w.label,chain:w.chain,platform:w.platform,addressMasked:maskAddress(w.address),tokens:[],totalValueUsd:0,error:"unsupported_chain" });
+      let result: PublicWallet;
+      if (chain === "tron") result = await readTron(w, px);
+      else if (chain === "solana") result = await readSolana(w, px);
+      else if (["base", "eth", "ethereum"].includes(chain)) result = await readEvm(w);
+      else throw new Error("unsupported_chain");
+      if (result.tokens.some(t => t.balance > 0 && (!Number.isFinite(t.priceUsd) || t.priceUsd <= 0))) {
+        result.error = "unpriced_assets";
+      }
+      return result;
     } catch (e) {
-      output.push({ walletId:w.id,label:w.label,chain:w.chain,platform:w.platform,addressMasked:maskAddress(w.address),tokens:[],totalValueUsd:0,error:e instanceof Error?e.message:"balance_fetch_failed" });
+      return { walletId: w.id, label: w.label, chain: w.chain, platform: w.platform, addressMasked: maskAddress(w.address), tokens: [], totalValueUsd: 0, error: e instanceof Error ? e.message : "balance_fetch_failed" } as PublicWallet;
     }
-    if (w.chain.toLowerCase() === "tron") await sleep(350);
-  }
-  return { wallets: output, totalValueUsd: output.reduce((s,w)=>s+w.totalValueUsd,0), updatedAt: new Date().toISOString() };
+  }));
+  const failedWallets = output.filter(w => w.error).length;
+  return { wallets: output, totalValueUsd: output.reduce((sum,w) => sum + w.totalValueUsd, 0), updatedAt: new Date().toISOString(), complete: failedWallets === 0, failedWallets };
 }
 
 const POLY_SAFE_INCLUDE = /(bitcoin|btc|ethereum|eth|solana|sol|xrp|doge|crypto|cryptocurrency|price|market cap|sports?|nba|nfl|mlb|nhl|soccer|football|basketball|baseball|tennis|ufc|formula 1|f1|esports?|champions league|premier league|la liga|serie a|bundesliga)/i;
@@ -284,69 +311,120 @@ async function opportunities(s: ReturnType<typeof db>) {
   return { bucket: latest.run_bucket, rows:data || [], updatedAt:new Date().toISOString() };
 }
 
-async function weeklyGoal(s: ReturnType<typeof db>) {
-  const [{ totalValueUsd }, fx] = await Promise.all([portfolio(s), eurUsdRate()]);
-  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+async function monthlyGoal(s: ReturnType<typeof db>) {
+  const [portfolioData, fx] = await Promise.all([portfolio(s), eurUsdRate()]);
+  const { totalValueUsd } = portfolioData;
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
   const [{ data: pnlRows, error: pnlError }, { data: businessRows, error: businessError }] = await Promise.all([
     s.from("pnl_ledger").select("net_pnl_usd").eq("environment","LIVE").gte("occurred_at", since),
     s.from("business_revenue_ledger").select("net_eur").gte("occurred_at", since),
   ]);
   if (pnlError) throw pnlError;
-  if (businessError && !String(businessError.message || "").includes("business_revenue_ledger")) throw businessError;
+  if (businessError) throw businessError;
 
-  const marketPnlUsd7d = (pnlRows || []).reduce((sum,row)=>sum+Number(row.net_pnl_usd||0),0);
-  const marketPnlEur7d = marketPnlUsd7d / fx.eurUsd;
-  const businessEur7d = (businessRows || []).reduce((sum,row)=>sum+Number(row.net_eur||0),0);
-  const actualEur7d = marketPnlEur7d + businessEur7d;
+  const marketPnlUsd30d = (pnlRows || []).reduce((sum,row)=>sum+Number(row.net_pnl_usd||0),0);
+  const marketPnlEur30d = marketPnlUsd30d / fx.eurUsd;
+  const businessEur30d = (businessRows || []).reduce((sum,row)=>sum+Number(row.net_eur||0),0);
+  const actualEur30d = marketPnlEur30d + businessEur30d;
 
   const capitalEur = totalValueUsd / fx.eurUsd;
-  const targetWeeklyEur = 1000;
-  const targetDailyEur = targetWeeklyEur / 7;
-  const requiredWeeklyReturnPct = capitalEur > 0 ? (targetWeeklyEur / capitalEur) * 100 : null;
+  const targetMonthlyEur = 1000;
+  const targetDailyEur = targetMonthlyEur / 30;
+  const requiredMonthlyReturnPct = capitalEur > 0 ? (targetMonthlyEur / capitalEur) * 100 : null;
 
-  const scenarioPcts = [0.25, 1, 2];
-  const marketScenarios = scenarioPcts.map(weeklyPct => ({
-    weeklyPct,
-    weeklyEur: capitalEur * weeklyPct / 100,
-    targetCoveragePct: targetWeeklyEur > 0 ? (capitalEur * weeklyPct / 100) / targetWeeklyEur * 100 : 0,
+  const scenarioPcts = [1, 3, 5, 10];
+  const marketScenarios = scenarioPcts.map(monthlyPct => ({
+    monthlyPct,
+    monthlyEur: capitalEur * monthlyPct / 100,
+    targetCoveragePct: targetMonthlyEur > 0 ? (capitalEur * monthlyPct / 100) / targetMonthlyEur * 100 : 0,
   }));
 
-  const referenceMarketEur = capitalEur * 0.02;
-  const businessGapEur = Math.max(0, targetWeeklyEur - referenceMarketEur);
-  const monthlyRevenueNeeded = targetWeeklyEur * 52 / 12;
-  const subscriptionTargets = [49,149].map(priceMonthlyEur => ({
+  const referenceMarketEur = capitalEur * 0.03;
+  const businessGapEur = Math.max(0, targetMonthlyEur - referenceMarketEur);
+  const subscriptionTargets = [19,49,99,149].map(priceMonthlyEur => ({
     priceMonthlyEur,
-    subscribersNeeded: Math.ceil(monthlyRevenueNeeded / priceMonthlyEur),
-    monthlyRevenueNeeded,
+    subscribersNeeded: Math.ceil(targetMonthlyEur / priceMonthlyEur),
+    monthlyRevenueNeeded: targetMonthlyEur,
   }));
-  const commercialMix = {
-    proPriceMonthlyEur: 49,
-    enterprisePriceMonthlyEur: 149,
-    proSubscribers: 30,
-    enterpriseSubscribers: 20,
-    monthlyRevenueEur: 30 * 49 + 20 * 149,
-    weeklyRevenueEur: (30 * 49 + 20 * 149) * 12 / 52,
-  };
 
   return {
-    targetWeeklyEur,
+    targetMonthlyEur,
     targetDailyEur,
+    capitalComplete: portfolioData.complete,
+    capitalFailedWallets: portfolioData.failedWallets,
+    capitalUpdatedAt: portfolioData.updatedAt,
     capitalUsd: totalValueUsd,
     capitalEur,
     fx,
-    actualEur7d,
-    marketPnlEur7d,
-    businessEur7d,
-    gapEur7d: Math.max(0, targetWeeklyEur - actualEur7d),
-    progressPct: Math.max(0, Math.min(100, targetWeeklyEur ? actualEur7d / targetWeeklyEur * 100 : 0)),
-    requiredWeeklyReturnPct,
+    actualEur30d,
+    marketPnlEur30d,
+    businessEur30d,
+    gapEur30d: Math.max(0, targetMonthlyEur - actualEur30d),
+    progressPct: Math.max(0, Math.min(100, targetMonthlyEur ? actualEur30d / targetMonthlyEur * 100 : 0)),
+    requiredMonthlyReturnPct,
     marketScenarios,
     referenceMarketEur,
     businessGapEur,
     subscriptionTargets,
-    commercialMix,
-    note: "Les scénarios de marché sont des références mathématiques, pas des prévisions ni des promesses de rendement.",
+    note: "Objectif 1 000 €/mois suivi sur 30 jours. Les scénarios de marché sont des références mathématiques, pas des prévisions ni des promesses de rendement.",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function tradeIntelligence(s: ReturnType<typeof db>) {
+  const { data, error } = await s.from("trade_intelligence_sources")
+    .select("source_key,name,url,mode,enabled,execution_allowed,max_weight,notes,updated_at")
+    .eq("enabled", true)
+    .order("source_key");
+  if (error) throw error;
+
+  return {
+    sources: data || [],
+    gate: {
+      minInternalConfidencePct: 70,
+      minRiskReward: 1.5,
+      getTradeRole: "SECOND_OPINION",
+      liveExecutionFromGetTrade: false,
+      requiredConfluence: ["ANBAYBOT_SIGNAL","GETTRADE_SECOND_OPINION","RISK_GATE"]
+    },
+    objective: {
+      targetMonthlyEur: 1000,
+      statement: "Objectif mesuré, non garanti."
+    },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function challenge48h(s: ReturnType<typeof db>) {
+  const { data: session, error: sessionError } = await s.from("challenge_sessions")
+    .select("id,name,mode,status,started_at,ends_at,start_capital_usd,target_min_pct,target_max_pct,max_drawdown_pct,fee_bps,slippage_bps,benchmark,result")
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (sessionError) throw sessionError;
+  if (!session) return { session:null, checkpoint:null, positions:[], updatedAt:new Date().toISOString() };
+
+  const [{ data: checkpoint, error: checkpointError }, { data: positions, error: positionsError }] = await Promise.all([
+    s.from("challenge_checkpoints")
+      .select("checked_at,equity_usd,cash_usd,unrealized_pnl_usd,realized_pnl_usd,return_pct,drawdown_pct,benchmark_return_pct,prices,decision")
+      .eq("session_id",session.id).order("checked_at",{ascending:false}).limit(1).maybeSingle(),
+    s.from("challenge_positions")
+      .select("symbol,side,entry_at,entry_price,quote_amount_usd,stop_loss_pct,take_profit_pct,trailing_stop_pct,status,exit_at,exit_price,realized_pnl_usd,fees_usd,metadata")
+      .eq("session_id",session.id).order("entry_at",{ascending:true}),
+  ]);
+  if (checkpointError) throw checkpointError;
+  if (positionsError) throw positionsError;
+
+  return {
+    session,
+    checkpoint: checkpoint || null,
+    positions: positions || [],
+    evidence: {
+      mode: "PAPER",
+      liveFundsMoved: false,
+      includesFeesAndSlippage: true,
+      marketSource: session.benchmark?.market_source || "MEXC_PUBLIC",
+      benchmark: session.benchmark?.name || "equal_weight_BTC_ETH_SOL",
+    },
     updatedAt: new Date().toISOString(),
   };
 }
@@ -395,14 +473,16 @@ Deno.serve(async req => {
   try {
     const s = db();
     const path = new URL(req.url).searchParams.get("path") || "health";
-    if (path === "health") return json({ status:"ok", mode:"public_read_only", timestamp:new Date().toISOString() });
+    if (path === "health") return json({ status:"ok", mode:"public_read_only", version:"verified-data-20260928", timestamp:new Date().toISOString() });
     if (path === "portfolio") return json(await portfolio(s));
     if (path === "exchanges") return json(await exchanges(s));
     if (path === "strategies") return json(await strategies(s));
     if (path === "pnl") return json(await pnl(s));
     if (path === "opportunities") return json(await opportunities(s));
     if (path === "readiness") return json(await readiness(s));
-    if (path === "goal") return json(await weeklyGoal(s));
+    if (path === "goal") return json(await monthlyGoal(s));
+    if (path === "intelligence") return json(await tradeIntelligence(s));
+    if (path === "challenge") return json(await challenge48h(s));
     if (path === "polymarket") return json(await polymarket());
     return json({ error:"not_found" }, 404);
   } catch (e) {

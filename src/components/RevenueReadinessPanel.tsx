@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, ShieldCheck } from 'lucide-react';
 import { publicApi, type PublicOpportunities, type PublicReadiness } from '../lib/publicApi';
+import { isFreshTimestamp } from '../lib/dataHealth';
 import { getAdminToken } from '../lib/auth';
 import { runRevenueScan } from '../lib/revenueScanApi';
 
@@ -54,7 +55,7 @@ export default function RevenueReadinessPanel() {
 
     void boot();
     const timer = window.setInterval(async () => {
-      if (!getAdminToken()) return;
+      if (!getAdminToken()) { if (active) await refresh(); return; }
       try {
         await runRevenueScan();
         window.localStorage.setItem('anbaybot_last_auto_scan_ms', String(Date.now()));
@@ -75,7 +76,7 @@ export default function RevenueReadinessPanel() {
     [readiness],
   );
 
-  const paperReady = Boolean(readiness?.ai?.enabled && readiness?.latestScanAt);
+  const paperReady = Boolean(readiness?.ai?.enabled && isFreshTimestamp(readiness?.latestScanAt));
   const liveBlocked = Boolean(!readiness?.privateReady || readiness?.killSwitch || !readiness?.liveEnabled);
   const visibleRows = (opportunities?.rows || []).filter(row =>
     ['arbitrage', 'funding_capture', 'spot_momentum', 'earn_staking', 'lending', 'farming_lp'].includes(row.strategy_key)
@@ -99,7 +100,7 @@ export default function RevenueReadinessPanel() {
         <StatusCard
           icon={paperReady ? CheckCircle2 : Clock3}
           title="Analyse PAPER"
-          value={paperReady ? 'PRÊTE' : 'EN ATTENTE'}
+          value={paperReady ? 'RÉCENTE' : readiness?.latestScanAt ? 'À ACTUALISER' : 'EN ATTENTE'}
           detail={readiness?.latestScanAt ? 'Dernier scan ' + formatTime(readiness.latestScanAt) : 'Aucun scan enregistré'}
           ok={paperReady}
         />
@@ -135,7 +136,7 @@ export default function RevenueReadinessPanel() {
             <p className="text-sm font-medium text-white">Dernières opportunités observées</p>
             <p className="text-[11px] text-surface-500">Valeurs brutes de recherche/PAPER. Elles ne sont ni garanties ni directement comparables entre stratégies.</p>
           </div>
-          <p className="text-[11px] text-surface-500">P&L LIVE: ${Number(readiness?.livePnlUsd || 0).toFixed(2)}</p>
+          <p className="text-[11px] text-surface-500">P&L LIVE: {readiness ? '$' + readiness.livePnlUsd.toFixed(2) : '—'}</p>
         </div>
 
         {visibleRows.length === 0 ? (
@@ -148,7 +149,7 @@ export default function RevenueReadinessPanel() {
               <div key={row.strategy_key} className="rounded-xl border border-surface-800 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-white">{row.strategy_key.replace(/_/g, ' ')}</p>
-                  <span className="badge-neutral">{row.status}</span>
+                  <span className="badge-neutral">{isFreshTimestamp(row.created_at) ? row.status : 'HISTORIQUE'}</span>
                 </div>
                 <p className="text-lg font-semibold text-brand-400 mt-2">{metricLabel(row.strategy_key, row.expected_return_pct)}</p>
                 <p className="text-[11px] text-surface-500 mt-1">{row.mode} · {formatTime(row.created_at)}</p>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Cpu, DollarSign, LayoutDashboard, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -32,27 +32,29 @@ export default function DashboardPage() {
   const [exchanges, setExchanges] = useState<PublicExchangeAccount[]>([]);
   const [strategies, setStrategies] = useState<PublicStrategy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exchangesLoaded, setExchangesLoaded] = useState(false);
+  const [strategiesLoaded, setStrategiesLoaded] = useState(false);
+  const refreshing = useRef(false);
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
     setLoading(true);
     setError('');
-    try {
-      const [portfolioData, pnlData, exchangeData, strategyData] = await Promise.all([
-        publicApi.portfolio(),
-        publicApi.pnl(),
-        publicApi.exchanges(),
-        publicApi.strategies(),
-      ]);
-      setPortfolio(portfolioData);
-      setPnl(pnlData);
-      setExchanges(exchangeData.exchanges);
-      setStrategies(strategyData.strategies);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Lecture serveur impossible');
-    } finally {
-      setLoading(false);
-    }
+    const failures: string[] = [];
+    // A slow wallet cannot hide successful ledger or exchange reads.
+    await Promise.allSettled([
+      publicApi.portfolio().then(setPortfolio).catch(() => { setPortfolio(null); failures.push('Portefeuilles'); }),
+      publicApi.pnl().then(setPnl).catch(() => { setPnl(null); failures.push('P&L'); }),
+      publicApi.exchanges().then(data => { setExchanges(data.exchanges); setExchangesLoaded(true); })
+        .catch(() => { setExchangesLoaded(false); failures.push('Exchanges'); }),
+      publicApi.strategies().then(data => { setStrategies(data.strategies); setStrategiesLoaded(true); })
+        .catch(() => { setStrategiesLoaded(false); failures.push('Stratégies'); }),
+    ]);
+    setError(failures.length ? 'Données indisponibles : ' + failures.join(', ') + '. Aucun zéro de remplacement.' : '');
+    setLoading(false);
+    refreshing.current = false;
   }, []);
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export default function DashboardPage() {
   }, [refresh]);
 
   const exchangeTotal = useMemo(
-    () => exchanges.filter(x => x.connection_status !== 'NOT_CONFIGURED').reduce((sum, x) => sum + Number(x.balance_usd || 0), 0),
+    () => exchanges.filter(x => !['NOT_CONFIGURED', 'ERROR'].includes(x.connection_status)).reduce((sum, x) => sum + Number(x.balance_usd || 0), 0),
     [exchanges],
   );
   const connectedExchanges = exchanges.filter(x => x.connection_status !== 'NOT_CONFIGURED' && x.connection_status !== 'ERROR').length;
@@ -74,8 +76,8 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader
         icon={LayoutDashboard}
-        title="Tableau de bord réel"
-        subtitle="Wallets, exchanges et P&L vérifiés — aucune donnée démo comptée comme gain"
+        title="Tableau de bord"
+        subtitle="Soldes observés, erreurs de lecture et P&L enregistré"
         action={
           <button className="btn-secondary flex items-center gap-2" onClick={refresh} disabled={loading}>
             {loading ? <LoadingSpinner size={14} /> : <RefreshCw size={14} />}
@@ -98,22 +100,24 @@ export default function DashboardPage() {
 
       {error && <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{error}</div>}
 
+      {loading && <p role="status" className="text-xs text-surface-400 mb-4">Actualisation des sources en cours…</p>}
+      {portfolio && portfolio.wallets.some(w => w.error) && <p role="status" className="card p-4 mb-4 text-warn-400">Valorisation partielle : certaines sources ou certains prix sont indisponibles. Le montant observé ne représente pas le capital total.</p>}
       <Challenge48hPanel />
       <WeeklyGoalEngine />
       <TradeAiVerifier />
       <RevenueReadinessPanel />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Metric icon={DollarSign} label="Capital observé" value={formatUsd(totalObserved)} sub={`${formatUsd(portfolio?.totalValueUsd || 0)} on-chain + ${formatUsd(exchangeTotal)} exchanges connectés`} />
-        <Metric icon={Wallet} label="Sources connectées" value={String((portfolio?.wallets.length || 0) + connectedExchanges)} sub={`${portfolio?.wallets.length || 0} wallets · ${connectedExchanges}/${exchanges.length} exchange(s)`} />
-        <Metric icon={Activity} label="P&L LIVE" value={formatUsd(pnl?.totalNetPnlUsd || 0)} sub={`${pnl?.count || 0} écriture(s) LIVE`} />
-        <Metric icon={Cpu} label="Stratégies scannées" value={`${scanEnabled}/${strategies.length}`} sub={`${liveReadyStrategies} stratégie(s) LIVE ready`} />
+        <Metric icon={DollarSign} label="Capital observé" value={portfolio && exchangesLoaded ? (portfolio.wallets.some(w => w.error) ? 'Partiel · ' : '') + formatUsd(totalObserved) : '—'} sub={portfolio ? formatUsd(portfolio.totalValueUsd) + ' on-chain · exchanges ' + (exchangesLoaded ? formatUsd(exchangeTotal) : 'indisponibles') : 'Lecture en cours ou indisponible'} />
+        <Metric icon={Wallet} label="Sources lues" value={portfolio && exchangesLoaded ? String(portfolio.wallets.filter(w => !w.error).length + connectedExchanges) : '—'} sub={portfolio ? portfolio.wallets.filter(w => !w.error).length + '/' + portfolio.wallets.length + ' wallets · ' + (exchangesLoaded ? connectedExchanges + '/' + exchanges.length : '—') + ' exchanges' : 'Connexion non vérifiée'} />
+        <Metric icon={Activity} label="P&L LIVE" value={pnl ? formatUsd(pnl.totalNetPnlUsd) : '—'} sub={pnl ? pnl.count + ' écriture(s) LIVE' : 'Registre non lu'} />
+        <Metric icon={Cpu} label="Scans configurés" value={strategiesLoaded ? scanEnabled + '/' + strategies.length : '—'} sub={strategiesLoaded ? liveReadyStrategies + ' stratégie(s) prête(s) LIVE · fraîcheur ci-dessus' : 'Catalogue non lu'} />
       </div>
 
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-white mb-4">Comptes d'exchange</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {exchanges.map(exchange => (
+          {(exchangesLoaded ? exchanges : []).map(exchange => (
             <div key={exchange.exchange} className="card p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -125,10 +129,10 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="text-2xl font-bold text-white mt-4">
-                {exchange.connection_status === 'NOT_CONFIGURED' ? '—' : formatUsd(Number(exchange.balance_usd || 0))}
+                {['NOT_CONFIGURED', 'ERROR'].includes(exchange.connection_status) ? '—' : formatUsd(Number(exchange.balance_usd || 0))}
               </p>
               <p className="text-xs text-surface-500 mt-1">
-                {exchange.connection_status === 'NOT_CONFIGURED' ? 'Solde non lu : API privée non connectée.' : 'Solde issu de la connexion serveur.'}
+                {['NOT_CONFIGURED', 'ERROR'].includes(exchange.connection_status) ? 'Solde indisponible : connexion privée non validée.' : 'Dernier solde enregistré : ' + (exchange.last_checked_at ? new Date(exchange.last_checked_at).toLocaleString('fr-FR') : 'date inconnue')}
               </p>
               <p className="text-xs text-surface-400 mt-3">Trading LIVE : {exchange.live_trading_enabled ? 'activé' : 'désactivé'}</p>
             </div>
@@ -144,7 +148,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {strategies.map(strategy => (
+          {(strategiesLoaded ? strategies : []).map(strategy => (
             <div key={strategy.strategy_key} className="card p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -164,7 +168,7 @@ export default function DashboardPage() {
 
       <div className="card overflow-hidden">
         <div className="p-4 border-b border-surface-800">
-          <h2 className="font-semibold text-white">Wallets on-chain vérifiés</h2>
+          <h2 className="font-semibold text-white">Wallets on-chain observés</h2>
           <p className="text-xs text-surface-500 mt-1">Dernière lecture : {portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleString('fr-FR') : '—'}</p>
         </div>
         <div className="divide-y divide-surface-800">
@@ -179,10 +183,11 @@ export default function DashboardPage() {
                       {token.balance.toLocaleString('fr-FR', { maximumFractionDigits: 6 })} {token.symbol}
                     </span>
                   ))}
-                  {wallet.tokens.length === 0 && <span className="text-xs text-surface-500">Aucun actif valorisé détecté</span>}
+                  {!wallet.error && wallet.tokens.length === 0 && <span className="text-xs text-surface-500">Aucun actif valorisé détecté</span>}
                 </div>
               </div>
-              <p className="text-xl font-semibold text-brand-400">{formatUsd(wallet.totalValueUsd)}</p>
+              <p className="text-xl font-semibold text-brand-400">{wallet.error ? 'Partiel / indisponible' : formatUsd(wallet.totalValueUsd)}</p>
+              {wallet.error && <p className="text-xs text-warn-400">Lecture incomplète : {wallet.error}</p>}
             </div>
           ))}
         </div>

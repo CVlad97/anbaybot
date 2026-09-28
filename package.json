@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "smoke:prelaunch": "node scripts/prelaunch-smoke.mjs"
+    "smoke:prelaunch": "node scripts/prelaunch-smoke.mjs",
+    "test": "node --test scripts/verified-data.test.mjs"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",

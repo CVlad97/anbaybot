@@ -29,6 +29,8 @@ export default function WeeklyGoalEngine() {
     return <div className="card p-4 mb-6 border-l-4 border-l-danger-500 text-sm text-danger-300">{error}</div>;
   }
 
+  if (!goal) return <div role="status" className="card p-4 mb-6 text-sm text-surface-400">Chargement du registre des revenus… Aucun gain calculé avant réception des données.</div>;
+
   return (
     <section className="card p-5 mb-8">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
@@ -44,11 +46,12 @@ export default function WeeklyGoalEngine() {
         </button>
       </div>
 
+      {goal.capitalComplete === false && <p role="status" className="text-xs text-warn-400 mt-4">Capital partiellement valorisé. Les scénarios ne portent que sur les actifs dont la valeur a pu être lue.</p>}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-5">
         <Metric label="Objectif mensuel" value={eur(goal?.targetMonthlyEur || 1000)} sub={`≈ ${eur(goal?.targetDailyEur || 33.33)}/jour`} />
         <Metric label="Réalisé 30 jours" value={eur(goal?.actualEur30d || 0)} sub={`Trading ${eur(goal?.marketPnlEur30d || 0)} · Business ${eur(goal?.businessEur30d || 0)}`} />
-        <Metric label="Capital observé" value={eur(goal?.capitalEur || 0)} sub={goal ? `FX EUR/USD ${goal.fx.eurUsd.toFixed(4)} · ${goal.fx.source}` : 'Calcul en cours'} />
-        <Metric label="Écart à couvrir" value={eur(goal?.gapEur30d || 1000)} sub={goal?.requiredMonthlyReturnPct != null ? `Il faudrait ${goal.requiredMonthlyReturnPct.toFixed(1)}%/mois via le capital seul` : '—'} />
+        <Metric label="Capital observé" value={(goal.capitalComplete === false ? 'Partiel · ' : '') + eur(goal.capitalEur)} sub={goal ? `FX EUR/USD ${goal.fx.eurUsd.toFixed(4)} · ${goal.fx.source}` : 'Calcul en cours'} />
+        <Metric label="Écart à couvrir" value={eur(goal.gapEur30d)} sub={goal.capitalComplete !== false && goal.requiredMonthlyReturnPct != null ? `Il faudrait ${goal.requiredMonthlyReturnPct.toFixed(1)}%/mois via le capital seul` : '—'} />
       </div>
 
       <div className="mt-5">

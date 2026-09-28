@@ -22,6 +22,8 @@ export type PublicPortfolio = {
   wallets: PublicWalletSnapshot[];
   totalValueUsd: number;
   updatedAt: string;
+  complete?: boolean;
+  failedWallets?: number;
 };
 
 export type PublicExchangeAccount = {
@@ -173,6 +175,9 @@ export type PublicChallenge48h = {
 export type PublicMonthlyGoal = {
   targetMonthlyEur: number;
   targetDailyEur: number;
+  capitalComplete?: boolean;
+  capitalFailedWallets?: number;
+  capitalUpdatedAt?: string;
   capitalUsd: number;
   capitalEur: number;
   fx: { eurUsd: number; source: string };
@@ -252,13 +257,23 @@ const base = supabaseUrl ? `${supabaseUrl}/functions/v1/anbaybot-public` : '';
 
 async function get<T>(path: string): Promise<T> {
   if (!base) throw new Error('API publique non configurée');
-  const res = await fetch(`${base}?path=${encodeURIComponent(path)}`, {
-    method: 'GET',
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`API publique ${res.status}`);
-  return await res.json() as T;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 12_000);
+  try {
+    const res = await fetch(`${base}?path=${encodeURIComponent(path)}`, {
+      signal: controller.signal,
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`API publique ${res.status}`);
+    return await res.json() as T;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('Délai de lecture dépassé. Réessayez avec Actualiser.', { cause: error });
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 export const publicApi = {
