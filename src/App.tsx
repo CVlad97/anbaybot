@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import RevenueProofPage from './pages/RevenueProofPage';
 import DashboardPage from './pages/DashboardPage';
 import WalletsPage from './pages/WalletsPage';
 import AccountsPage from './pages/AccountsPage';
@@ -23,7 +24,9 @@ export default function App() {
     <HashRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<RevenueProofPage />} />
+          <Route path="/proof" element={<RevenueProofPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/wallets" element={<WalletsPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/setup" element={<SetupPage />} />

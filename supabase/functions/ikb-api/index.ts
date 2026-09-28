@@ -27,7 +27,7 @@ async function sha256(v:string) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
   return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");
 }
-const PUBLIC = new Set(["health","trading/prices","market/trending","market/dex-movers","market/token-search","exchange/health"]);
+const PUBLIC = new Set(["health","trading/prices","market/trending","market/dex-movers","market/token-search"]);
 async function requireAdmin(req:Request, path:string, s:ReturnType<typeof db>) {
   if (PUBLIC.has(path)) return null;
   const token = req.headers.get("X-Anbaybot-Admin-Token") || "";
@@ -220,9 +220,9 @@ Deno.serve(async req=>{
   try{s=db();}catch(e){return json(req,{error:"backend_config_error",message:String(e)},500);}
   if(path==="health") return json(req,{status:"ok",mode:"real_edge_v7",databaseConfigured:true,adminHashAuth:true,mexcConfigured:mexcConfigured(),binanceConfigured:binanceConfigured(),liveTradingEnabled:Deno.env.get("ALLOW_LIVE_TRADING")==="true",timestamp:new Date().toISOString()});
   if(path==="trading/prices") return json(req,{data:await prices()});
-  if(path==="exchange/health") return json(req,await exchangeHealth(s));
   const auth=await requireAdmin(req,path,s); if(auth) return auth;
   try{
+    if(path==="exchange/health") return json(req,await exchangeHealth(s));
     if(path==="config"&&req.method==="GET") return json(req,{data:await settings(s)});
     if(path==="config"&&req.method==="PUT"){const body=await req.json();const cfg=await settings(s);await s.from("settings").update({...body,updated_at:new Date().toISOString()}).eq("id",cfg.id).throwOnError();await audit(s,"settings_updated",{fields:Object.keys(body)});return json(req,{success:true});}
     if(path==="kill"&&req.method==="POST"){const body=await req.json();const cfg=await settings(s);await s.from("settings").update({kill_switch:Boolean(body.kill),updated_at:new Date().toISOString()}).eq("id",cfg.id).throwOnError();await audit(s,body.kill?"kill_switch_activated":"kill_switch_deactivated");return json(req,{kill_switch:Boolean(body.kill)});}

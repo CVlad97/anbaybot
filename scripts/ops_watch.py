@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import time
 import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 
 BASE = "https://lmfwtiytqwedrazxjnwu.supabase.co/functions/v1/anbaybot-public?path="
@@ -17,10 +18,12 @@ LOGS = ROOT / "logs" / "autopilot"
 def read(path):
     started = time.monotonic()
     try:
-        request = urllib.request.Request(BASE + path, headers={"Accept": "application/json"})
+        request = urllib.request.Request(BASE + path, headers={"Accept": "application/json", **({"X-Anbaybot-Admin-Token": os.environ["ANBAYBOT_MONITOR_TOKEN"]} if os.environ.get("ANBAYBOT_MONITOR_TOKEN") else {})})
         with urllib.request.urlopen(request, timeout=12) as response:
             data = json.load(response)
         return {"ok": True, "seconds": round(time.monotonic() - started, 2), "data": data}
+    except urllib.error.HTTPError as exc:
+        return {"ok": False, "seconds": round(time.monotonic() - started, 2), "error": "owner_auth_required" if exc.code == 401 else "http_" + str(exc.code)}
     except Exception as exc:
         return {"ok": False, "seconds": round(time.monotonic() - started, 2), "error": type(exc).__name__}
 
@@ -32,7 +35,7 @@ def main():
     issues = []
     for key, result in checks.items():
         if not result["ok"]:
-            issues.append(key + "_unavailable")
+            issues.append(key + "_" + result.get("error", "unavailable"))
     ready = checks["readiness"].get("data", {})
     scan = ready.get("latestScanAt")
     try:
@@ -53,7 +56,7 @@ def main():
         issues.append("disk_above_90_pct")
     state = {"status": "DEGRADED" if issues else "OK", "issues": sorted(issues),
              "kill_switch": ready.get("killSwitch"), "live_enabled": ready.get("liveEnabled"),
-             "scan_at": scan, "exchanges": exchanges, "mode": "READ_ONLY", "funds_moved": False}
+             "scan_at": scan, "exchanges": exchanges, "mode": "READ_ONLY", "funds_moved": False, "private_checks": "VERIFIED_READ" if checks["readiness"]["ok"] else "NOT_CHECKED"}
     report = {**state, "checked_at": datetime.now(timezone.utc).isoformat(), "disk_used_pct": disk_pct,
               "requests": {k: {"ok": v["ok"], "seconds": v["seconds"]} for k, v in checks.items()}}
     digest = hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()

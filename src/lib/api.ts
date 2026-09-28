@@ -65,14 +65,18 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 8000
 
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const realWrite = (opts.method || 'GET').toUpperCase() !== 'GET' && path.includes('business');
-  if (isDemoSupabase || !RAW_BACKEND_API_URL) {
-    if (realWrite) throw new Error('Revenu non enregistré : backend réel non configuré.');
+  if (isDemoSupabase) {
+    if (realWrite) throw new Error('Revenu non enregistré : mode démo.');
     return demoRequest<T>(path, opts);
+  }
+  if (!RAW_BACKEND_API_URL) {
+    if (realWrite) throw new Error('Revenu non enregistré : backend réel non configuré.');
+    throw new Error('Backend réel indisponible : aucune donnée ni écriture simulée de remplacement.');
   }
 
   if (isRuntimeFallbackCoolingDown()) {
     if (realWrite) throw new Error('Revenu non enregistré : backend temporairement indisponible.');
-    return demoRequest<T>(path, opts);
+    throw new Error('Backend réel indisponible : aucune donnée ni écriture simulée de remplacement.');
   }
 
   let res: Response;
@@ -85,7 +89,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     const reason = error instanceof Error ? error.message : 'network_error';
     setRuntimeBackendMode('fallback', reason);
     if (realWrite) throw new Error('Enregistrement non confirmé : vérifier le registre avant toute nouvelle tentative.', { cause: error });
-    return demoRequest<T>(path, opts);
+    throw new Error('Backend réel indisponible : aucune donnée ni écriture simulée de remplacement.', { cause: error });
   }
 
   if (!res.ok) {
@@ -93,7 +97,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     if (shouldFallbackFromError(res.status)) {
       setRuntimeBackendMode('fallback', `api_${res.status}`);
       if (realWrite) throw new Error('Enregistrement non confirmé : vérifier le registre avant toute nouvelle tentative.');
-      return demoRequest<T>(path, opts);
+      throw new Error('Backend réel indisponible : aucune donnée ni écriture simulée de remplacement.');
     }
     // A 4xx response proves the real backend is reachable; it is an auth/input error.
     clearRuntimeBackendFallback();
@@ -107,7 +111,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   } catch {
     setRuntimeBackendMode('fallback', 'invalid_json_response');
     if (realWrite) throw new Error('Enregistrement non confirmé : vérifier le registre avant toute nouvelle tentative.');
-    return demoRequest<T>(path, opts);
+    throw new Error('Backend réel indisponible : aucune donnée ni écriture simulée de remplacement.');
   }
 }
 

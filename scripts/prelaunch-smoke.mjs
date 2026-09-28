@@ -1,67 +1,29 @@
-const BASE = process.env.ANBAYBOT_BASE_URL || 'https://cvlad97.github.io/anbaybot/';
-const SUPABASE = process.env.ANBAYBOT_SUPABASE_URL || 'https://lmfwtiytqwedrazxjnwu.supabase.co';
-
-async function getJson(url) {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
-  return await res.json();
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-async function main() {
-  const app = await fetch(BASE, { redirect: 'follow' });
-  assert(app.ok, `app root HTTP ${app.status}`);
-  const html = await app.text();
-  assert(html.includes('root'), 'app root missing React mount point');
-
-  const health = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=health`);
-  assert(health.status === 'ok', 'public health not ok');
-
-  const portfolio = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=portfolio`);
-  assert(Array.isArray(portfolio.wallets), 'portfolio wallets missing');
-  assert(Number.isFinite(Number(portfolio.totalValueUsd)), 'portfolio total invalid');
-
-  const readiness = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=readiness`);
-  assert(typeof readiness.killSwitch === 'boolean', 'readiness killSwitch missing');
-  assert(Array.isArray(readiness.exchanges), 'readiness exchanges missing');
-
-  const strategies = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=strategies`);
-  assert(Array.isArray(strategies.strategies) && strategies.strategies.length >= 1, 'strategies missing');
-
-  const goal = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=goal`);
-  assert(Number(goal.targetMonthlyEur) === 1000, 'monthly goal mismatch');
-  assert(Number.isFinite(Number(goal.capitalEur)), 'goal capital invalid');
-
-  const intelligence = await getJson(`${SUPABASE}/functions/v1/anbaybot-public?path=intelligence`);
-  assert(Array.isArray(intelligence.sources) && intelligence.sources.some(x => x.source_key === 'GETTRADE_AI'), 'Trade AI intelligence source missing');
-  assert(intelligence.gate?.liveExecutionFromGetTrade === false, 'Trade AI must not directly execute LIVE orders');
-
-  const exchanges = await getJson(`${SUPABASE}/functions/v1/ikb-api?path=exchange/health`);
-  assert(Array.isArray(exchanges.exchanges) && exchanges.exchanges.length === 2, 'exchange health incomplete');
-  for (const row of exchanges.exchanges) {
-    assert(['NOT_CONFIGURED','READ_ONLY','TEST_READY','LIVE_READY','ERROR'].includes(row.status), `unexpected exchange status: ${row.status}`);
+const BASE=process.env.ANBAYBOT_BASE_URL || 'https://cvlad97.github.io/anbaybot/';
+const ROOT=(process.env.ANBAYBOT_SUPABASE_URL || 'https://lmfwtiytqwedrazxjnwu.supabase.co')+'/functions/v1/';
+const assert=(condition,message)=>{if(!condition)throw Error(message);};
+async function main(){
+  const app=await fetch(BASE,{signal:AbortSignal.timeout(12000)});
+  assert(app.ok,'Site inaccessible');
+  assert((await app.text()).includes('root'),'React mount missing');
+  const health=await fetch(ROOT+'anbaybot-public?path=health',{signal:AbortSignal.timeout(12000)});
+  assert(health.ok && (await health.json()).status==='ok','Health failed');
+  const paths=['portfolio','exchanges','strategies','pnl','opportunities','readiness','goal','challenge','proof'];
+  const denied=await Promise.all(paths.map(async path=>{
+    const res=await fetch(ROOT+'anbaybot-public?path='+path,{signal:AbortSignal.timeout(12000)});
+    assert(res.status===401,'Personal data publicly accessible: '+path);
+    return path;
+  }));
+  const exchange=await fetch(ROOT+'ikb-api?path=exchange/health',{signal:AbortSignal.timeout(12000)});
+  assert(exchange.status===401,'Private exchange health exposed');
+  let ownerRead='NOT_TESTED_NO_TOKEN';
+  if(process.env.ANBAYBOT_ADMIN_TOKEN){
+    const res=await fetch(ROOT+'anbaybot-public?path=proof',{headers:{'X-Anbaybot-Admin-Token':process.env.ANBAYBOT_ADMIN_TOKEN},signal:AbortSignal.timeout(15000)});
+    assert(res.ok,'Owner read failed');
+    const data=await res.json();
+    assert(Array.isArray(data.strategies),'Missing strategy proof coverage');
+    assert(data.ledger.verification==='NOT_RECONCILED','Unexpected financial certification');
+    ownerRead='PASS';
   }
-
-  if (readiness.liveEnabled) {
-    assert(readiness.privateReady === true, 'LIVE enabled without privateReady');
-    assert(readiness.killSwitch === false, 'LIVE enabled while kill switch active');
-  }
-
-  console.log(JSON.stringify({
-    status: 'PASS',
-    app: BASE,
-    wallets: portfolio.wallets.length,
-    strategies: strategies.strategies.length,
-    exchanges: exchanges.exchanges.map(x => ({ exchange: x.exchange, status: x.status })),
-    liveEnabled: readiness.liveEnabled,
-    killSwitch: readiness.killSwitch,
-  }, null, 2));
+  console.log(JSON.stringify({status:'PASS',scope:'reachability_and_privacy',protectedEndpoints:denied.length+1,ownerRead,profitability:'NOT_PROVEN'}));
 }
-
-main().catch(err => {
-  console.error('PRELAUNCH_SMOKE_FAIL:', err?.stack || err);
-  process.exit(1);
-});
+main().catch(err=>{console.error('SMOKE_FAIL:',err.message);process.exit(1);});

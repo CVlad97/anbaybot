@@ -14,14 +14,15 @@ import { publicApi } from '../lib/publicApi';
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'dev').slice(0, 7);
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Tableau de bord', icon: LayoutDashboard },
+  { path: '/', label: 'Preuves de revenus', icon: Shield },
+  { path: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/earnings', label: 'Revenus & P&L', icon: DollarSign },
   { path: '/wallets', label: 'Portefeuilles', icon: Wallet },
   { path: '/accounts', label: 'Comptes & Wallets', icon: Landmark },
   { path: '/setup', label: 'Setup guidé', icon: Settings2 },
-  { path: '/subscriptions', label: 'Souscriptions', icon: CreditCard },
-  { path: '/monitoring', label: 'Monitoring 24/7', icon: HeartPulse },
-  { path: '/signals', label: 'Signaux live', icon: TrendingUp },
+  { path: '/subscriptions', label: 'Commercialisation', icon: CreditCard },
+  { path: '/monitoring', label: 'Monitoring', icon: HeartPulse },
+  { path: '/signals', label: 'Signaux observés', icon: TrendingUp },
   { path: '/traders', label: 'Traders suivis', icon: Users },
   { path: '/strategies', label: 'Stratégies', icon: Cpu },
   { path: '/auto-trade', label: 'Pilotage des ordres', icon: Repeat },
@@ -32,7 +33,7 @@ const NAV_ITEMS = [
   { path: '/safety', label: 'Sécurité', icon: Shield },
 ];
 
-const ADMIN_PATHS = new Set(['/wallets', '/accounts', '/auto-trade', '/ai', '/console', '/safety']);
+
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   useWalletAutoReconnect();
@@ -45,7 +46,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { solanaAddress, evmAddress } = useWalletStore();
   const activeAddress = solanaAddress || evmAddress;
-  const showAdmin = ADMIN_PATHS.has(location.pathname);
+  const publicPage = ['/', '/proof', '/subscriptions', '/setup'].includes(location.pathname) || location.pathname.startsWith('/activate/');
+  const showAdmin = !location.pathname.startsWith('/activate/');
+  useEffect(() => {
+    const sync = () => { setHasToken(Boolean(getAdminToken())); setTokenInput(getAdminToken()); };
+    window.addEventListener('anbaybot-auth-change', sync);
+    return () => window.removeEventListener('anbaybot-auth-change', sync);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-surface-800 text-center">
-          <p className="text-[10px] text-surface-600">Build {BUILD_SHA} · P&L LIVE uniquement vérifié</p>
+          <p className="text-[10px] text-surface-600">Build {BUILD_SHA} · Données privées · gains à rapprocher</p>
         </div>
       </aside>
 
@@ -124,21 +131,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-16 lg:pt-8">
           <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${serverOnline === true ? 'border-brand-500/30 bg-brand-500/10 text-brand-100' : serverOnline === false ? 'border-danger-500/30 bg-danger-500/10 text-danger-100' : 'border-surface-700 bg-surface-900 text-surface-300'}`}>
             <strong>{serverOnline === true ? 'Service de lecture joignable.' : serverOnline === false ? 'Serveur de lecture indisponible.' : 'Vérification du serveur…'}</strong>{' '}
-            {serverOnline === true && 'La fraîcheur et les erreurs de chaque source sont indiquées dans le tableau de bord.'}
+            {serverOnline === true && 'Les comptes personnels nécessitent un accès propriétaire.'}
           </div>
 
           {showAdmin && (
-            <div className="mb-6 rounded-2xl border border-surface-700 bg-surface-900 px-4 py-3 text-sm">
+            <details className="mb-6 rounded-2xl border border-surface-700 bg-surface-900 px-4 py-3 text-sm">
+              <summary className="cursor-pointer text-surface-300">Accès propriétaire · {hasToken ? 'jeton présent' : 'données privées verrouillées'}</summary>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <strong className="text-surface-200">Administration sensible</strong>
-                  <p className="text-xs text-surface-500 mt-1">Le token n’est requis que pour modifier la configuration ou préparer des opérations.</p>
+                  <strong className="text-surface-200">Connexion au cockpit</strong>
+                  <p className="text-xs text-surface-500 mt-1">Saisis ton jeton existant ici. Ne transmets jamais une clé privée de wallet ou une clé API d’exchange.</p>
                 </div>
                 <div className="flex gap-2">
                   <input
                     type="password"
                     className="input min-w-0 md:w-72"
                     placeholder="Token admin"
+                    aria-label="Token propriétaire"
                     value={tokenInput}
                     onChange={e => setTokenInput(e.target.value)}
                   />
@@ -165,12 +174,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   )}
                 </div>
               </div>
-            </div>
+            </details>
           )}
 
-          {children}
+          {publicPage || hasToken ? children : <section className="card p-6"><h1 className="text-xl font-semibold text-white">Données personnelles protégées</h1><p className="text-surface-400 mt-3">Ouvre l’accès propriétaire ci-dessus pour consulter tes comptes et opérations.</p></section>}
         </div>
-        <OpportunityNotifications />
+        {hasToken && <OpportunityNotifications />}
       </main>
     </div>
   );

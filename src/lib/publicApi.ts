@@ -1,3 +1,5 @@
+import type { ProofSnapshot } from './revenueProof';
+import { getAdminToken } from './auth';
 import { supabaseUrl } from './supabase';
 
 export type PublicTokenBalance = {
@@ -264,8 +266,9 @@ async function get<T>(path: string): Promise<T> {
       signal: controller.signal,
       method: 'GET',
       cache: 'no-store',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...(getAdminToken() ? { 'X-Anbaybot-Admin-Token': getAdminToken() } : {}) },
     });
+    if (res.status === 401) throw new Error('Accès propriétaire requis ou expiré');
     if (!res.ok) throw new Error(`API publique ${res.status}`);
     return await res.json() as T;
   } catch (error) {
@@ -277,6 +280,7 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export const publicApi = {
+  proof: () => get<ProofSnapshot>('proof'),
   health: () => get<{ status: string; mode: string; timestamp: string }>('health'),
   portfolio: () => get<PublicPortfolio>('portfolio'),
   exchanges: () => get<{ exchanges: PublicExchangeAccount[]; totalExchangeUsd: number; updatedAt: string }>('exchanges'),

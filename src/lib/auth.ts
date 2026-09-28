@@ -10,9 +10,11 @@ export function setAdminToken(token: string) {
   const clean = token.trim();
   if (clean) window.localStorage.setItem(TOKEN_KEY, clean);
   else window.localStorage.removeItem(TOKEN_KEY);
+  window.dispatchEvent(new Event('anbaybot-auth-change'));
 }
 
 export function clearAdminToken() {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(TOKEN_KEY);
+  window.dispatchEvent(new Event('anbaybot-auth-change'));
 }

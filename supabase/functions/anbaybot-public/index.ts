@@ -9,7 +9,7 @@ const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 const cors = {
   "Access-Control-Allow-Origin": ORIGIN,
   "Access-Control-Allow-Methods": "GET,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization,apikey",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization,apikey,X-Anbaybot-Admin-Token",
   "Cache-Control": "no-store, max-age=0",
   "Vary": "Origin",
 };
@@ -467,13 +467,46 @@ async function readiness(s: ReturnType<typeof db>) {
   };
 }
 
+
+const PERSONAL_PATHS = new Set(["portfolio","exchanges","strategies","pnl","opportunities","readiness","goal","challenge","proof"]);
+async function authorizePersonalRead(req: Request, path: string, s: ReturnType<typeof db>) {
+  if (!PERSONAL_PATHS.has(path)) return true;
+  const token = req.headers.get("X-Anbaybot-Admin-Token");
+  if (!token || token.length > 512) return false;
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token)))).map(v=>v.toString(16).padStart(2,"0")).join("");
+  const {data,error} = await s.from("admin_tokens").select("id").eq("token_hash",hash).eq("active",true).maybeSingle();
+  return !error && Boolean(data);
+}
+
+async function proof(s: ReturnType<typeof db>) {
+  const [ledger,business,wallets,ready,catalog,challenge] = await Promise.all([
+    s.from("pnl_ledger").select("net_pnl_usd,source_ref",{count:"exact"}).eq("environment","LIVE").order("occurred_at",{ascending:false}).limit(100),
+    s.from("business_revenue_ledger").select("id",{count:"exact",head:true}),
+    s.from("managed_wallets").select("id",{count:"exact",head:true}).eq("enabled",true),
+    readiness(s), strategies(s), challenge48h(s),
+  ]);
+  for (const result of [ledger,business,wallets]) if (result.error) throw result.error;
+  const rows = ledger.data || [];
+  return {
+    checkedAt:new Date().toISOString(),
+    ledger:{count:ledger.count,recentCount:rows.length,recentNetUsd:rows.reduce((n,r)=>n+Number(r.net_pnl_usd||0),0),
+      withReference:rows.filter(r=>Boolean(r.source_ref?.trim())).length,
+      verification:"NOT_RECONCILED"},
+    business:{count:business.count},walletCount:wallets.count,
+    readiness:ready,strategies:catalog.strategies,
+    paper:challenge.session ? {mode:challenge.session.mode,returnPct:challenge.checkpoint?.return_pct ?? null,endedAt:challenge.session.ends_at} : null,
+  };
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: cors });
   if (req.method !== "GET") return json({ error:"method_not_allowed" }, 405);
   try {
     const s = db();
     const path = new URL(req.url).searchParams.get("path") || "health";
-    if (path === "health") return json({ status:"ok", mode:"public_read_only", version:"verified-data-20260928", timestamp:new Date().toISOString() });
+    if (path === "health") return json({ status:"ok", mode:"private_financial_reads", version:"personal-proof-20260928", timestamp:new Date().toISOString() });
+    if (!await authorizePersonalRead(req,path,s)) return json({error:"owner_auth_required"},401);
+    if (path === "proof") return json(await proof(s));
     if (path === "portfolio") return json(await portfolio(s));
     if (path === "exchanges") return json(await exchanges(s));
     if (path === "strategies") return json(await strategies(s));

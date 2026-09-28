@@ -24,6 +24,12 @@ async function sha256(value: string) {
 }
 
 async function authorize(req: Request, client: ReturnType<typeof db>) {
+  const scanToken = req.headers.get("X-Anbaybot-Scan-Token") || "";
+  if (scanToken) {
+    if (scanToken.length > 512) return false;
+    const {data,error} = await client.rpc("authorize_revenue_scan",{p_token:scanToken});
+    return !error && data === true;
+  }
   const token = req.headers.get("X-Anbaybot-Admin-Token") || "";
   if (!token) return false;
   const hash = await sha256(token);
@@ -32,9 +38,13 @@ async function authorize(req: Request, client: ReturnType<typeof db>) {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`http_${res.status}`);
-  return await res.json() as T;
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(),3500);
+  try {
+    const res = await fetch(url, { signal:controller.signal, headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(`http_${res.status}`);
+    return await res.json() as T;
+  } finally { clearTimeout(timer); }
 }
 
 function bucketHour() {
@@ -271,15 +281,15 @@ Deno.serve(async req => {
     const bucket = bucketHour();
     const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
 
-    const fundingSettled = await Promise.allSettled(symbols.map(funding));
+    const [fundingSettled,marketSettled,arbSettled] = await Promise.all([
+      Promise.allSettled(symbols.map(funding)),Promise.allSettled(symbols.map(ticker)),Promise.allSettled(symbols.map(arbitrage)),
+    ]);
     const fundingRows = fundingSettled.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof funding>>> => r.status === "fulfilled").map(r => r.value);
     const fundingErrors = fundingSettled.filter(r => r.status === "rejected").map(r => r.status === "rejected" ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : "");
 
-    const marketSettled = await Promise.allSettled(symbols.map(ticker));
     const market = marketSettled.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof ticker>>> => r.status === "fulfilled").map(r => r.value);
     const marketErrors = marketSettled.filter(r => r.status === "rejected").map(r => r.status === "rejected" ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : "");
 
-    const arbSettled = await Promise.allSettled(symbols.map(arbitrage));
     const arbRows = arbSettled.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof arbitrage>>> => r.status === "fulfilled").map(r => r.value);
     const arbErrors = arbSettled.filter(r => r.status === "rejected").map(r => r.status === "rejected" ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : "");
 
@@ -393,7 +403,6 @@ Deno.serve(async req => {
         bestArbitrage: bestArb,
         bestYield: yieldData.bestEarn,
         bestFarm: yieldData.bestFarm,
-      polymarket: polymarketData,
         polymarket: { count: polymarketData.candidates.length, top: polymarketData.top, political_markets_excluded: true },
       },
     });
