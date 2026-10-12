@@ -514,6 +514,11 @@ export const api = {
       connection_status:string; native_balance:number|null; native_symbol:string|null; asset_snapshot:Record<string,unknown>;
       yield_status:string; notes:string|null; last_checked_at:string|null;
     }>;
+    routes: Array<{
+      id:string; source_provider:string; source_chain:string|null; target_provider:string; target_asset:string|null;
+      target_network:string|null; status:'PENDING_VERIFICATION'|'READY'|'DISABLED'; min_transfer_value_usd:number;
+      notes:string|null; updated_at:string;
+    }>;
     summary:{
       accountCount:number; confirmedWallets:number; candidateWallets:number; unverifiedWallets:number;
       preferredHub:string|null; updatedAt:string;
