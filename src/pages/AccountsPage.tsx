@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CircleDollarSign, ExternalLink, Landmark, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
+import { ArrowRight, CircleDollarSign, ExternalLink, Landmark, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { api } from '../lib/api';
@@ -97,6 +97,32 @@ export default function AccountsPage(){
                         Ouvrir <ExternalLink size={13}/>
                       </a>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="card p-5 mb-6">
+            <div className="flex items-center gap-2 mb-4"><ArrowRight size={17} className="text-brand-400"/><h2 className="font-semibold text-white">Routes de consolidation</h2></div>
+            <p className="text-xs text-surface-500 mb-4">Les routes sont des plans de transfert, jamais des virements automatiques. READY = destination/réseau vérifiés ; PENDING_VERIFICATION = ne rien envoyer ; DISABLED = route interdite.</p>
+            <div className="space-y-3">
+              {data.routes.map(route=>(
+                <div key={route.id} className="rounded-xl border border-surface-800 p-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-white">{route.source_provider}</span>
+                        <ArrowRight size={13} className="text-surface-500"/>
+                        <span className="font-medium text-white">{route.target_provider}</span>
+                        <span className={statusClass(route.status)}>{route.status}</span>
+                      </div>
+                      <p className="text-xs text-surface-500 mt-2">
+                        {[route.source_chain, route.target_asset, route.target_network].filter(Boolean).join(' · ') || 'Réseau à déterminer'}
+                        {' · seuil '}{Number(route.min_transfer_value_usd || 0).toLocaleString('fr-FR',{style:'currency',currency:'USD'})}
+                      </p>
+                      {route.notes && <p className="text-[11px] text-surface-500 mt-2">{route.notes}</p>}
+                    </div>
                   </div>
                 </div>
               ))}
