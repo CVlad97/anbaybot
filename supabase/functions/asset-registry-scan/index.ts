@@ -46,7 +46,7 @@ async function balance(chain:string,address:string){
         const d=await r.json();
         if(Array.isArray(d?.data) && d.data.length) return Number(d.data[0].balance||0)/1e6;
       }
-    }catch{}
+    }catch(error){ void error; }
     const fallback=await fetch("https://apilist.tronscanapi.com/api/account?address="+encodeURIComponent(address),{signal:AbortSignal.timeout(7500)});
     if(!fallback.ok) throw new Error("tron_fallback_"+fallback.status);
     const d=await fallback.json();
