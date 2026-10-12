@@ -228,9 +228,10 @@ Deno.serve(async req=>{
     if(path==="kill"&&req.method==="POST"){const body=await req.json();const cfg=await settings(s);await s.from("settings").update({kill_switch:Boolean(body.kill),updated_at:new Date().toISOString()}).eq("id",cfg.id).throwOnError();await audit(s,body.kill?"kill_switch_activated":"kill_switch_deactivated");return json(req,{kill_switch:Boolean(body.kill)});}
     if(path==="audit") return json(req,{data:await list(s,"audit_logs","created_at",200)});
     if(path==="asset-registry"&&req.method==="GET"){
-      const [accounts,wallets]=await Promise.all([
+      const [accounts,wallets,routes]=await Promise.all([
         list(s,"asset_accounts_registry","updated_at",200),
-        list(s,"asset_wallet_registry","updated_at",500)
+        list(s,"asset_wallet_registry","updated_at",500),
+        list(s,"consolidation_routes","updated_at",200)
       ]);
       const confirmed=wallets.filter((w:Record<string,unknown>)=>w.ownership_status==="CONFIRMED");
       const candidates=wallets.filter((w:Record<string,unknown>)=>w.ownership_status==="CANDIDATE");
@@ -238,6 +239,7 @@ Deno.serve(async req=>{
       return json(req,{
         accounts,
         wallets,
+        routes,
         summary:{
           accountCount:accounts.length,
           confirmedWallets:confirmed.length,
