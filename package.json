@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "smoke:prelaunch": "node scripts/prelaunch-smoke.mjs",
-    "test": "node --test scripts/verified-data.test.mjs"
+    "test": "node --test scripts/verified-data.test.mjs",
+    "api:catalog": "node scripts/public-api-bridge.mjs list",
+    "api:audit": "node scripts/public-api-bridge.mjs audit",
+    "api:test": "node --test tests/public-api-bridge.test.mjs"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",

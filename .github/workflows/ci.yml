@@ -16,4 +16,5 @@ jobs:
       - run: npm run lint --if-present
       - run: npm run typecheck --if-present
       - run: npm test
+      - run: npm run api:audit && npm run api:test
       - run: npm run build --if-present

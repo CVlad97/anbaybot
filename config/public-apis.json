@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "project": "ANBAYBOT",
+  "description": "Approved discovery list only. Providers disabled until policy, credentials, cost and data checks are confirmed.",
+  "providers": [
+    {
+      "id": "binance-public",
+      "status": "existing_code",
+      "enabled": false,
+      "data_policy": "no_customer_data",
+      "use_case": "Cotations et données de marché publiques, lecture seule",
+      "docs": "https://developers.binance.com/docs/binance-spot-api-docs/rest-api"
+    },
+    {
+      "id": "coingecko",
+      "status": "candidate_unverified",
+      "enabled": false,
+      "data_policy": "no_customer_data",
+      "use_case": "Source secondaire de cotations sans promesse de temps réel",
+      "docs": "https://docs.coingecko.com/"
+    },
+    {
+      "id": "github",
+      "status": "candidate_unverified",
+      "enabled": false,
+      "data_policy": "no_customer_data",
+      "use_case": "Veille des incidents et bibliothèques de trading",
+      "docs": "https://docs.github.com/en/rest"
+    }
+  ]
+}
