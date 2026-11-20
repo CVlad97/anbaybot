@@ -14,6 +14,7 @@ import { publicApi } from '../lib/publicApi';
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'dev').slice(0, 7);
 
 const NAV_ITEMS = [
+  { path: '/day-trading', label: 'Day trading · simulation', icon: Activity },
   { path: '/', label: 'Preuves de revenus', icon: Shield },
   { path: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { path: '/earnings', label: 'Revenus & P&L', icon: DollarSign },
@@ -46,7 +47,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { solanaAddress, evmAddress } = useWalletStore();
   const activeAddress = solanaAddress || evmAddress;
-  const publicPage = ['/', '/proof', '/subscriptions', '/setup'].includes(location.pathname) || location.pathname.startsWith('/activate/');
+  const publicPage = ['/', '/proof', '/subscriptions', '/setup', '/day-trading'].includes(location.pathname) || location.pathname.startsWith('/activate/');
   const showAdmin = !location.pathname.startsWith('/activate/');
   useEffect(() => {
     const sync = () => { setHasToken(Boolean(getAdminToken())); setTokenInput(getAdminToken()); };
