@@ -1,0 +1,14 @@
+[Unit]
+Description=Anbaybot public market paper trading
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/anbaybot-paper/bin/worker.py --state-dir /opt/anbaybot-paper/data --report /var/www/anbaybot-paper/status.json
+TimeoutStartSec=45
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/anbaybot-paper/data /var/www/anbaybot-paper
+ProtectHome=true
